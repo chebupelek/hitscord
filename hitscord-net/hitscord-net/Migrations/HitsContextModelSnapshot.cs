@@ -57,9 +57,6 @@ namespace hitscord_net.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("RefreshExpirationDate")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("RefreshToken")
                         .IsRequired()
                         .HasColumnType("text");

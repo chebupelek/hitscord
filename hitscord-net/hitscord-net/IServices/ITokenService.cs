@@ -12,6 +12,6 @@ public interface ITokenService
     Task<bool> IsTokenValidAsync(string token);
     bool IsTokenExpired(string token);
     Task<bool> CheckRefreshToken(string token);
-    Task<TokensDTO> UpdateTokens(Guid user, string token);
+    Task<TokensDTO> UpdateTokens(string refreshToken);
     Task BanningTokensAsync();
 }

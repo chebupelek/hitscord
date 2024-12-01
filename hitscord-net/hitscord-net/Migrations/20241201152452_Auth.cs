@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace hitscord_net.Migrations
 {
     /// <inheritdoc />
-    public partial class Test1 : Migration
+    public partial class Auth : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -33,8 +33,7 @@ namespace hitscord_net.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     AccessToken = table.Column<string>(type: "text", nullable: false),
-                    RefreshToken = table.Column<string>(type: "text", nullable: false),
-                    RefreshExpirationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    RefreshToken = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {

@@ -12,8 +12,8 @@ using hitscord_net.Data.Contexts;
 namespace hitscord_net.Migrations
 {
     [DbContext(typeof(HitsContext))]
-    [Migration("20241118161120_Test1")]
-    partial class Test1
+    [Migration("20241201152452_Auth")]
+    partial class Auth
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -59,9 +59,6 @@ namespace hitscord_net.Migrations
                     b.Property<string>("AccessToken")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<DateTime>("RefreshExpirationDate")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RefreshToken")
                         .IsRequired()

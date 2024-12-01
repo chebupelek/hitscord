@@ -24,8 +24,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient<AuthzedClient>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IChannelService, ChannelService>();
-builder.Services.AddScoped<IServerService, ServerService>();
+//builder.Services.AddScoped<IChannelService, ChannelService>();
+//builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailSender, EmailSenderMailDev>();
 
