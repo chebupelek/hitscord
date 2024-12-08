@@ -10,4 +10,11 @@ public interface IChannelService
     Task<ChannelListDTO> GetChannelListAsync(Guid serverId, string token);
     Task<bool> JoinToVoiceChannelAsync(Guid chnnelId, string token);
     Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, string token);
+    Task<bool> DeleteChannelAsync(Guid chnnelId, string token);
+    Task<ChannelSettingsDTO> GetChannelSettingsAsync(Guid chnnelId, string token);
+    Task<bool> AddRoleToCanReadSettingAsync(Guid chnnelId, string token, RoleEnum role);
+    Task<bool> RemoveRoleFromCanReadSettingAsync(Guid chnnelId, string token, RoleEnum role);
+    Task<bool> AddRoleToCanWriteSettingAsync(Guid chnnelId, string token, RoleEnum role);
+    Task<bool> RemoveRoleFromCanWriteSettingAsync(Guid chnnelId, string token, RoleEnum role);
+
 }

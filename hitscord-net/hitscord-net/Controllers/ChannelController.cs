@@ -84,4 +84,130 @@ public class ChannelController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+    [Authorize]
+    [HttpDelete]
+    [Route("deletechannel")]
+    public async Task<IActionResult> DeleteChannel([FromBody] CreateChannelDTO channelData)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.CreateChannelAsync(channelData.ServerId, jwtToken, channelData.Name, channelData.ChannelType);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpGet]
+    [Route("getchannelsettings")]
+    public async Task<IActionResult> GetChannelSettings([FromQuery] Guid channelId)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            var settings = await _channelService.GetChannelSettingsAsync(channelId, jwtToken);
+            return Ok(settings);
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpPost]
+    [Route("addroletoCANREADchannelsetting")]
+    public async Task<IActionResult> AddCanReadSettings([FromBody] ChannelRoleDTO channelRoleData)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.AddRoleToCanReadSettingAsync(channelRoleData.ChannelId, jwtToken, channelRoleData.Role);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpDelete]
+    [Route("deleteroletoCANREADchannelsetting")]
+    public async Task<IActionResult> DeleteCanReadSettings([FromBody] ChannelRoleDTO channelRoleData)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.RemoveRoleFromCanReadSettingAsync(channelRoleData.ChannelId, jwtToken, channelRoleData.Role);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpPost]
+    [Route("addroletoCANWRITEchannelsetting")]
+    public async Task<IActionResult> AddCanWriteSettings([FromBody] ChannelRoleDTO channelRoleData)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.AddRoleToCanWriteSettingAsync(channelRoleData.ChannelId, jwtToken, channelRoleData.Role);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpDelete]
+    [Route("deleteroletoCANWRITEchannelsetting")]
+    public async Task<IActionResult> DeleteCanWriteSettings([FromBody] ChannelRoleDTO channelRoleData)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.RemoveRoleFromCanWriteSettingAsync(channelRoleData.ChannelId, jwtToken, channelRoleData.Role);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
 }

@@ -233,4 +233,276 @@ public class ChannelService : IChannelService
             throw new Exception(ex.Message);
         }
     }
+
+    public async Task<bool> DeleteChannelAsync(Guid chnnelId, string token)
+    {
+        try
+        {
+            await _authService.CheckUserAuthAsync(token);
+
+            var user = await _authService.GetUserByTokenAsync(token);
+
+            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId);
+            if (channel == null)
+            {
+                throw new CustomException("Channel not found", "Delete channel", "Channel", 404);
+            }
+
+            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
+            if (server == null)
+            {
+                throw new CustomException("Server not found", "Delete channel", "Server", 404);
+            }
+
+            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && us.Role == RoleEnum.Admin);
+            if (sub == null)
+            {
+                throw new CustomException("User not admin of this server", "Delete channel", "User", 401);
+            }
+
+            if(channel.Type == ChannelTypeEnum.Voice)
+            {
+                await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).ExecuteDeleteAsync();
+            }
+            
+            _hitsContext.Channel.Remove(channel);
+            await _hitsContext.SaveChangesAsync();
+
+            return (true);
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<ChannelSettingsDTO> GetChannelSettingsAsync(Guid chnnelId, string token)
+    {
+        try
+        {
+            await _authService.CheckUserAuthAsync(token);
+
+            var user = await _authService.GetUserByTokenAsync(token);
+
+            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId);
+            if (channel == null)
+            {
+                throw new CustomException("Channel not found", "Get channel settings", "Channel", 404);
+            }
+
+            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
+            if (server == null)
+            {
+                throw new CustomException("Server not found", "Get channel settings", "Server", 404);
+            }
+
+            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && us.Role == RoleEnum.Admin);
+            if (sub == null)
+            {
+                throw new CustomException("User not admin of this server", "Get channel settings", "User", 401);
+            }
+
+            return new ChannelSettingsDTO { CanRead = channel.CanRead, CanWrite = channel.CanWrite };
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<bool> AddRoleToCanReadSettingAsync(Guid chnnelId, string token, RoleEnum role)
+    {
+        try
+        {
+            await _authService.CheckUserAuthAsync(token);
+
+            var user = await _authService.GetUserByTokenAsync(token);
+
+            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId);
+            if (channel == null)
+            {
+                throw new CustomException("Channel not found", "Add new role to Can read settings", "Channel", 404);
+            }
+
+            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
+            if (server == null)
+            {
+                throw new CustomException("Server not found", "Add new role to Can read settings", "Server", 404);
+            }
+
+            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && us.Role == RoleEnum.Admin);
+            if (sub == null)
+            {
+                throw new CustomException("User not admin of this server", "Add new role to Can read settings", "User", 401);
+            }
+
+            if(channel.CanRead.Contains(role))
+            {
+                throw new CustomException("This role already in this setting", "Add new role to Can read settings", "Role", 400);
+            }
+
+            channel.CanRead.Add(role);
+            _hitsContext.Channel.Update(channel);
+            await _hitsContext.SaveChangesAsync();
+
+            return true;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<bool> RemoveRoleFromCanReadSettingAsync(Guid chnnelId, string token, RoleEnum role)
+    {
+        try
+        {
+            await _authService.CheckUserAuthAsync(token);
+
+            var user = await _authService.GetUserByTokenAsync(token);
+
+            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId);
+            if (channel == null)
+            {
+                throw new CustomException("Channel not found", "Remove role from Can read settings", "Channel", 404);
+            }
+
+            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
+            if (server == null)
+            {
+                throw new CustomException("Server not found", "Remove role from Can read settings", "Server", 404);
+            }
+
+            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && us.Role == RoleEnum.Admin);
+            if (sub == null)
+            {
+                throw new CustomException("User not admin of this server", " role from Can read settings", "User", 401);
+            }
+
+            if (!channel.CanRead.Contains(role))
+            {
+                throw new CustomException("This role isnt in this setting", " role from Can read settings", "Role", 400);
+            }
+
+            channel.CanRead.Remove(role);
+            _hitsContext.Channel.Update(channel);
+            await _hitsContext.SaveChangesAsync();
+
+            return true;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<bool> AddRoleToCanWriteSettingAsync(Guid chnnelId, string token, RoleEnum role)
+    {
+        try
+        {
+            await _authService.CheckUserAuthAsync(token);
+
+            var user = await _authService.GetUserByTokenAsync(token);
+
+            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId);
+            if (channel == null)
+            {
+                throw new CustomException("Channel not found", "Add new role to Can write settings", "Channel", 404);
+            }
+
+            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
+            if (server == null)
+            {
+                throw new CustomException("Server not found", "Add new role to Can write settings", "Server", 404);
+            }
+
+            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && us.Role == RoleEnum.Admin);
+            if (sub == null)
+            {
+                throw new CustomException("User not admin of this server", "Add new role to Can write settings", "User", 401);
+            }
+
+            if (channel.CanWrite.Contains(role))
+            {
+                throw new CustomException("This role already in this setting", "Add new role to Can write settings", "Role", 400);
+            }
+
+            channel.CanWrite.Add(role);
+            _hitsContext.Channel.Update(channel);
+            await _hitsContext.SaveChangesAsync();
+
+            return true;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<bool> RemoveRoleFromCanWriteSettingAsync(Guid chnnelId, string token, RoleEnum role)
+    {
+        try
+        {
+            await _authService.CheckUserAuthAsync(token);
+
+            var user = await _authService.GetUserByTokenAsync(token);
+
+            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId);
+            if (channel == null)
+            {
+                throw new CustomException("Channel not found", "Remove role from Can write settings", "Channel", 404);
+            }
+
+            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
+            if (server == null)
+            {
+                throw new CustomException("Server not found", "Remove role from Can write settings", "Server", 404);
+            }
+
+            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && us.Role == RoleEnum.Admin);
+            if (sub == null)
+            {
+                throw new CustomException("User not admin of this server", " role from Can write settings", "User", 401);
+            }
+
+            if (!channel.CanWrite.Contains(role))
+            {
+                throw new CustomException("This role isnt in this setting", " role from Can write settings", "Role", 400);
+            }
+
+            channel.CanWrite.Remove(role);
+            _hitsContext.Channel.Update(channel);
+            await _hitsContext.SaveChangesAsync();
+
+            return true;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
 }

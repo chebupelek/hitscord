@@ -72,6 +72,18 @@ public class ServerService : IServerService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
+            var server = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == serverId);
+            if (server == null)
+            {
+                throw new CustomException("Server not found", "Subscribe", "Server id", 404);
+            }
+
+            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId);
+            if (sub != null)
+            {
+                throw new CustomException("User already subscriber of this server", "Subscribe", "User", 400);
+            }
+
             var newSub = new UserServerDbModel
             {
                 UserId = (Guid)user.Id,
@@ -79,7 +91,81 @@ public class ServerService : IServerService
                 Role = RoleEnum.Uncertain,
             };
             await _hitsContext.UserServer.AddAsync(newSub);
-            _hitsContext.SaveChanges();
+            await _hitsContext.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task UnsubscribeAsync(Guid serverId, string token)
+    {
+        try
+        {
+            await _authService.CheckUserAuthAsync(token);
+
+            var user = await _authService.GetUserByTokenAsync(token);
+
+            var server = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == serverId);
+            if (server == null)
+            {
+                throw new CustomException("Server not found", "Unsubscribe", "Server id", 404);
+            }
+
+            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId);
+            if (sub == null)
+            {
+                throw new CustomException("User not subscriber of this server", "Unsubscribe", "User", 400);
+            }
+
+            if (sub.Role == RoleEnum.Admin)
+            {
+                throw new CustomException("User is admin of this server", "Unsubscribe", "User", 400);
+            }
+
+            _hitsContext.UserServer.Remove(sub);
+            await _hitsContext.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task DeleteServerAsync(Guid serverId, string token)
+    {
+        try
+        {
+            await _authService.CheckUserAuthAsync(token);
+
+            var user = await _authService.GetUserByTokenAsync(token);
+
+            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Id == serverId);
+            if (server == null)
+            {
+                throw new CustomException("Server not found", "Delete server", "Server id", 404);
+            }
+
+            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId && us.Role == RoleEnum.Admin);
+            if (sub == null)
+            {
+                throw new CustomException("User not admin of this server", "Delete server", "User", 401);
+            }
+
+            await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).ExecuteDeleteAsync();
+
+            var voiceChannelIds = server.Channels
+                .Where(c => c.Type == ChannelTypeEnum.Voice)
+                .Select(c => c.Id)
+                .ToList();
+
+            var voiceChannelUsers = _hitsContext.UserVoiceChannel
+                .Where(vcu => voiceChannelIds.Contains(vcu.VoiceChannelId));
+
+            _hitsContext.UserVoiceChannel.RemoveRange(voiceChannelUsers);
+
+            await _hitsContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -190,7 +276,8 @@ public class ServerService : IServerService
                           {
                               UserId = (Guid)u.Id,
                               UserName = u.AccountName,
-                              UserTag = u.AccountTag
+                              UserTag = u.AccountTag,
+                              Role = us.Role
                           })
                     .ToListAsync(),
                 Channels = await _channelService.GetChannelListAsync(serverId, token)

@@ -43,6 +43,29 @@ public class ServerController : ControllerBase
     }
 
     [Authorize]
+    [HttpDelete]
+    [Route("deleteserver")]
+    public async Task<IActionResult> DeleteServer([FromBody] SubscribeDTO data)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            await _serverService.DeleteServerAsync(data.serverId, jwtToken);
+
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
     [HttpPost]
     [Route("subscribetest")]
     public async Task<IActionResult> ServerSubscribe([FromBody] SubscribeDTO data)
@@ -52,6 +75,29 @@ public class ServerController : ControllerBase
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 
             await _serverService.SubscribeAsync(data.serverId, jwtToken);
+
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpDelete]
+    [Route("unsubscribetest")]
+    public async Task<IActionResult> ServerUnsubscribe([FromBody] SubscribeDTO data)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            await _serverService.UnsubscribeAsync(data.serverId, jwtToken);
 
             return Ok();
         }

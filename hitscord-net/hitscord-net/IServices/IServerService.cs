@@ -7,6 +7,8 @@ public interface IServerService
 {
     Task CreateServerAsync(string token, string severName);
     Task SubscribeAsync(Guid serverId, string token);
+    Task UnsubscribeAsync(Guid serverId, string token);
+    Task DeleteServerAsync(Guid serverId, string token);
     Task<ServersListDTO> GetServerListAsync(string token);
     Task ChangeUserRoleAsync(string token, Guid serverId, Guid userId, RoleEnum role);
     Task<ServerInfoDTO> GetServerInfoAsync(string token, Guid serverId);
