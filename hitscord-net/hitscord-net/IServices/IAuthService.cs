@@ -7,11 +7,13 @@ namespace hitscord_net.IServices;
 
 public interface IAuthService
 {
-    //Task CreateRegistrationApplicationAsync(UserRegistrationDTO registrationData, string scheme, string host);
+    Task<bool> CheckUserAuthAsync(string token);
+    Task<UserDbModel> GetUserByTokenAsync(string token);
+    Task<UserDbModel> GetUserByIdAsync(Guid userId);
+    Task<Guid?> GetUserIdAsync(string token);
     Task<TokensDTO> CreateAccount(UserRegistrationDTO registrationData);
     Task<TokensDTO> LoginAsync(LoginDTO loginData);
-    //Task VerifyAccountAsync(string token);
     Task LogoutAsync(string token);
     Task<TokensDTO> RefreshTokensAsync(string token);
-    Task<UserDbModel> GetProfileAsync(string token);
+    Task<ProfileDTO> GetProfileAsync(string token);
 }

@@ -6,26 +6,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace hitscord_net.Migrations
 {
     /// <inheritdoc />
-    public partial class Auth : Migration
+    public partial class test : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "RegistrationApplication",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Mail = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    PasswordHash = table.Column<string>(type: "text", nullable: false),
-                    AccountName = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    ApplicationCreateDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RegistrationApplication", x => x.Id);
-                });
-
             migrationBuilder.CreateTable(
                 name: "Tokens",
                 columns: table => new
@@ -72,6 +57,19 @@ namespace hitscord_net.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserVoiceChannel",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    VoiceChannelId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserVoiceChannel", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Server",
                 columns: table => new
                 {
@@ -96,7 +94,9 @@ namespace hitscord_net.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Type = table.Column<int>(type: "integer", nullable: false),
                     CanRead = table.Column<int[]>(type: "integer[]", nullable: false),
+                    CanWrite = table.Column<int[]>(type: "integer[]", nullable: false),
                     ServerDbModelId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
@@ -127,13 +127,13 @@ namespace hitscord_net.Migrations
                 name: "Channel");
 
             migrationBuilder.DropTable(
-                name: "RegistrationApplication");
-
-            migrationBuilder.DropTable(
                 name: "Tokens");
 
             migrationBuilder.DropTable(
                 name: "UserServer");
+
+            migrationBuilder.DropTable(
+                name: "UserVoiceChannel");
 
             migrationBuilder.DropTable(
                 name: "Server");

@@ -1,5 +1,6 @@
 ﻿using hitscord_net.IServices;
 using hitscord_net.Models.DTOModels.RequestsDTO;
+using hitscord_net.Models.InnerModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -31,9 +32,9 @@ public class ServerController : ControllerBase
 
             return Ok();
         }
-        catch (ArgumentException ex)
+        catch (CustomException ex)
         {
-            return BadRequest(new { message = ex.Message, innerMessage = ex.InnerException?.Message });
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -54,9 +55,9 @@ public class ServerController : ControllerBase
 
             return Ok();
         }
-        catch (ArgumentException ex)
+        catch (CustomException ex)
         {
-            return BadRequest(new { message = ex.Message, innerMessage = ex.InnerException?.Message });
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -77,9 +78,55 @@ public class ServerController : ControllerBase
 
             return Ok();
         }
-        catch (ArgumentException ex)
+        catch (CustomException ex)
         {
-            return BadRequest(new { message = ex.Message, innerMessage = ex.InnerException?.Message });
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpGet]
+    [Route("getservers")]
+    public async Task<IActionResult> GetServers()
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            var servers = await _serverService.GetServerListAsync(jwtToken);
+
+            return Ok(servers);
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpGet]
+    [Route("getserverdata")]
+    public async Task<IActionResult> GetServerData([FromQuery] Guid serverId)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            var server = await _serverService.GetServerInfoAsync(jwtToken, serverId);
+
+            return Ok(server);
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
         }
         catch (Exception ex)
         {

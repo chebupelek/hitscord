@@ -19,28 +19,7 @@ public class UserController : ControllerBase
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
     }
-    /*
-    [HttpPost]
-    [Route("registrationTest")]
-    public async Task<IActionResult> CreateAccountTest([FromBody] UserRegistrationDTO registrationData)
-    {
-        try
-        {
-            var scheme = Request.Scheme;
-            var host = Request.Host.ToString();
-            await _authService.CreateRegistrationApplicationAsync(registrationData, scheme, host);
-            return Ok();
-        }
-        catch (ArgumentException ex) 
-        {
-            return BadRequest(new { message = ex.Message, innerMessage = ex.InnerException?.Message });
-        }
-        catch (Exception ex) 
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-    */
+    
     [HttpPost]
     [Route("registration")]
     public async Task<IActionResult> Registration([FromBody] UserRegistrationDTO registrationData)
@@ -50,35 +29,15 @@ public class UserController : ControllerBase
             var tokens = await _authService.CreateAccount(registrationData);
             return Ok(tokens);
         }
-        catch (CheckAccountExistRegistrationException ex)
+        catch (CustomException ex)
         {
-            return BadRequest(new { Object = ex.Object, Message = ex.Message });
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
         }
         catch (Exception ex)
         {
             return StatusCode(500, ex.Message);
         }
     }
-    /*
-    [HttpGet]
-    [Route("verifyTest")]
-    public async Task<IActionResult> VerifyAccountTest([FromQuery] string token)
-    {
-        try
-        {
-            await _authService.VerifyAccountAsync(token);
-            return Ok();
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message, innerMessage = ex.InnerException?.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-    */
 
     [HttpPost]
     [Route("login")]
@@ -89,9 +48,9 @@ public class UserController : ControllerBase
             var tokens = await _authService.LoginAsync(loginData);
             return Ok(tokens);
         }
-        catch (AuthCheckException ex)
+        catch (CustomException ex)
         {
-            return BadRequest(new { Object = ex.Object, Message = ex.Message });
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -114,9 +73,9 @@ public class UserController : ControllerBase
             await _authService.LogoutAsync(jwtToken);
             return Ok();
         }
-        catch (LogoutException ex)
+        catch (CustomException ex)
         {
-            return NotFound(new { Object = ex.Object, Message = ex.Message });
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -139,13 +98,9 @@ public class UserController : ControllerBase
             var tokens = await _authService.RefreshTokensAsync(jwtToken);
             return Ok(tokens);
         }
-        catch (RefreshException ex)
+        catch (CustomException ex)
         {
-            return Unauthorized(new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (RefreshNotFoundException ex)
-        {
-            return NotFound(new { Object = ex.Object, Message = ex.Message });
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -168,35 +123,13 @@ public class UserController : ControllerBase
             var profile = await _authService.GetProfileAsync(jwtToken);
             return Ok(profile);
         }
-        catch (ProfrileUnauthorizedException ex)
+        catch (CustomException ex)
         {
-            return Unauthorized(new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (ProfrileNotFoundException ex)
-        {
-            return NotFound(new { Object = ex.Object, Message = ex.Message });
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
         }
         catch (Exception ex)
         {
             return StatusCode(500, ex.Message);
         }
     }
-
-    /*
-    [HttpPost]
-    [Route("registration")]
-    public async Task<IActionResult> CreateRegistrationApplication([FromBody] UserRegistrationDTO registrationData)
-    {
-        try
-        {
-            //await _authService.CreateRegistrationApplicationAsync(registrationData);
-            await _authService.CreateAccount(registrationData);
-            return Ok();
-        }
-        catch (Exception ex)
-        {
-
-        }
-    }
-    */
 }

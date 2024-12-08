@@ -2,5 +2,6 @@
 
 public class ChannelListDTO
 {
-    public required List<ChannelResponseDTO> Channels { get; set; }
+    public required List<TextChannelResponseDTO> TextChannels { get; set; }
+    public required List<VoiceChannelResponseDTO> VoiceChannels { get; set; }
 }

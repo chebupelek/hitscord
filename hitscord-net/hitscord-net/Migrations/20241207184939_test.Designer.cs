@@ -12,8 +12,8 @@ using hitscord_net.Data.Contexts;
 namespace hitscord_net.Migrations
 {
     [DbContext(typeof(HitsContext))]
-    [Migration("20241201152452_Auth")]
-    partial class Auth
+    [Migration("20241207184939_test")]
+    partial class test
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -35,6 +35,10 @@ namespace hitscord_net.Migrations
                         .IsRequired()
                         .HasColumnType("integer[]");
 
+                    b.Property<int[]>("CanWrite")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -42,6 +46,9 @@ namespace hitscord_net.Migrations
 
                     b.Property<Guid?>("ServerDbModelId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -70,34 +77,6 @@ namespace hitscord_net.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Tokens");
-                });
-
-            modelBuilder.Entity("hitscord_net.Models.DBModels.RegistrationApplicationDbModel", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AccountName")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime?>("ApplicationCreateDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Mail")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("RegistrationApplication");
                 });
 
             modelBuilder.Entity("hitscord_net.Models.DBModels.ServerDbModel", b =>
@@ -175,6 +154,23 @@ namespace hitscord_net.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("UserServer");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.VoiceChannelUserDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VoiceChannelId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("UserVoiceChannel");
                 });
 
             modelBuilder.Entity("hitscord_net.Models.DBModels.ChannelDbModel", b =>

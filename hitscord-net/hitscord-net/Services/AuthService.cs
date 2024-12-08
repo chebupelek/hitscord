@@ -35,26 +35,114 @@ public class AuthService : IAuthService
         _emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
     }
 
-    private async Task<UserDbModel> GetUserAsync(string token)
+    public async Task<bool> CheckUserAuthAsync(string token)
     {
         try
         {
+            if (!await _tokenService.IsTokenValidAsync(token))
+            {
+                throw new CustomException("Access token not found", "CheckAuth", "Access token", 401);
+            }
+
+            if (_tokenService.IsTokenExpired(token))
+            {
+                throw new CustomException("Access token expired", "CheckAuth", "Access token", 401);
+            }
+
+            return true;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<UserDbModel> GetUserByTokenAsync(string token)
+    {
+        try
+        {
+            await CheckUserAuthAsync(token);
+
             var tokenHandler = new JwtSecurityTokenHandler();
             var jsonToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
             var userId = jsonToken?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
             if (userId == null)
             {
-                throw new ProfrileNotFoundException("UserId not found", "Profile", "Access token");
+                throw new CustomException("UserId not found", "Profile", "Access token", 404);
             }
             Guid userIdGuid = Guid.Parse(userId);
             var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userIdGuid);
             if (user == null) 
             {
-                throw new ProfrileNotFoundException("User not found", "Profile", "User");
+                throw new CustomException("User not found", "Profile", "User", 404);
             }
             return user;
         }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
         catch(Exception ex) 
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<UserDbModel> GetUserByIdAsync(Guid userId)
+    {
+        try
+        {
+            var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id ==  userId);
+            if (user == null)
+            {
+                throw new CustomException("User not found", "Get user by id", "User", 404);
+            }
+            return user;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<Guid?> GetUserIdAsync(string token)
+    {
+        try
+        {
+            await CheckUserAuthAsync(token);
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var jsonToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
+            var userId = jsonToken?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null)
+            {
+                throw new CustomException("UserId not found", "Profile", "Access token", 404);
+            }
+            Guid userIdGuid = Guid.Parse(userId);
+            var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userIdGuid);
+            if (user == null)
+            {
+                throw new CustomException("User not found", "Profile", "User", 404);
+            }
+            if (user.Id == null)
+            {
+                throw new CustomException("UserId error", "Profile", "User", 404);
+            }
+            return user.Id;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
         {
             throw new Exception(ex.Message);
         }
@@ -66,12 +154,12 @@ public class AuthService : IAuthService
         {
             if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == registrationData.Mail) != null)
             {
-                throw new CheckAccountExistRegistrationException("Account with this mail already exist", "Account", "Mail");
+                throw new CustomException("Account with this mail already exist", "Account", "Mail", 400);
             }
 
             if (await _hitsContext.User.FirstOrDefaultAsync(u => u.AccountName == registrationData.AccountName) != null)
             {
-                throw new CheckAccountExistRegistrationException("Account with this account name already exist", "Account", "Account name");
+                throw new CustomException("Account with this account name already exist", "Account", "Account name", 400);
             }
 
             var newUser = new UserDbModel
@@ -89,9 +177,9 @@ public class AuthService : IAuthService
 
             return tokens;
         }
-        catch (CheckAccountExistRegistrationException ex)
+        catch (CustomException ex)
         {
-            throw new CheckAccountExistRegistrationException(ex.Message, ex.Type, ex.Object);
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex)
         {
@@ -106,14 +194,14 @@ public class AuthService : IAuthService
             var userData = await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == loginData.Mail);
             if (userData == null)
             {
-                throw new AuthCheckException("A user with this email doesnt exists", "Login", "Email");
+                throw new CustomException("A user with this email doesnt exists", "Login", "Email", 400);
             }
 
             var passwordcheck = _passwordHasher.VerifyHashedPassword(loginData.Mail, userData.PasswordHash, loginData.Password);
 
             if (passwordcheck == PasswordVerificationResult.Failed)
             {
-                throw new AuthCheckException("Wrong password", "Login", "Password");
+                throw new CustomException("Wrong password", "Login", "Password", 400);
             }
 
             var tokens = _tokenService.CreateTokens(userData);
@@ -121,9 +209,9 @@ public class AuthService : IAuthService
 
             return tokens;
         }
-        catch (AuthCheckException ex)
+        catch (CustomException ex)
         {
-            throw new AuthCheckException(ex.Message, ex.Type, ex.Object);
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex)
         {
@@ -135,21 +223,13 @@ public class AuthService : IAuthService
     {
         try
         {
-            if(!await _tokenService.IsTokenValidAsync(token)) 
-            {
-                throw new LogoutException("Access token not found", "Logout", "Access token");
-            }
-
-            if(_tokenService.IsTokenExpired(token))
-            {
-                throw new LogoutException("Access token expired", "Logout", "Access token");
-            }
+            await CheckUserAuthAsync(token);
 
             await _tokenService.InvalidateTokenAsync(token);
         }
-        catch (LogoutException ex)
+        catch (CustomException ex)
         {
-            throw new LogoutException(ex.Message, ex.Type, ex.Object);
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex)
         {
@@ -163,24 +243,21 @@ public class AuthService : IAuthService
         {
             if (!await _tokenService.CheckRefreshToken(token))
             {
-                throw new RefreshException("Refresh token not found", "Refresh", "Refresh token");
+                throw new CustomException("Refresh token not found", "Refresh", "Refresh token", 401);
             }
 
             if (_tokenService.IsTokenExpired(token))
             {
-                throw new RefreshException("Refresh token expired", "Refresh", "Refresh token");
+                await _tokenService.InvalidateRefreshTokenAsync(token);
+                throw new CustomException("Refresh token expired", "Refresh", "Refresh token", 401);
             }
 
             var tokens = await _tokenService.UpdateTokens(token);
             return tokens;
         }
-        catch (RefreshException ex)
+        catch (CustomException ex)
         {
-            throw new RefreshException(ex.Message, ex.Type, ex.Object);
-        }
-        catch (RefreshNotFoundException ex)
-        {
-            throw new RefreshNotFoundException(ex.Message, ex.Type, ex.Object);
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex)
         {
@@ -188,122 +265,22 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<UserDbModel> GetProfileAsync(string token)
+    public async Task<ProfileDTO> GetProfileAsync(string token)
     {
         try
         {
-            if (!await _tokenService.IsTokenValidAsync(token))
-            {
-                throw new ProfrileUnauthorizedException("Access token not found", "Get profile", "Access token");
-            }
+            await CheckUserAuthAsync(token);
 
-            if (_tokenService.IsTokenExpired(token))
-            {
-                throw new ProfrileUnauthorizedException("Access token expired", "Get profile", "Access token");
-            }
-
-            var userData = await GetUserAsync(token);
+            var userData = new ProfileDTO(await GetUserByTokenAsync(token));
             return userData;
         }
-        catch (ProfrileUnauthorizedException ex)
+        catch (CustomException ex)
         {
-            throw new ProfrileUnauthorizedException(ex.Message, ex.Type, ex.Object);
-        }
-        catch (ProfrileNotFoundException ex)
-        {
-            throw new ProfrileNotFoundException(ex.Message, ex.Type, ex.Object);
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex)
         {
             throw new Exception(ex.Message);
         }
     }
-
-    /*
-    public async Task CreateRegistrationApplicationAsync(UserRegistrationDTO registrationData, string scheme, string host)
-    {
-        await ApplicationDataExistAsync(registrationData.Mail, registrationData.AccountName);
-        var application = await AddRegistrationApplicationAsync(registrationData);
-
-        var token = _tokenService.CreateApplicationToken(application);
-
-        var verificationLink = $"{scheme}://{host}/api/user/verifyTest?token={token}";
-        var emailBody = $"<p>Для завершения регистрации перейдите по ссылке:</p><a href='{verificationLink}'>Подтвердить регистрацию</a>";
-
-        await _emailSender.SendEmailAsync(registrationData.Mail, "Подтверждение регистрации", emailBody);
-    }
-
-    public async Task VerifyAccountAsync(string token)
-    {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var jsonToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
-        var decodedId = jsonToken?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
-        Guid applicationId = Guid.Parse(decodedId);
-        var application = await _hitsContext.RegistrationApplication.FirstOrDefaultAsync(a => a.Id == applicationId);
-        if (application == null)
-        {
-            throw new ArgumentException("Application", new Exception("Application not exist"));
-        }
-        var newAccount = new UserDbModel()
-        {
-            Mail = application.Mail,
-            PasswordHash = application.PasswordHash,
-            AccountName = application.AccountName,
-            AccountTag = application.AccountName
-        };
-        await _hitsContext.User.AddAsync(newAccount);
-        _hitsContext.RegistrationApplication.Remove(application);
-        await _hitsContext.SaveChangesAsync();
-    }
-
-    private async Task ApplicationDataExistAsync(string mail, string name)
-    {
-        try
-        {
-            if(await _hitsContext.RegistrationApplication.FirstOrDefaultAsync(u => u.Mail == mail) != null)
-            {
-                throw new ArgumentException("Application", new Exception("Application with this mail already exist"));
-            }
-
-            if (await _hitsContext.RegistrationApplication.FirstOrDefaultAsync(u => u.AccountName == name) != null)
-            {
-                throw new ArgumentException("Application", new Exception("Application with this account name already exist"));
-            }
-
-            if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == mail) != null)
-            {
-                throw new ArgumentException("Account", new Exception("Account with this mail already exist"));
-            }
-
-            if (await _hitsContext.User.FirstOrDefaultAsync(u => u.AccountName == name) != null)
-            {
-                throw new ArgumentException("Account", new Exception("Account with this account name already exist"));
-            }
-        }
-        catch (Exception ex)
-        {
-            throw new Exception(ex.Message);
-        }
-    }
-
-    private async Task<RegistrationApplicationDbModel> AddRegistrationApplicationAsync(UserRegistrationDTO registrationData)
-    {
-        try
-        {
-            var newApplication = new RegistrationApplicationDbModel
-            {
-                AccountName = registrationData.AccountName,
-                Mail = registrationData.Mail,
-                PasswordHash = _passwordHasher.HashPassword(registrationData.Mail, registrationData.Password)
-            };
-            await _hitsContext.RegistrationApplication.AddAsync(newApplication);
-            _hitsContext.SaveChanges();
-            return newApplication;
-        }
-        catch (Exception ex)
-        {
-            throw new Exception(ex.Message);
-        }
-    }
-    */
 }

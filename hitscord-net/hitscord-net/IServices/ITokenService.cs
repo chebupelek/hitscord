@@ -9,6 +9,7 @@ public interface ITokenService
     string CreateApplicationToken(RegistrationApplicationDbModel application);
     Task ValidateTokenAsync(string accessToken, string refreshToken, Guid? userId);
     Task InvalidateTokenAsync(string token);
+    Task InvalidateRefreshTokenAsync(string token);
     Task<bool> IsTokenValidAsync(string token);
     bool IsTokenExpired(string token);
     Task<bool> CheckRefreshToken(string token);

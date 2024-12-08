@@ -42,6 +42,15 @@ public class TokenService: ITokenService
 
     public async Task ValidateTokenAsync(string accessToken, string refreshToken, Guid? userId)
     {
+        var oldTokens = await _hitsContext.Tokens.Where(t => t.UserId == userId).ToListAsync();
+        if(oldTokens != null && oldTokens.Count > 0)
+        {
+            foreach (LogDbModel token in oldTokens)
+            {
+                await InvalidateTokenAsync(token.AccessToken);
+            }
+        }
+
         var logDb = new LogDbModel
         {
             Id = Guid.NewGuid(),
@@ -62,13 +71,41 @@ public class TokenService: ITokenService
 
             if (bannedToken == null)
             {
-                throw new LogoutException("Access token not found", "Logout", "Access token");
+                throw new CustomException("Access token not found", "Logout", "Access token", 404);
             }
 
             _hitsContext.Tokens.Remove(bannedToken);
             _hitsContext.SaveChanges();
         }
-        catch(Exception ex)
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task InvalidateRefreshTokenAsync(string token)
+    {
+        try
+        {
+            var bannedToken = await _hitsContext.Tokens.FirstOrDefaultAsync(x => x.RefreshToken == token);
+
+            if (bannedToken == null)
+            {
+                throw new CustomException("Refresh token not found", "Logout", "Refresh token", 404);
+            }
+
+            _hitsContext.Tokens.Remove(bannedToken);
+            _hitsContext.SaveChanges();
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
         {
             throw new Exception(ex.Message);
         }
@@ -116,18 +153,22 @@ public class TokenService: ITokenService
             var log = await _hitsContext.Tokens.FirstOrDefaultAsync(l => l.RefreshToken == refreshToken);
             if (log == null)
             {
-                throw new RefreshNotFoundException("Refresh token not found", "Refresh", "Refresh token");
+                throw new CustomException("Refresh token not found", "Refresh", "Refresh token", 404);
             }
             _hitsContext.Tokens.Remove(log);
             await _hitsContext.SaveChangesAsync();
             var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == log.UserId);
             if (user == null)
             {
-                throw new RefreshNotFoundException("User not found", "Refresh", "User");
+                throw new CustomException("User not found", "Refresh", "User", 404);
             }
             var tokens = CreateTokens(user);
             await ValidateTokenAsync(tokens.AccessToken, tokens.RefreshToken, user.Id);
             return tokens;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex) 
         {

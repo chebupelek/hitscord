@@ -3,7 +3,6 @@ using hitscord_net.IServices;
 using hitscord_net.OtherFunctions.AuthentificationService;
 using hitscord_net.OtherFunctions.EmailServer;
 using hitscord_net.Services;
-using hitscord_net.testFiles;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -21,11 +20,9 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddHttpClient<AuthzedClient>();
-
 builder.Services.AddScoped<IAuthService, AuthService>();
-//builder.Services.AddScoped<IChannelService, ChannelService>();
-//builder.Services.AddScoped<IServerService, ServerService>();
+builder.Services.AddScoped<IChannelService, ChannelService>();
+builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailSender, EmailSenderMailDev>();
 
