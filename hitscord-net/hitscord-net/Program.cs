@@ -1,6 +1,5 @@
 using hitscord_net.Data.Contexts;
 using hitscord_net.IServices;
-using hitscord_net.OtherFunctions.AuthentificationService;
 using hitscord_net.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;

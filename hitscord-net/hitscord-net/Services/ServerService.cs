@@ -3,16 +3,10 @@ using Grpc.Core;
 using hitscord_net.Data.Contexts;
 using hitscord_net.IServices;
 using hitscord_net.Models.DBModels;
-using hitscord_net.Models.DTOModels.RequestsDTO;
 using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration.UserSecrets;
 using System.Data;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text.RegularExpressions;
 
 namespace hitscord_net.Services;
 
