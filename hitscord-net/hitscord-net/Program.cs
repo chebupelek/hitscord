@@ -1,7 +1,6 @@
 using hitscord_net.Data.Contexts;
 using hitscord_net.IServices;
 using hitscord_net.OtherFunctions.AuthentificationService;
-using hitscord_net.OtherFunctions.EmailServer;
 using hitscord_net.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -24,11 +23,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
-builder.Services.AddScoped<IEmailSender, EmailSenderMailDev>();
 
 builder.Services.AddSignalR();
-
-builder.Services.AddSingleton(new AuthZedService("http://localhost:50051", "your-unique-key"));
 
 builder.Services.AddAuthentication(opt => {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -73,6 +69,17 @@ builder.Services.AddSwaggerGen(c =>
             new string[] { }
         }
     });
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigin",
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
 });
 
 var app = builder.Build();

@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("hitscord-net")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1e72cddbec835c92992ec78a7e32e54e63267ab5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1f94c415c18fa0aa5d5331bc8109c320143cceea")]
 [assembly: System.Reflection.AssemblyProductAttribute("hitscord-net")]
 [assembly: System.Reflection.AssemblyTitleAttribute("hitscord-net")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

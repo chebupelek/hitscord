@@ -5,7 +5,6 @@ using hitscord_net.Models.DBModels;
 using hitscord_net.Models.DTOModels.RequestsDTO;
 using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
-using hitscord_net.OtherFunctions.EmailServer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +15,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using IEmailSender = hitscord_net.OtherFunctions.EmailServer.IEmailSender;
 
 namespace hitscord_net.Services;
 
@@ -25,14 +23,12 @@ public class AuthService : IAuthService
     private readonly HitsContext _hitsContext;
     private readonly PasswordHasher<string> _passwordHasher;
     private readonly ITokenService _tokenService;
-    private readonly IEmailSender _emailSender;
 
-    public AuthService(HitsContext hitsContext, ITokenService tokenService, IEmailSender emailSender)
+    public AuthService(HitsContext hitsContext, ITokenService tokenService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _passwordHasher = new PasswordHasher<string>();
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
-        _emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
     }
 
     public async Task<bool> CheckUserAuthAsync(string token)
