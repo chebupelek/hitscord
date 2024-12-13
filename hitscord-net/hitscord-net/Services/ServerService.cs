@@ -7,6 +7,7 @@ using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Threading.Channels;
 
 namespace hitscord_net.Services;
 
@@ -31,26 +32,38 @@ public class ServerService : IServerService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
+            var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Name == "Admin");
+            if(role == null) 
+            {
+                throw new CustomException("Admin role not found", "Create server", "Role", 404);
+            }
+
             var newServer = new ServerDbModel()
             {
                 Name = severName,
-                Admin = user
+                CreatorId = user.Id
             };
             await _hitsContext.Server.AddAsync(newServer);
             _hitsContext.SaveChanges();
-
-            await _channelService.CreateChannelAsync(newServer.Id, token, "основной", ChannelTypeEnum.Text);
-            await _channelService.CreateChannelAsync(newServer.Id, token, "основной", ChannelTypeEnum.Voice);
-
             var newSub = new UserServerDbModel
             {
-                UserId = (Guid)user.Id,
+                UserId = user.Id,
                 ServerId = newServer.Id,
-                Role = RoleEnum.Admin,
+                RoleId = role.Id,
+                UserServerName = user.AccountName
             };
             await _hitsContext.UserServer.AddAsync(newSub);
+            _hitsContext.SaveChanges();
+
+            await _channelService.CreateChannelAsync(newServer.Id, token, "Основной", ChannelTypeEnum.Text);
+            await _channelService.CreateChannelAsync(newServer.Id, token, "Основной", ChannelTypeEnum.Voice);
+            await _channelService.CreateChannelAsync(newServer.Id, token, "Основной", ChannelTypeEnum.Announcement);
 
             _hitsContext.SaveChanges();
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex)
         {
@@ -58,7 +71,7 @@ public class ServerService : IServerService
         }
     }
 
-    public async Task SubscribeAsync(Guid serverId, string token)
+    public async Task SubscribeAsync(Guid serverId, string token, string? userName)
     {
         try
         {
@@ -72,20 +85,32 @@ public class ServerService : IServerService
                 throw new CustomException("Server not found", "Subscribe", "Server id", 404);
             }
 
-            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId);
-            if (sub != null)
+            var existingSubscription = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId);
+            if (existingSubscription != null)
             {
-                throw new CustomException("User already subscriber of this server", "Subscribe", "User", 400);
+                throw new CustomException("User is already subscribed to this server", "Subscribe", "User", 400);
+            }
+
+            var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Name == "Uncertain");
+            if (role == null)
+            {
+                throw new CustomException("Uncertain role not found", "Subscribe", "Role", 404);
             }
 
             var newSub = new UserServerDbModel
             {
-                UserId = (Guid)user.Id,
+                UserId = user.Id,
                 ServerId = serverId,
-                Role = RoleEnum.Uncertain,
+                RoleId = role.Id,
+                UserServerName = userName != null ? userName : user.AccountName
             };
+
             await _hitsContext.UserServer.AddAsync(newSub);
             await _hitsContext.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex)
         {
@@ -113,13 +138,23 @@ public class ServerService : IServerService
                 throw new CustomException("User not subscriber of this server", "Unsubscribe", "User", 400);
             }
 
-            if (sub.Role == RoleEnum.Admin)
+            if (server.CreatorId == user.Id)
             {
-                throw new CustomException("User is admin of this server", "Unsubscribe", "User", 400);
+                throw new CustomException("User is the creator of this server", "Unsubscribe", "User", 400);
+            }
+
+            var voiceChannel = await _hitsContext.Channel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.ServerId == serverId && c is VoiceChannelDbModel && ((VoiceChannelDbModel)c).Users.Contains(user));
+            if(voiceChannel != null)
+            {
+                ((VoiceChannelDbModel)voiceChannel).Users.Remove(user);
             }
 
             _hitsContext.UserServer.Remove(sub);
             await _hitsContext.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex)
         {
@@ -140,26 +175,30 @@ public class ServerService : IServerService
             {
                 throw new CustomException("Server not found", "Delete server", "Server id", 404);
             }
-
-            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId && us.Role == RoleEnum.Admin);
-            if (sub == null)
+            if (server.CreatorId != user.Id)
             {
-                throw new CustomException("User not admin of this server", "Delete server", "User", 401);
+                throw new CustomException("User is not the creator of this server", "Delete server", "User", 401);
             }
 
-            await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).ExecuteDeleteAsync();
+            var userServerRelations = _hitsContext.UserServer.Where(us => us.ServerId == server.Id);
+            _hitsContext.UserServer.RemoveRange(userServerRelations);
 
-            var voiceChannelIds = server.Channels
-                .Where(c => c.Type == ChannelTypeEnum.Voice)
-                .Select(c => c.Id)
-                .ToList();
+            var voiceChannels = server.Channels.OfType<VoiceChannelDbModel>().ToList();
+            foreach (var voiceChannel in voiceChannels)
+            {
+                voiceChannel.Users.Clear();
+            }
 
-            var voiceChannelUsers = _hitsContext.UserVoiceChannel
-                .Where(vcu => voiceChannelIds.Contains(vcu.VoiceChannelId));
+            var channelsToDelete = server.Channels.ToList();
+            _hitsContext.Channel.RemoveRange(channelsToDelete);
 
-            _hitsContext.UserVoiceChannel.RemoveRange(voiceChannelUsers);
+            _hitsContext.Server.Remove(server);
 
             await _hitsContext.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
         }
         catch (Exception ex)
         {
@@ -190,13 +229,17 @@ public class ServerService : IServerService
                     .ToListAsync()
             };
         }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
         catch (Exception ex)
         {
             throw new Exception(ex.Message);
         }
     }
 
-    public async Task ChangeUserRoleAsync(string token, Guid serverId, Guid userId, RoleEnum role)
+    public async Task ChangeUserRoleAsync(string token, Guid serverId, Guid userId, Guid roleId)
     {
         try
         {
@@ -209,21 +252,35 @@ public class ServerService : IServerService
             {
                 throw new CustomException("Server not found", "Change role", "Server id", 404);
             }
-            if(server.Admin != owner)
+
+            var adminRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Name == "Admin");
+            if (adminRole == null)
+            {
+                throw new CustomException("Admin role not found", "Change role", "Role", 404);
+            }
+
+            var ownerSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == owner.Id && us.ServerId == server.Id && us.RoleId == adminRole.Id);
+            if(ownerSub == null)
             {
                 throw new CustomException("Owner not admin of this server", "Change role", "Owner", 401);
             }
 
             await _authService.GetUserByIdAsync(userId);
 
-            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(s => s.UserId == userId);
-            if (sub == null)
+            var userSub = await _hitsContext.UserServer.FirstOrDefaultAsync(s => s.UserId == userId && s.ServerId == serverId);
+            if (userSub == null)
             {
                 throw new CustomException("User not subscriber of this server", "Change role", "User", 400);
             }
 
-            sub.Role = role;
-            _hitsContext.UserServer.Update(sub);
+            var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == roleId);
+            if (role == null)
+            {
+                throw new CustomException("Role not found", "Change role", "Role id", 404);
+            }
+
+            userSub.RoleId = role.Id;
+            _hitsContext.UserServer.Update(userSub);
             await _hitsContext.SaveChangesAsync();
         }
         catch (CustomException ex)
@@ -250,7 +307,7 @@ public class ServerService : IServerService
                 throw new CustomException("Server not found", "Get server info", "Server id", 404);
             }
 
-            var userServer = await _hitsContext.UserServer.FirstOrDefaultAsync(us => (us.UserId == user.Id && us.ServerId == serverId));
+            var userServer = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => (us.UserId == user.Id && us.ServerId == serverId));
             if (userServer == null)
             {
                 throw new CustomException("User not subscriber of this server", "Get server info", "User", 401);
@@ -260,7 +317,9 @@ public class ServerService : IServerService
             {
                 ServerId = serverId,
                 ServerName = server.Name,
-                UserRole = userServer.Role,
+                Roles = await _hitsContext.Role.ToListAsync(),
+                UserRoleId = userServer.RoleId,
+                UserRole = userServer.Role.Name,
                 Users = await _hitsContext.UserServer
                     .Where(us => us.ServerId == serverId)
                     .Join(_hitsContext.User,
@@ -268,14 +327,74 @@ public class ServerService : IServerService
                           u => u.Id,
                           (us, u) => new ServerUserDTO
                           {
-                              UserId = (Guid)u.Id,
+                              UserId = u.Id,
                               UserName = u.AccountName,
                               UserTag = u.AccountTag,
-                              Role = us.Role
+                              RoleName = us.Role.Name
                           })
                     .ToListAsync(),
                 Channels = await _channelService.GetChannelListAsync(serverId, token)
             };
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task CreateRolesAsync()
+    {
+        try
+        {
+            var roles = await _hitsContext.Role.ToListAsync();
+            if(roles != null && roles.Count > 0) 
+            {
+                throw new CustomException("Roles already created", "Create roles", "Roles", 400);
+            }
+            var adminRole = new RoleDbModel
+            {
+                Name = "Admin",
+            };
+            var teacherRole = new RoleDbModel
+            {
+                Name = "Teacher",
+            };
+            var studentRole = new RoleDbModel
+            {
+                Name = "Student",
+            };
+            var uncertainRole = new RoleDbModel
+            {
+                Name = "Uncertain",
+            };
+            _hitsContext.Role.Add(adminRole);
+            await _hitsContext.SaveChangesAsync();
+            _hitsContext.Role.Add(teacherRole);
+            await _hitsContext.SaveChangesAsync();
+            _hitsContext.Role.Add(studentRole);
+            await _hitsContext.SaveChangesAsync();
+            _hitsContext.Role.Add(uncertainRole);
+            await _hitsContext.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<List<RoleDbModel>> GetRolesAsync()
+    {
+        try
+        {
+            return (await _hitsContext.Role.ToListAsync());
         }
         catch (CustomException ex)
         {

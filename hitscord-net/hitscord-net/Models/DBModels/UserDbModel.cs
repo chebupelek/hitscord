@@ -12,15 +12,14 @@ public class UserDbModel
     {
         Id = Guid.NewGuid();
         AccountCreateDate = DateTime.UtcNow;
-        Type = UserTypeEnum.User;
     }
 
     [Key]
-    public Guid? Id { get; set; }
+    public Guid Id { get; set; }
 
     [Required]
     [MinLength(1)]
-    [MaxLength(50)]
+    [MaxLength(100)]
     [EmailAddress]
     public required string Mail { get; set; }
 
@@ -30,15 +29,15 @@ public class UserDbModel
 
     [Required]
     [MinLength(1)]
-    [MaxLength(50)]
+    [MaxLength(100)]
     public required string AccountName { get; set; }
 
     [Required]
     [MinLength(1)]
-    [MaxLength(50)]
+    [MaxLength(100)]
     public required string AccountTag { get; set; }
 
-    public UserTypeEnum? Type { get; set; }
-    public DateTime? AccountCreateDate { get; set; }
-    
+    public DateTime AccountCreateDate { get; set; }
+
+    public ICollection<UserServerDbModel> UserServer { get; set; }
 }

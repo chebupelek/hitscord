@@ -13,7 +13,7 @@ namespace hitscord_net.JwtCreation
             };
             return claims;
         }
-
+        /*
         public static List<Claim> CreateApplicationClaims(this RegistrationApplicationDbModel appl)
         {
             var claims = new List<Claim>
@@ -21,6 +21,6 @@ namespace hitscord_net.JwtCreation
                 new(ClaimTypes.NameIdentifier, appl.Id.ToString()),
             };
             return claims;
-        }
+        }*/
     }
 }

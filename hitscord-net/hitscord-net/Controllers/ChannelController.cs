@@ -1,5 +1,6 @@
 ﻿using hitscord_net.IServices;
 using hitscord_net.Models.DTOModels.RequestsDTO;
+using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
 using hitscord_net.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -88,12 +89,12 @@ public class ChannelController : ControllerBase
     [Authorize]
     [HttpDelete]
     [Route("deletechannel")]
-    public async Task<IActionResult> DeleteChannel([FromBody] CreateChannelDTO channelData)
+    public async Task<IActionResult> DeleteChannel([FromBody] DeleteChannelDTO channelData)
     {
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.CreateChannelAsync(channelData.ServerId, jwtToken, channelData.Name, channelData.ChannelType);
+            await _channelService.DeleteChannelAsync(channelData.channelId, jwtToken);
             return Ok();
         }
         catch (CustomException ex)

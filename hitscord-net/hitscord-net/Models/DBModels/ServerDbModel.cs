@@ -1,5 +1,6 @@
 ﻿using hitscord_net.Models.InnerModels;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace hitscord_net.Models.DBModels;
 
@@ -8,7 +9,6 @@ public class ServerDbModel
     public ServerDbModel()
     {
         Id = Guid.NewGuid();
-        Channels = new List<ChannelDbModel>();
     }
 
     [Key]
@@ -16,10 +16,15 @@ public class ServerDbModel
 
     [Required]
     [MinLength(1)]
-    [MaxLength(50)]
+    [MaxLength(100)]
     public required string Name { get; set; }
 
-    public required UserDbModel Admin {  get; set; }
+    [Required]
+    public required Guid CreatorId { get; set; }
 
-    public List<ChannelDbModel>? Channels { get; set; }
+    [ForeignKey(nameof(CreatorId))]
+    public UserDbModel Creator { get; set; }
+
+    public ICollection<UserServerDbModel> UserServer { get; set; }
+    public ICollection<ChannelDbModel> Channels { get; set; }
 }

@@ -31,7 +31,7 @@ public class TokenService: ITokenService
         var refreshToken = tokenHandler.WriteToken(tokenRefreshData);
         return new TokensDTO { AccessToken = accessToken, RefreshToken = refreshToken };
     }
-
+    /*
     public string CreateApplicationToken(RegistrationApplicationDbModel application)
     {
         var token = application.CreateApplicationClaims().CreateJwtTokenApplication(_configuration);
@@ -39,10 +39,10 @@ public class TokenService: ITokenService
         var applicationToken = tokenHandler.WriteToken(token);
         return applicationToken;
     }
-
+    */
     public async Task ValidateTokenAsync(string accessToken, string refreshToken, Guid? userId)
     {
-        var oldTokens = await _hitsContext.Tokens.Where(t => t.UserId == userId).ToListAsync();
+        var oldTokens = await _hitsContext.Token.Where(t => t.UserId == userId).ToListAsync();
         if(oldTokens != null && oldTokens.Count > 0)
         {
             foreach (LogDbModel token in oldTokens)
@@ -59,7 +59,7 @@ public class TokenService: ITokenService
             RefreshToken = refreshToken
         };
 
-        _hitsContext.Tokens.Add(logDb);
+        _hitsContext.Token.Add(logDb);
         await _hitsContext.SaveChangesAsync();
     }
 
@@ -67,14 +67,14 @@ public class TokenService: ITokenService
     {
         try
         {
-            var bannedToken = await _hitsContext.Tokens.FirstOrDefaultAsync(x => x.AccessToken == token);
+            var bannedToken = await _hitsContext.Token.FirstOrDefaultAsync(x => x.AccessToken == token);
 
             if (bannedToken == null)
             {
                 throw new CustomException("Access token not found", "Logout", "Access token", 404);
             }
 
-            _hitsContext.Tokens.Remove(bannedToken);
+            _hitsContext.Token.Remove(bannedToken);
             _hitsContext.SaveChanges();
         }
         catch (CustomException ex)
@@ -91,14 +91,14 @@ public class TokenService: ITokenService
     {
         try
         {
-            var bannedToken = await _hitsContext.Tokens.FirstOrDefaultAsync(x => x.RefreshToken == token);
+            var bannedToken = await _hitsContext.Token.FirstOrDefaultAsync(x => x.RefreshToken == token);
 
             if (bannedToken == null)
             {
                 throw new CustomException("Refresh token not found", "Logout", "Refresh token", 404);
             }
 
-            _hitsContext.Tokens.Remove(bannedToken);
+            _hitsContext.Token.Remove(bannedToken);
             _hitsContext.SaveChanges();
         }
         catch (CustomException ex)
@@ -113,7 +113,7 @@ public class TokenService: ITokenService
 
     public async Task<bool> IsTokenValidAsync(string token)
     {
-        var valToken = await _hitsContext.Tokens.FirstOrDefaultAsync(x => x.AccessToken == token);
+        var valToken = await _hitsContext.Token.FirstOrDefaultAsync(x => x.AccessToken == token);
 
         if (valToken == null)
         {
@@ -138,7 +138,7 @@ public class TokenService: ITokenService
 
     public async Task<bool> CheckRefreshToken(string token)
     {
-        var log = await _hitsContext.Tokens.FirstOrDefaultAsync(t => t.RefreshToken == token);
+        var log = await _hitsContext.Token.FirstOrDefaultAsync(t => t.RefreshToken == token);
         if(log == null)
         {
             return false;
@@ -150,12 +150,12 @@ public class TokenService: ITokenService
     {
         try
         {
-            var log = await _hitsContext.Tokens.FirstOrDefaultAsync(l => l.RefreshToken == refreshToken);
+            var log = await _hitsContext.Token.FirstOrDefaultAsync(l => l.RefreshToken == refreshToken);
             if (log == null)
             {
                 throw new CustomException("Refresh token not found", "Refresh", "Refresh token", 404);
             }
-            _hitsContext.Tokens.Remove(log);
+            _hitsContext.Token.Remove(log);
             await _hitsContext.SaveChangesAsync();
             var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == log.UserId);
             if (user == null)
@@ -178,10 +178,10 @@ public class TokenService: ITokenService
 
     public async Task BanningTokensAsync()
     {
-        var expiredTokens = await _hitsContext.Tokens.Where(x => IsTokenExpired(x.RefreshToken)).ToListAsync();
+        var expiredTokens = await _hitsContext.Token.Where(x => IsTokenExpired(x.RefreshToken)).ToListAsync();
         foreach (var token in expiredTokens)
         {
-            _hitsContext.Tokens.Remove(token);
+            _hitsContext.Token.Remove(token);
         }
         _hitsContext.SaveChanges();
     }

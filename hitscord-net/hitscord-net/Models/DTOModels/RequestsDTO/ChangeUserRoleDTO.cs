@@ -6,5 +6,5 @@ public class ChangeUserRoleDTO
 {
     public required Guid ServerId { get; set; }
     public required Guid UserId { get; set; }
-    public required RoleEnum Role { get; set; }
+    public required Guid Role { get; set; }
 }

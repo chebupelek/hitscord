@@ -45,7 +45,7 @@ public class ServerController : ControllerBase
     [Authorize]
     [HttpDelete]
     [Route("deleteserver")]
-    public async Task<IActionResult> DeleteServer([FromBody] SubscribeDTO data)
+    public async Task<IActionResult> DeleteServer([FromBody] UnsubscribeDTO data)
     {
         try
         {
@@ -74,7 +74,7 @@ public class ServerController : ControllerBase
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 
-            await _serverService.SubscribeAsync(data.serverId, jwtToken);
+            await _serverService.SubscribeAsync(data.serverId, jwtToken, data.UserName);
 
             return Ok();
         }
@@ -169,6 +169,44 @@ public class ServerController : ControllerBase
             var server = await _serverService.GetServerInfoAsync(jwtToken, serverId);
 
             return Ok(server);
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [HttpPost]
+    [Route("createroles")]
+    public async Task<IActionResult> CreateRoles()
+    {
+        try
+        {
+            await _serverService.CreateRolesAsync();
+
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [HttpGet]
+    [Route("getroles")]
+    public async Task<IActionResult> GetRoles()
+    {
+        try
+        {
+            return Ok(await _serverService.GetRolesAsync());
         }
         catch (CustomException ex)
         {

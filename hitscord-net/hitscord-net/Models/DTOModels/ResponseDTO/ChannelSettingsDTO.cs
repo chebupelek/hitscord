@@ -4,6 +4,6 @@ namespace hitscord_net.Models.DTOModels.ResponseDTO;
 
 public class ChannelSettingsDTO
 {
-    public required List<RoleEnum> CanRead { get; set; }
-    public required List<RoleEnum> CanWrite { get; set; }
+    public required List<RoleDbModel> CanRead { get; set; }
+    public required List<RoleDbModel> CanWrite { get; set; }
 }

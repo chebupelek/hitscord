@@ -6,7 +6,7 @@ namespace hitscord_net.IServices;
 public interface ITokenService
 {
     TokensDTO CreateTokens(UserDbModel user);
-    string CreateApplicationToken(RegistrationApplicationDbModel application);
+    //string CreateApplicationToken(RegistrationApplicationDbModel application);
     Task ValidateTokenAsync(string accessToken, string refreshToken, Guid? userId);
     Task InvalidateTokenAsync(string token);
     Task InvalidateRefreshTokenAsync(string token);
