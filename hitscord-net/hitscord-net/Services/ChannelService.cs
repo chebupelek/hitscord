@@ -10,12 +10,58 @@ namespace hitscord_net.Services;
 public class ChannelService : IChannelService
 {
     private readonly HitsContext _hitsContext;
-    private readonly IAuthService _authService;
+    private readonly IAuthorizationService _authService;
+    private readonly IServerService _serverService;
 
-    public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthService authService)
+    public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IServerService serverService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        _serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
+    }
+
+    public async Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId, bool fullInfo)
+    {
+        try
+        {
+            var channel = fullInfo ? await _hitsContext.Channel.Include(c => c.RolesCanView).Include(c => c.RolesCanWrite).FirstOrDefaultAsync(c => c.Id == channelId) : 
+                await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId);
+            if (channel == null)
+            {
+                throw new CustomException("Channel not found", "Check channel for existing", "Channel", 404);
+            }
+            return channel;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<ChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers)
+    {
+        try
+        {
+            var channel = joinedUsers ? await _hitsContext.Channel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.Id == channelId && c is VoiceChannelDbModel) :
+                await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is VoiceChannelDbModel);
+            if (channel == null)
+            {
+                throw new CustomException("Voice channel not found", "Check voice channel for existing", "Voice channel", 404);
+            }
+            return channel;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
     }
 
     public async Task CreateChannelAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType)
@@ -26,11 +72,7 @@ public class ChannelService : IChannelService
 
             var owner = await _authService.GetUserByTokenAsync(token);
 
-            var server = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == serverId);
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Create channel", "Server", 404);
-            }
+            var server = await _serverService.CheckServerExistAsync(serverId, false);
 
             var sub = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.UserId == owner.Id && us.ServerId == server.Id && (us.Role.Name == "Admin" || server.CreatorId == owner.Id));
             if (sub == null)
@@ -101,26 +143,30 @@ public class ChannelService : IChannelService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
-            var server = await _hitsContext.Server
-                .Include(s => s.Channels)
-                    .ThenInclude(c => c.RolesCanView)
-                .Include(s => s.Channels)
-                    .ThenInclude(c => c.RolesCanWrite)
-                .FirstOrDefaultAsync(s => s.Id == serverId);
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Get channels list", "Server", 404);
-            }
+            var server = await _serverService.GetServerFullModelAsync(serverId);
             var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(s => s.ServerId == serverId && s.UserId == user.Id);
             if (sub == null)
             {
                 throw new CustomException("User not subscriber of this server", "Get channels list", "User", 404);
             }
 
+            var announcementChannels = await _hitsContext.Channel
+                .Include(c => c.RolesCanView)
+                .Include(c => c.RolesCanWrite)
+                .Include(c => ((AnnouncementChannelDbModel)c).RolesToNotify)
+                .Where(c => c.ServerId == serverId && c is AnnouncementChannelDbModel)
+                .ToListAsync();
+
             var channelsList = new ChannelListDTO
             {
                 TextChannels = server.Channels
-                .Where(c => (c.RolesCanView.Contains(sub.Role) || server.CreatorId == user.Id) && c is TextChannelDbModel && ((TextChannelDbModel)c).IsMessage == false)
+                .Where(c => 
+                    (
+                        c.RolesCanView.Contains(sub.Role) || 
+                        server.CreatorId == user.Id
+                    ) && 
+                    c is TextChannelDbModel && 
+                    ((TextChannelDbModel)c).IsMessage == false)
                 .Select(c => new TextChannelResponseDTO
                 {
                     ChannelName = c.Name,
@@ -130,7 +176,12 @@ public class ChannelService : IChannelService
                 .ToList(),
 
                 VoiceChannels = server.Channels
-                .Where(c => (c.RolesCanView.Contains(sub.Role) || server.CreatorId == user.Id) && c is VoiceChannelDbModel)
+                .Where(c => 
+                    (
+                        c.RolesCanView.Contains(sub.Role) || 
+                        server.CreatorId == user.Id
+                    ) && 
+                    c is VoiceChannelDbModel)
                 .Select(c => new VoiceChannelResponseDTO
                 {
                     ChannelName = c.Name,
@@ -146,6 +197,22 @@ public class ChannelService : IChannelService
                 })
                 .ToList(),
 
+                AnnouncementChannels = announcementChannels
+                .Where(c => 
+                    (
+                        c.RolesCanView.Contains(sub.Role) || 
+                        server.CreatorId == user.Id
+                    ) && 
+                    c is AnnouncementChannelDbModel)
+                .Select(c => new AnnouncementChannelResponseDTO
+                {
+                    ChannelName = c.Name,
+                    ChannelId = c.Id,
+                    CanWrite = c.RolesCanWrite.Contains(sub.Role) || server.CreatorId == user.Id,
+                    AnnoucementRoles = ((AnnouncementChannelDbModel)c).RolesToNotify.ToList()
+                })
+                .ToList()
+                /*
                 AnnouncementChannels = server.Channels
                 .Where(c => (c.RolesCanView.Contains(sub.Role) || server.CreatorId == user.Id) && c is AnnouncementChannelDbModel)
                 .Select(c => new AnnouncementChannelResponseDTO
@@ -155,7 +222,7 @@ public class ChannelService : IChannelService
                     CanWrite = c.RolesCanWrite.Contains(sub.Role) || server.CreatorId == user.Id,
                     AnnoucementRoles = ((AnnouncementChannelDbModel)c).RolesToNotify.ToList()
                 })
-                .ToList()
+                .ToList()*/
             };
 
             return (channelsList);
@@ -178,26 +245,9 @@ public class ChannelService : IChannelService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
-            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id ==  chnnelId);
-            if (channel == null)
-            {
-                throw new CustomException("Channel not found", "Join to voice channel", "Channel", 404);
-            }
-            if (channel is VoiceChannelDbModel != true)
-            {
-                throw new CustomException("Type of channel not Voice", "Join to voice channel", "Channel", 400);
-            }
-            channel = await _hitsContext.Channel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.Id == chnnelId && c is VoiceChannelDbModel);
-            if (channel == null)
-            {
-                throw new CustomException("Channel not found", "Join to voice channel", "Channel", 404);
-            }
+            var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
 
-            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Join to voice channel", "Server", 404);
-            }
+            var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
             var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(s => s.ServerId == server.Id && s.UserId == user.Id);
             if (sub == null)
@@ -252,26 +302,9 @@ public class ChannelService : IChannelService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
-            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId);
-            if (channel == null)
-            {
-                throw new CustomException("Channel not found", "Remove from voice channel", "Channel", 404);
-            }
-            if (channel is VoiceChannelDbModel != true)
-            {
-                throw new CustomException("Type of channel not Voice", "Remove from voice channel", "Channel", 400);
-            }
-            channel = await _hitsContext.Channel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.Id == chnnelId && c is VoiceChannelDbModel && ((VoiceChannelDbModel)c).Users.Contains(user));
-            if (channel == null)
-            {
-                throw new CustomException("User not on this channel", "Remove from voice channel", "Channel", 404);
-            }
+            var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
 
-            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Remove from voice channel", "Server", 404);
-            }
+            var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
             var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(s => s.ServerId == server.Id && s.UserId == user.Id);
             if (sub == null)
@@ -303,17 +336,9 @@ public class ChannelService : IChannelService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
-            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId);
-            if (channel == null)
-            {
-                throw new CustomException("Channel not found", "Delete channel", "Channel", 404);
-            }
+            var channel = await CheckChannelExistAsync(chnnelId, false);
 
-            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Delete channel", "Server", 404);
-            }
+            var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
             var sub = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && (us.Role.Name == "Admin" || server.CreatorId == user.Id));
             if (sub == null)
@@ -350,17 +375,9 @@ public class ChannelService : IChannelService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
-            var channel = await _hitsContext.Channel.Include(c => c.RolesCanView).Include(c => c.RolesCanWrite).FirstOrDefaultAsync(c => c.Id == chnnelId);
-            if (channel == null)
-            {
-                throw new CustomException("Channel not found", "Get channel settings", "Channel", 404);
-            }
+            var channel = await CheckChannelExistAsync(chnnelId, true);
 
-            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Get channel settings", "Server", 404);
-            }
+            var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
             var sub = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && (us.Role.Name == "Admin" || server.CreatorId == user.Id));
             if (sub == null)
@@ -388,17 +405,9 @@ public class ChannelService : IChannelService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
-            var channel = await _hitsContext.Channel.Include(c => c.RolesCanView).Include(c => c.RolesCanWrite).FirstOrDefaultAsync(c => c.Id == chnnelId);
-            if (channel == null)
-            {
-                throw new CustomException("Channel not found", "Add new role to Can read settings", "Channel", 404);
-            }
+            var channel = await CheckChannelExistAsync(chnnelId, true);
 
-            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Add new role to Can read settings", "Server", 404);
-            }
+            var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
             var sub = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && (us.Role.Name == "Admin" || server.CreatorId == user.Id));
             if (sub == null)
@@ -441,17 +450,9 @@ public class ChannelService : IChannelService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
-            var channel = await _hitsContext.Channel.Include(c => c.RolesCanView).Include(c => c.RolesCanWrite).FirstOrDefaultAsync(c => c.Id == chnnelId);
-            if (channel == null)
-            {
-                throw new CustomException("Channel not found", "Remove role from Can read settings", "Channel", 404);
-            }
+            var channel = await CheckChannelExistAsync(chnnelId, true);
 
-            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Remove role from Can read settings", "Server", 404);
-            }
+            var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
             var sub = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && (us.Role.Name == "Admin" || server.CreatorId == user.Id));
             if (sub == null)
@@ -494,17 +495,9 @@ public class ChannelService : IChannelService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
-            var channel = await _hitsContext.Channel.Include(c => c.RolesCanView).Include(c => c.RolesCanWrite).FirstOrDefaultAsync(c => c.Id == chnnelId);
-            if (channel == null)
-            {
-                throw new CustomException("Channel not found", "Add new role to Can write settings", "Channel", 404);
-            }
+            var channel = await CheckChannelExistAsync(chnnelId, true);
 
-            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Add new role to Can write settings", "Server", 404);
-            }
+            var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
             var sub = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && (us.Role.Name == "Admin" || server.CreatorId == user.Id));
             if (sub == null)
@@ -547,17 +540,9 @@ public class ChannelService : IChannelService
 
             var user = await _authService.GetUserByTokenAsync(token);
 
-            var channel = await _hitsContext.Channel.Include(c => c.RolesCanView).Include(c => c.RolesCanWrite).FirstOrDefaultAsync(c => c.Id == chnnelId);
-            if (channel == null)
-            {
-                throw new CustomException("Channel not found", "Remove role from Can write settings", "Channel", 404);
-            }
+            var channel = await CheckChannelExistAsync(chnnelId, true);
 
-            var server = await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Channels.Contains(channel));
-            if (server == null)
-            {
-                throw new CustomException("Server not found", "Remove role from Can write settings", "Server", 404);
-            }
+            var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
             var sub = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == server.Id && (us.Role.Name == "Admin" || server.CreatorId == user.Id));
             if (sub == null)

@@ -12,13 +12,13 @@ using System.Text.RegularExpressions;
 
 namespace hitscord_net.Services;
 
-public class AuthService : IAuthService
+public class AuthorizationService : IAuthorizationService
 {
     private readonly HitsContext _hitsContext;
     private readonly PasswordHasher<string> _passwordHasher;
     private readonly ITokenService _tokenService;
 
-    public AuthService(HitsContext hitsContext, ITokenService tokenService)
+    public AuthorizationService(HitsContext hitsContext, ITokenService tokenService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _passwordHasher = new PasswordHasher<string>();

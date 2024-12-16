@@ -179,42 +179,4 @@ public class ServerController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
-
-    [HttpPost]
-    [Route("createroles")]
-    public async Task<IActionResult> CreateRoles()
-    {
-        try
-        {
-            await _serverService.CreateRolesAsync();
-
-            return Ok();
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-
-    [HttpGet]
-    [Route("getroles")]
-    public async Task<IActionResult> GetRoles()
-    {
-        try
-        {
-            return Ok(await _serverService.GetRolesAsync());
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
 }
