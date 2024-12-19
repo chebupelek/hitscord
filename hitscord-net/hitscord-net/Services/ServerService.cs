@@ -439,4 +439,34 @@ public class ServerService : IServerService
             throw new Exception(ex.Message);
         }
     }
+
+    public async Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId)
+    {
+        try
+        {
+            var owner = await _authorizationService.GetUserByTokenAsync(token);
+            var server = await CheckServerExistAsync(serverId, false);
+            await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
+            await _authorizationService.GetUserByIdAsync(userId);
+            var userSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, userId);
+            if (userId == owner.Id)
+            {
+                throw new CustomException("User cant delete himself", "Change user role", "User", 400);
+            }
+            if (server.CreatorId == userId)
+            {
+                throw new CustomException("User cant delete creator of server", "Change user role", "User", 400);
+            }
+            _hitsContext.UserServer.Remove(userSub);
+            await _hitsContext.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
 }

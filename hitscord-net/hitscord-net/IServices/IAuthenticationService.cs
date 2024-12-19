@@ -10,5 +10,6 @@ public interface IAuthenticationService
     Task<UserServerDbModel> CheckUserCreatorAsync(Guid ServerId, Guid UserId);
     Task CheckUserRightsChangeRoles(Guid ServerId, Guid UserId);
     Task CheckUserRightsWorkWithChannels(Guid ServerId, Guid UserId);
+    Task CheckUserRightsDeleteUsers(Guid ServerId, Guid UserId);
     Task CheckUserRightsWriteInChannel(Guid channelId, Guid UserId);
 }

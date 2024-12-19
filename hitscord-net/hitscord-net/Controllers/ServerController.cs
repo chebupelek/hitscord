@@ -179,4 +179,27 @@ public class ServerController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+    [Authorize]
+    [HttpDelete]
+    [Route("deleteuser")]
+    public async Task<IActionResult> DeleteUser([FromBody] DeleteUserFromServerDTO data)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            await _serverService.DeleteUserFromServerAsync(jwtToken, data.ServerId, data.UserId);
+
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
 }

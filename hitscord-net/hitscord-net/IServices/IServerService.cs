@@ -14,4 +14,5 @@ public interface IServerService
     Task<ServersListDTO> GetServerListAsync(string token);
     Task ChangeUserRoleAsync(string token, Guid serverId, Guid userId, Guid roleId);
     Task<ServerInfoDTO> GetServerInfoAsync(string token, Guid serverId);
+    Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId);
 }

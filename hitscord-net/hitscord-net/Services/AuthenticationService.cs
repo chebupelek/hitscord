@@ -117,7 +117,7 @@ public class AuthenticationService : IAuthenticationService
                 throw new CustomException("User not subscriber of this server", "Check user rights for changing roles", "User", 400);
             }
             var server = await _hitsContext.Server.Include(s => s.RolesCanChangeRolesUsers).FirstOrDefaultAsync(s => s.Id == ServerId);
-            if (server == null || server.RolesCanChangeRolesUsers.Contains(existingSubscription.Role))
+            if (server == null || !server.RolesCanChangeRolesUsers.Contains(existingSubscription.Role))
             {
                 throw new CustomException("User doesnt has rights to change roles", "Check user rights for changing roles", "User", 400);
             }
@@ -142,9 +142,34 @@ public class AuthenticationService : IAuthenticationService
                 throw new CustomException("User not subscriber of this server", "Check user rights for work with channels", "User", 400);
             }
             var server = await _hitsContext.Server.Include(s => s.RolesCanWorkWithChannels).FirstOrDefaultAsync(s => s.Id == ServerId);
-            if (server == null || server.RolesCanWorkWithChannels.Contains(existingSubscription.Role))
+            if (server == null || !server.RolesCanWorkWithChannels.Contains(existingSubscription.Role))
             {
-                throw new CustomException("User doesnt has rights to change roles", "Check user rights for work with channels", "User", 400);
+                throw new CustomException("User doesnt has rights to work with channels", "Check user rights for work with channels", "User", 400);
+            }
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task CheckUserRightsDeleteUsers(Guid ServerId, Guid UserId)
+    {
+        try
+        {
+            var existingSubscription = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.UserId == UserId && us.ServerId == ServerId);
+            if (existingSubscription == null)
+            {
+                throw new CustomException("User not subscriber of this server", "Check user rights for delete users from server", "User", 400);
+            }
+            var server = await _hitsContext.Server.Include(s => s.RolesCanDeleteUsers).FirstOrDefaultAsync(s => s.Id == ServerId);
+            if (server == null || !server.RolesCanDeleteUsers.Contains(existingSubscription.Role))
+            {
+                throw new CustomException("User doesnt has rights to delete users from server", "Check user rights for delete users from server", "User", 400);
             }
         }
         catch (CustomException ex)
