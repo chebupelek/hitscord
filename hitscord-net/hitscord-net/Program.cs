@@ -24,6 +24,7 @@ builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 
 builder.Services.AddSignalR();
 

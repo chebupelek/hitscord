@@ -411,7 +411,7 @@ public class ServerService : IServerService
                             .ToList()
                     })
                     .ToList(),
-
+                    /*
                     AnnouncementChannels = announcementChannels
                     .Where(c =>
                         (
@@ -426,7 +426,7 @@ public class ServerService : IServerService
                         CanWrite = c.RolesCanWrite.Contains(sub.Role) || server.CreatorId == user.Id,
                         AnnoucementRoles = ((AnnouncementChannelDbModel)c).RolesToNotify.ToList()
                     })
-                    .ToList()
+                    .ToList()*/
                 }
             };
         }

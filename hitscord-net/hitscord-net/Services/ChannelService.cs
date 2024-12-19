@@ -47,6 +47,27 @@ public class ChannelService : IChannelService
         }
     }
 
+    public async Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId)
+    {
+        try
+        {
+            var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is TextChannelDbModel);
+            if (channel == null)
+            {
+                throw new CustomException("Text channel not found", "Check text channel for existing", "Text channel", 404);
+            }
+            return channel;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
     public async Task<ChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers)
     {
         try
@@ -224,6 +245,44 @@ public class ChannelService : IChannelService
             var channel = await CheckChannelExistAsync(chnnelId, true);
             await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
             return new ChannelSettingsDTO { CanRead = channel.RolesCanView.ToList(), CanWrite = channel.RolesCanWrite.ToList() };
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, string token, int number, int fromStart)
+    {
+        try
+        {
+            var user = await _authService.GetUserByTokenAsync(token);
+            var channel = await CheckTextChannelExistAsync(channelId);
+            await _authenticationService.CheckUserRightsSeeChannel(channel.Id, user.Id);
+            return new MessageListResponseDTO
+            {
+                Messages = await _hitsContext.Messages
+                    .Where(m => m.TextChannelId == channel.Id)
+                    .OrderBy(m => m.CreatedAt)
+                    .Skip(fromStart)
+                    .Take(number)
+                    .Select(m => new MessageResponceDTO
+                    {
+                        Id = m.Id,
+                        Text = m.Text,
+                        AuthorId = m.UserId,
+                        AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == m.UserId && us.ServerId == channel.ServerId)).UserServerName,
+                        CreatedAt = m.CreatedAt,
+                        ModifiedAt = m.UpdatedAt
+                    })
+                    .ToListAsync(),
+                NumberOfMessages = number,
+                NumberOfStarterMessage = fromStart
+            };
         }
         catch (CustomException ex)
         {

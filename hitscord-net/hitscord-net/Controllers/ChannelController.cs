@@ -84,6 +84,27 @@ public class ChannelController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet]
+    [Route("gettextchannelmessages")]
+    public async Task<IActionResult> GetTextChannelMesssages([FromQuery] Guid channelId, [FromQuery] int number, [FromQuery] int fromStart)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            var messages = await _channelService.MessagesListAsync(channelId, jwtToken, number, fromStart);
+            return Ok(messages);
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
     [HttpPost]
     [Route("addroletoCANREADchannelsetting")]
     public async Task<IActionResult> AddCanReadSettings([FromBody] ChannelRoleDTO channelRoleData)
