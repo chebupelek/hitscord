@@ -8,7 +8,10 @@ public class ServerInfoDTO
     public required string ServerName { get; set; }
     public required List<RoleDbModel> Roles { get; set; }
     public required Guid UserRoleId { get; set; }
-    public required String UserRole { get; set; }
+    public required string UserRole { get; set; }
+    public required bool CanChangeRole { get; set; }
+    public required bool CanDeleteUsers { get; set; }
+    public required bool CanWorkWithChannels { get; set; }
     public required List<ServerUserDTO> Users { get; set;}
     public required ChannelListDTO Channels { get; set; }
 }

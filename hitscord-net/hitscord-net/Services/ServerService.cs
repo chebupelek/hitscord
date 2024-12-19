@@ -5,11 +5,8 @@ using hitscord_net.IServices;
 using hitscord_net.Models.DBModels;
 using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
-using System.Xml.Linq;
 
 namespace hitscord_net.Services;
 
@@ -18,12 +15,14 @@ public class ServerService : IServerService
     private readonly HitsContext _hitsContext;
     private readonly IAuthorizationService _authorizationService;
     private readonly IRoleService _roleService;
+    private readonly IAuthenticationService _authenticationService;
 
-    public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IRoleService roleService)
+    public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IRoleService roleService, IAuthenticationService authenticationService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
         _roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
+        _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
     }
 
     public async Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels)
@@ -31,7 +30,7 @@ public class ServerService : IServerService
         try
         {
             var server = includeChannels ? await _hitsContext.Server.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Id == serverId) :
-            await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == serverId);
+                await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == serverId);
             if (server == null)
             {
                 throw new CustomException("Server not found", "Check server for existing", "Server id", 404);
@@ -57,6 +56,9 @@ public class ServerService : IServerService
                     .ThenInclude(c => c.RolesCanView)
                 .Include(s => s.Channels)
                     .ThenInclude(c => c.RolesCanWrite)
+                .Include(s => s.RolesCanChangeRolesUsers)
+                .Include(s => s.RolesCanDeleteUsers)
+                .Include(s => s.RolesCanWorkWithChannels)
                 .FirstOrDefaultAsync(s => s.Id == serverId);
             if (server == null)
             {
@@ -78,14 +80,16 @@ public class ServerService : IServerService
     {
         try
         {
-            await _authorizationService.CheckUserAuthAsync(token);
             var user = await _authorizationService.GetUserByTokenAsync(token);
-            var adminRole = (await _roleService.CheckRoleExistAsync("Admin")).Id;
+            var adminRole = await _roleService.CheckRoleExistAsync("Admin");
 
             var newServer = new ServerDbModel()
             {
                 Name = serverName,
-                CreatorId = user.Id
+                CreatorId = user.Id,
+                RolesCanDeleteUsers = new List<RoleDbModel>() { adminRole },
+                RolesCanWorkWithChannels = new List<RoleDbModel>() { adminRole },
+                RolesCanChangeRolesUsers = new List<RoleDbModel>() { adminRole }
             };
             await _hitsContext.Server.AddAsync(newServer);
             await _hitsContext.SaveChangesAsync();
@@ -94,7 +98,7 @@ public class ServerService : IServerService
             {
                 UserId = user.Id,
                 ServerId = newServer.Id,
-                RoleId = adminRole,
+                RoleId = adminRole.Id,
                 UserServerName = user.AccountName
             };
             await _hitsContext.UserServer.AddAsync(newSub);
@@ -147,28 +151,17 @@ public class ServerService : IServerService
     {
         try
         {
-            await _authorizationService.CheckUserAuthAsync(token);
-
             var user = await _authorizationService.GetUserByTokenAsync(token);
-
             var server = await CheckServerExistAsync(serverId, false);
-
-            var existingSubscription = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId);
-            if (existingSubscription != null)
-            {
-                throw new CustomException("User is already subscribed to this server", "Subscribe", "User", 400);
-            }
-
-            var uncertainRole = await _roleService.CheckRoleExistAsync("Uncertain");
-
+            await _authenticationService.CheckSubscriptionNotExistAsync(server.Id, user.Id);
+            var uncertainRole = (await _roleService.CheckRoleExistAsync("Uncertain")).Id;
             var newSub = new UserServerDbModel
             {
                 UserId = user.Id,
                 ServerId = serverId,
-                RoleId = uncertainRole.Id,
+                RoleId = uncertainRole,
                 UserServerName = userName != null ? userName : user.AccountName
             };
-
             await _hitsContext.UserServer.AddAsync(newSub);
             await _hitsContext.SaveChangesAsync();
         }
@@ -186,29 +179,20 @@ public class ServerService : IServerService
     {
         try
         {
-            await _authorizationService.CheckUserAuthAsync(token);
-
             var user = await _authorizationService.GetUserByTokenAsync(token);
-
             var server = await CheckServerExistAsync(serverId, false);
-
-            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId);
-            if (sub == null)
-            {
-                throw new CustomException("User not subscriber of this server", "Unsubscribe", "User", 400);
-            }
-
-            if (server.CreatorId == user.Id)
-            {
-                throw new CustomException("User is the creator of this server", "Unsubscribe", "User", 400);
-            }
-
-            var voiceChannel = await _hitsContext.Channel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.ServerId == serverId && c is VoiceChannelDbModel && ((VoiceChannelDbModel)c).Users.Contains(user));
+            var sub = await _authenticationService.CheckUserNotCreatorAsync(server.Id, user.Id);
+            var voiceChannel = await _hitsContext.Channel
+                .Include(c => ((VoiceChannelDbModel)c).Users)
+                .FirstOrDefaultAsync(c => 
+                    c.ServerId == serverId && 
+                    c is VoiceChannelDbModel && 
+                    ((VoiceChannelDbModel)c).Users.Contains(user)
+                );
             if(voiceChannel != null)
             {
                 ((VoiceChannelDbModel)voiceChannel).Users.Remove(user);
             }
-
             _hitsContext.UserServer.Remove(sub);
             await _hitsContext.SaveChangesAsync();
         }
@@ -226,36 +210,27 @@ public class ServerService : IServerService
     {
         try
         {
-            await _authorizationService.CheckUserAuthAsync(token);
-
-            var user = await _authorizationService.GetUserByTokenAsync(token);
-
+            var owner = await _authorizationService.GetUserByTokenAsync(token);
             var server = await CheckServerExistAsync(serverId, false);
-
-            var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId);
-            if (sub == null)
-            {
-                throw new CustomException("User not subscriber of this server", "Unsubscribe", "User", 400);
-            }
             var newCreator = await _authorizationService.GetUserByIdAsync(newCreatorId);
-            var newCreatorSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == newCreator.Id && us.ServerId == serverId);
-            if (newCreatorSub == null)
-            {
-                throw new CustomException("User for new creator not subscriber of this server", "Unsubscribe", "User for new creator", 400);
-            }
-
-            var adminRole = await _roleService.CheckRoleExistAsync("Admin");
-
-            var voiceChannel = await _hitsContext.Channel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.ServerId == serverId && c is VoiceChannelDbModel && ((VoiceChannelDbModel)c).Users.Contains(user));
+            var ownerSub = await _authenticationService.CheckUserCreatorAsync(server.Id, owner.Id);
+            var newCreatorSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, newCreator.Id);
+            var adminRole = (await _roleService.CheckRoleExistAsync("Admin")).Id;
+            var voiceChannel = await _hitsContext.Channel
+                .Include(c => ((VoiceChannelDbModel)c).Users)
+                .FirstOrDefaultAsync(c => 
+                    c.ServerId == serverId && 
+                    c is VoiceChannelDbModel && 
+                    ((VoiceChannelDbModel)c).Users.Contains(owner)
+                );
             if (voiceChannel != null)
             {
-                ((VoiceChannelDbModel)voiceChannel).Users.Remove(user);
+                ((VoiceChannelDbModel)voiceChannel).Users.Remove(owner);
             }
-
-            _hitsContext.UserServer.Remove(sub);
+            _hitsContext.UserServer.Remove(ownerSub);
             server.CreatorId = newCreator.Id;
             _hitsContext.Server.Update(server);
-            newCreatorSub.RoleId = adminRole.Id;
+            newCreatorSub.RoleId = adminRole;
             _hitsContext.UserServer.Update(newCreatorSub);
             await _hitsContext.SaveChangesAsync();
         }
@@ -273,30 +248,19 @@ public class ServerService : IServerService
     {
         try
         {
-            await _authorizationService.CheckUserAuthAsync(token);
-
-            var user = await _authorizationService.GetUserByTokenAsync(token);
-
+            var owner = await _authorizationService.GetUserByTokenAsync(token);
             var server = await CheckServerExistAsync(serverId, true);
-            if (server.CreatorId != user.Id)
-            {
-                throw new CustomException("User is not the creator of this server", "Delete server", "User", 401);
-            }
-
+            await _authenticationService.CheckUserCreatorAsync(server.Id, owner.Id);
             var userServerRelations = _hitsContext.UserServer.Where(us => us.ServerId == server.Id);
             _hitsContext.UserServer.RemoveRange(userServerRelations);
-
             var voiceChannels = server.Channels.OfType<VoiceChannelDbModel>().ToList();
             foreach (var voiceChannel in voiceChannels)
             {
                 voiceChannel.Users.Clear();
             }
-
             var channelsToDelete = server.Channels.ToList();
             _hitsContext.Channel.RemoveRange(channelsToDelete);
-
             _hitsContext.Server.Remove(server);
-
             await _hitsContext.SaveChangesAsync();
         }
         catch (CustomException ex)
@@ -313,10 +277,7 @@ public class ServerService : IServerService
     {
         try
         {
-            await _authorizationService.CheckUserAuthAsync(token);
-
             var user = await _authorizationService.GetUserByTokenAsync(token);
-
             return new ServersListDTO
             {
                 ServersList = await _hitsContext.UserServer
@@ -346,30 +307,20 @@ public class ServerService : IServerService
     {
         try
         {
-            await _authorizationService.CheckUserAuthAsync(token);
-
             var owner = await _authorizationService.GetUserByTokenAsync(token);
-
             var server = await CheckServerExistAsync(serverId, false);
-
-            var adminRole = await _roleService.CheckRoleExistAsync("Admin");
-
-            var ownerSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == owner.Id && us.ServerId == server.Id && us.RoleId == adminRole.Id);
-            if(ownerSub == null)
-            {
-                throw new CustomException("Owner not admin of this server", "Change role", "Owner", 401);
-            }
-
+            await _authenticationService.CheckUserRightsChangeRoles(server.Id, owner.Id);
             await _authorizationService.GetUserByIdAsync(userId);
-
-            var userSub = await _hitsContext.UserServer.FirstOrDefaultAsync(s => s.UserId == userId && s.ServerId == serverId && s.UserId != owner.Id);
-            if (userSub == null)
+            var userSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, userId);
+            if(userId == owner.Id)
             {
-                throw new CustomException("User not subscriber of this server", "Change role", "User", 400);
+                throw new CustomException("User cant change his role", "Change user role", "User", 400);
             }
-
+            if (server.CreatorId == userId)
+            {
+                throw new CustomException("User cant change role of creator", "Change user role", "User", 400);
+            }
             var role = await _roleService.CheckRoleExistByIdAsync(roleId);
-
             userSub.RoleId = role.Id;
             _hitsContext.UserServer.Update(userSub);
             await _hitsContext.SaveChangesAsync();
@@ -388,16 +339,9 @@ public class ServerService : IServerService
     {
         try
         {
-            await _authorizationService.CheckUserAuthAsync(token);
             var user = await _authorizationService.GetUserByTokenAsync(token);
             var server = await GetServerFullModelAsync(serverId);
-
-            var userServer = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => (us.UserId == user.Id && us.ServerId == serverId));
-            if (userServer == null)
-            {
-                throw new CustomException("User not subscriber of this server", "Get server info", "User", 401);
-            }
-
+            var sub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
             var announcementChannels = await _hitsContext.Channel
                 .Include(c => c.RolesCanView)
                 .Include(c => c.RolesCanWrite)
@@ -410,8 +354,11 @@ public class ServerService : IServerService
                 ServerId = serverId,
                 ServerName = server.Name,
                 Roles = await _hitsContext.Role.ToListAsync(),
-                UserRoleId = userServer.RoleId,
-                UserRole = userServer.Role.Name,
+                UserRoleId = sub.RoleId,
+                UserRole = sub.Role.Name,
+                CanChangeRole = server.RolesCanChangeRolesUsers.Contains(sub.Role),
+                CanDeleteUsers = server.RolesCanDeleteUsers.Contains(sub.Role),
+                CanWorkWithChannels = server.RolesCanWorkWithChannels.Contains(sub.Role),
                 Users = await _hitsContext.UserServer
                     .Where(us => us.ServerId == serverId)
                     .Join(_hitsContext.User,
@@ -430,7 +377,7 @@ public class ServerService : IServerService
                     TextChannels = server.Channels
                     .Where(c =>
                         (
-                            c.RolesCanView.Contains(userServer.Role) ||
+                            c.RolesCanView.Contains(sub.Role) ||
                             server.CreatorId == user.Id
                         ) &&
                         c is TextChannelDbModel &&
@@ -439,14 +386,14 @@ public class ServerService : IServerService
                     {
                         ChannelName = c.Name,
                         ChannelId = c.Id,
-                        CanWrite = c.RolesCanWrite.Contains(userServer.Role) || server.CreatorId == user.Id
+                        CanWrite = c.RolesCanWrite.Contains(sub.Role) || server.CreatorId == user.Id
                     })
                     .ToList(),
 
                     VoiceChannels = server.Channels
                     .Where(c =>
                         (
-                            c.RolesCanView.Contains(userServer.Role) ||
+                            c.RolesCanView.Contains(sub.Role) ||
                             server.CreatorId == user.Id
                         ) &&
                         c is VoiceChannelDbModel)
@@ -454,7 +401,7 @@ public class ServerService : IServerService
                     {
                         ChannelName = c.Name,
                         ChannelId = c.Id,
-                        CanJoin = c.RolesCanWrite.Contains(userServer.Role) || server.CreatorId == user.Id,
+                        CanJoin = c.RolesCanWrite.Contains(sub.Role) || server.CreatorId == user.Id,
                         Users = ((VoiceChannelDbModel)c).Users
                             .Select(u => new VoiceChannelUserDTO
                             {
@@ -468,7 +415,7 @@ public class ServerService : IServerService
                     AnnouncementChannels = announcementChannels
                     .Where(c =>
                         (
-                            c.RolesCanView.Contains(userServer.Role) ||
+                            c.RolesCanView.Contains(sub.Role) ||
                             server.CreatorId == user.Id
                         ) &&
                         c is AnnouncementChannelDbModel)
@@ -476,7 +423,7 @@ public class ServerService : IServerService
                     {
                         ChannelName = c.Name,
                         ChannelId = c.Id,
-                        CanWrite = c.RolesCanWrite.Contains(userServer.Role) || server.CreatorId == user.Id,
+                        CanWrite = c.RolesCanWrite.Contains(sub.Role) || server.CreatorId == user.Id,
                         AnnoucementRoles = ((AnnouncementChannelDbModel)c).RolesToNotify.ToList()
                     })
                     .ToList()

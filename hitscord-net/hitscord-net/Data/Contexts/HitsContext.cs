@@ -33,6 +33,15 @@ namespace hitscord_net.Data.Contexts
                 entity.HasMany(e => e.Channels)
                     .WithOne(c => c.Server)
                     .HasForeignKey(c => c.ServerId);
+
+                entity.HasMany(c => c.RolesCanDeleteUsers)
+                    .WithMany();
+
+                entity.HasMany(c => c.RolesCanWorkWithChannels)
+                    .WithMany();
+
+                entity.HasMany(c => c.RolesCanChangeRolesUsers)
+                    .WithMany();
             });
 
             modelBuilder.Entity<UserServerDbModel>(entity =>
