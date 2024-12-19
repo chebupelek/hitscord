@@ -5,23 +5,24 @@ using hitscord_net.IServices;
 using hitscord_net.Models.DBModels;
 using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Xml.Linq;
 
 namespace hitscord_net.Services;
 
 public class ServerService : IServerService
 {
     private readonly HitsContext _hitsContext;
-    private readonly IChannelService _channelService;
     private readonly IAuthorizationService _authorizationService;
     private readonly IRoleService _roleService;
 
-    public ServerService(HitsContext hitsContext, IChannelService channelService, IAuthorizationService authorizationService, IRoleService roleService)
+    public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IRoleService roleService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
-        _channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
         _roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
     }
 
@@ -73,39 +74,64 @@ public class ServerService : IServerService
         }
     }
 
-    public async Task CreateServerAsync(string token, string severName)
+    public async Task CreateServerAsync(string token, string serverName)
     {
         try
         {
             await _authorizationService.CheckUserAuthAsync(token);
-
             var user = await _authorizationService.GetUserByTokenAsync(token);
-
-            var adminRole = await _roleService.CheckRoleExistAsync("Admin");
+            var adminRole = (await _roleService.CheckRoleExistAsync("Admin")).Id;
 
             var newServer = new ServerDbModel()
             {
-                Name = severName,
+                Name = serverName,
                 CreatorId = user.Id
             };
             await _hitsContext.Server.AddAsync(newServer);
-            _hitsContext.SaveChanges();
+            await _hitsContext.SaveChangesAsync();
 
             var newSub = new UserServerDbModel
             {
                 UserId = user.Id,
                 ServerId = newServer.Id,
-                RoleId = adminRole.Id,
+                RoleId = adminRole,
                 UserServerName = user.AccountName
             };
             await _hitsContext.UserServer.AddAsync(newSub);
-            _hitsContext.SaveChanges();
+            await _hitsContext.SaveChangesAsync();
 
-            await _channelService.CreateChannelAsync(newServer.Id, token, "Основной", ChannelTypeEnum.Text);
-            await _channelService.CreateChannelAsync(newServer.Id, token, "Основной", ChannelTypeEnum.Voice);
-            await _channelService.CreateChannelAsync(newServer.Id, token, "Основной", ChannelTypeEnum.Announcement);
+            var newTextChannel = new TextChannelDbModel
+            {
+                Name = "Основной текстовый",
+                ServerId = newServer.Id,
+                IsMessage = false,
+                RolesCanView = await _hitsContext.Role.ToListAsync(),
+                RolesCanWrite = await _hitsContext.Role.ToListAsync()
+            };
+            var newVoiceChannel = new VoiceChannelDbModel
+            {
+                Name = "Основной голосовой",
+                ServerId = newServer.Id,
+                RolesCanView = await _hitsContext.Role.ToListAsync(),
+                RolesCanWrite = await _hitsContext.Role.ToListAsync()
+            };
+            var newAnnouncementChannel = new AnnouncementChannelDbModel
+            {
+                Name = "Основной опросный",
+                ServerId = newServer.Id,
+                RolesCanView = await _hitsContext.Role.ToListAsync(),
+                RolesCanWrite = await _hitsContext.Role.ToListAsync()
+            };
+            await _hitsContext.Channel.AddAsync(newTextChannel);
+            await _hitsContext.Channel.AddAsync(newVoiceChannel);
+            await _hitsContext.Channel.AddAsync(newAnnouncementChannel);
+            await _hitsContext.SaveChangesAsync();
 
-            _hitsContext.SaveChanges();
+            newServer.Channels.Add(newTextChannel);
+            newServer.Channels.Add(newVoiceChannel);
+            newServer.Channels.Add(newAnnouncementChannel);
+            _hitsContext.Server.Update(newServer);
+            await _hitsContext.SaveChangesAsync();
         }
         catch (CustomException ex)
         {
@@ -363,16 +389,21 @@ public class ServerService : IServerService
         try
         {
             await _authorizationService.CheckUserAuthAsync(token);
-
             var user = await _authorizationService.GetUserByTokenAsync(token);
-
-            var server = await CheckServerExistAsync(serverId, false);
+            var server = await GetServerFullModelAsync(serverId);
 
             var userServer = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => (us.UserId == user.Id && us.ServerId == serverId));
             if (userServer == null)
             {
                 throw new CustomException("User not subscriber of this server", "Get server info", "User", 401);
             }
+
+            var announcementChannels = await _hitsContext.Channel
+                .Include(c => c.RolesCanView)
+                .Include(c => c.RolesCanWrite)
+                .Include(c => ((AnnouncementChannelDbModel)c).RolesToNotify)
+                .Where(c => c.ServerId == serverId && c is AnnouncementChannelDbModel)
+                .ToListAsync();
 
             return new ServerInfoDTO
             {
@@ -394,7 +425,62 @@ public class ServerService : IServerService
                               RoleName = us.Role.Name
                           })
                     .ToListAsync(),
-                Channels = await _channelService.GetChannelListAsync(serverId, token)
+                Channels = new ChannelListDTO
+                {
+                    TextChannels = server.Channels
+                    .Where(c =>
+                        (
+                            c.RolesCanView.Contains(userServer.Role) ||
+                            server.CreatorId == user.Id
+                        ) &&
+                        c is TextChannelDbModel &&
+                        ((TextChannelDbModel)c).IsMessage == false)
+                    .Select(c => new TextChannelResponseDTO
+                    {
+                        ChannelName = c.Name,
+                        ChannelId = c.Id,
+                        CanWrite = c.RolesCanWrite.Contains(userServer.Role) || server.CreatorId == user.Id
+                    })
+                    .ToList(),
+
+                    VoiceChannels = server.Channels
+                    .Where(c =>
+                        (
+                            c.RolesCanView.Contains(userServer.Role) ||
+                            server.CreatorId == user.Id
+                        ) &&
+                        c is VoiceChannelDbModel)
+                    .Select(c => new VoiceChannelResponseDTO
+                    {
+                        ChannelName = c.Name,
+                        ChannelId = c.Id,
+                        CanJoin = c.RolesCanWrite.Contains(userServer.Role) || server.CreatorId == user.Id,
+                        Users = ((VoiceChannelDbModel)c).Users
+                            .Select(u => new VoiceChannelUserDTO
+                            {
+                                UserId = u.Id,
+                                UserName = u.AccountName
+                            })
+                            .ToList()
+                    })
+                    .ToList(),
+
+                    AnnouncementChannels = announcementChannels
+                    .Where(c =>
+                        (
+                            c.RolesCanView.Contains(userServer.Role) ||
+                            server.CreatorId == user.Id
+                        ) &&
+                        c is AnnouncementChannelDbModel)
+                    .Select(c => new AnnouncementChannelResponseDTO
+                    {
+                        ChannelName = c.Name,
+                        ChannelId = c.Id,
+                        CanWrite = c.RolesCanWrite.Contains(userServer.Role) || server.CreatorId == user.Id,
+                        AnnoucementRoles = ((AnnouncementChannelDbModel)c).RolesToNotify.ToList()
+                    })
+                    .ToList()
+                }
             };
         }
         catch (CustomException ex)
