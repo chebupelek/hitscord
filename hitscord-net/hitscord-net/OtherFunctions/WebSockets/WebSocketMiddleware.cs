@@ -15,8 +15,8 @@ public class WebSocketMiddleware
     {
         if (context.WebSockets.IsWebSocketRequest)
         {
-            var userIdHeader = context.Request.Headers["UserId"];
-            if (Guid.TryParse(userIdHeader, out var userId))
+            var userIdQuery = context.Request.Query["userId"];
+            if (Guid.TryParse(userIdQuery, out var userId))
             {
                 var socket = await context.WebSockets.AcceptWebSocketAsync();
                 await _webSocketHandler.HandleAsync(userId, socket);
@@ -24,6 +24,7 @@ public class WebSocketMiddleware
             else
             {
                 context.Response.StatusCode = 400;
+                await context.Response.WriteAsync("Invalid UserId");
             }
         }
         else
@@ -31,4 +32,5 @@ public class WebSocketMiddleware
             await _next(context);
         }
     }
+
 }

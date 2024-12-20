@@ -201,11 +201,11 @@ public class AuthenticationService : IAuthenticationService
             {
                 throw new CustomException("User not subscriber of this server", "Check user rights for write in channel", "User", 401);
             }
-            if (channel.RolesCanView.Contains(existingSubscription.Role))
+            if (!channel.RolesCanView.Contains(existingSubscription.Role))
             {
                 throw new CustomException("Role of user cant see this channel", "Check user rights for write in channel", "User", 401);
             }
-            if (channel.RolesCanWrite.Contains(existingSubscription.Role))
+            if (!channel.RolesCanWrite.Contains(existingSubscription.Role))
             {
                 throw new CustomException("Role of user cant join to this channel", "Check user rights for write in channel", "User", 401);
             }
@@ -239,7 +239,7 @@ public class AuthenticationService : IAuthenticationService
             {
                 throw new CustomException("User not subscriber of this server", "Check user rights for write in channel", "User", 401);
             }
-            if (channel.RolesCanView.Contains(existingSubscription.Role))
+            if (!channel.RolesCanView.Contains(existingSubscription.Role))
             {
                 throw new CustomException("Role of user cant see this channel", "Check user rights for write in channel", "User", 401);
             }
