@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace hitscord_net.IServices;
 
-public interface IAuthService
+public interface IAuthorizationService
 {
     Task<bool> CheckUserAuthAsync(string token);
     Task<UserDbModel> GetUserByTokenAsync(string token);

@@ -2,11 +2,8 @@
 using hitscord_net.Models.DTOModels.RequestsDTO;
 using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
-using hitscord_net.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 
 namespace hitscord_net.Controllers;
 
@@ -32,48 +29,6 @@ public class ChannelController : ControllerBase
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             await _channelService.CreateChannelAsync(channelData.ServerId, jwtToken, channelData.Name, channelData.ChannelType);
-            return Ok();
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-
-    [Authorize]
-    [HttpPost]
-    [Route("jointovoicechannel")]
-    public async Task<IActionResult> JoinToVoiceChannel([FromBody] VoiceChannelIdDTO channelId)
-    {
-        try
-        {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.JoinToVoiceChannelAsync(channelId.VoiceChannelId, jwtToken);
-            return Ok();
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-
-    [Authorize]
-    [HttpDelete]
-    [Route("removefromvoicechannel")]
-    public async Task<IActionResult> RemoveFromVoiceChannel([FromBody] VoiceChannelIdDTO channelId)
-    {
-        try
-        {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.RemoveFromVoiceChannelAsync(channelId.VoiceChannelId, jwtToken);
             return Ok();
         }
         catch (CustomException ex)
@@ -117,6 +72,27 @@ public class ChannelController : ControllerBase
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             var settings = await _channelService.GetChannelSettingsAsync(channelId, jwtToken);
             return Ok(settings);
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpGet]
+    [Route("gettextchannelmessages")]
+    public async Task<IActionResult> GetTextChannelMesssages([FromQuery] Guid channelId, [FromQuery] int number, [FromQuery] int fromStart)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            var messages = await _channelService.MessagesListAsync(channelId, jwtToken, number, fromStart);
+            return Ok(messages);
         }
         catch (CustomException ex)
         {
@@ -200,6 +176,48 @@ public class ChannelController : ControllerBase
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             await _channelService.RemoveRoleFromCanWriteSettingAsync(channelRoleData.ChannelId, jwtToken, channelRoleData.Role);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpPost]
+    [Route("jointovoicechannel")]
+    public async Task<IActionResult> JoinToVoiceChannel([FromBody] VoiceChannelIdDTO channelId)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.JoinToVoiceChannelAsync(channelId.VoiceChannelId, jwtToken);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpDelete]
+    [Route("removefromvoicechannel")]
+    public async Task<IActionResult> RemoveFromVoiceChannel([FromBody] VoiceChannelIdDTO channelId)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.RemoveFromVoiceChannelAsync(channelId.VoiceChannelId, jwtToken);
             return Ok();
         }
         catch (CustomException ex)

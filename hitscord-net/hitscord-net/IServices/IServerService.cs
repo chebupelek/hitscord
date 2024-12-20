@@ -5,6 +5,8 @@ namespace hitscord_net.IServices;
 
 public interface IServerService
 {
+    Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels);
+    Task<ServerDbModel> GetServerFullModelAsync(Guid serverId);
     Task CreateServerAsync(string token, string severName);
     Task SubscribeAsync(Guid serverId, string token, string? userName);
     Task UnsubscribeAsync(Guid serverId, string token);
@@ -12,6 +14,5 @@ public interface IServerService
     Task<ServersListDTO> GetServerListAsync(string token);
     Task ChangeUserRoleAsync(string token, Guid serverId, Guid userId, Guid roleId);
     Task<ServerInfoDTO> GetServerInfoAsync(string token, Guid serverId);
-    Task CreateRolesAsync();
-    Task<List<RoleDbModel>> GetRolesAsync();
+    Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId);
 }

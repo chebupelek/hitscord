@@ -27,4 +27,7 @@ public class ServerDbModel
 
     public ICollection<UserServerDbModel> UserServer { get; set; }
     public ICollection<ChannelDbModel> Channels { get; set; }
+    public ICollection<RoleDbModel> RolesCanDeleteUsers { get; set; }
+    public ICollection<RoleDbModel> RolesCanWorkWithChannels { get; set; }
+    public ICollection<RoleDbModel> RolesCanChangeRolesUsers { get; set; }
 }

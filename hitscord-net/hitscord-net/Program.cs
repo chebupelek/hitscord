@@ -1,5 +1,7 @@
+using System.Security.Cryptography.X509Certificates;
 using hitscord_net.Data.Contexts;
 using hitscord_net.IServices;
+using hitscord_net.OtherFunctions.WebSockets;
 using hitscord_net.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -18,10 +20,16 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IServerService, ServerService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+
+builder.Services.AddSingleton<WebSocketsManager>();
+builder.Services.AddSingleton<WebSocketHandler>();
 
 builder.Services.AddSignalR();
 
@@ -81,6 +89,16 @@ builder.Services.AddCors(options =>
         });
 });
 
+var certificate = new X509Certificate2("/etc/letsencrypt/live/hitscord-backend.online/certificate.pfx", "123456");
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(443, listenOptions =>
+    {
+        listenOptions.UseHttps(certificate);
+    });
+});
+
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -90,6 +108,11 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors("AllowSpecificOrigin");
+
+app.UseWebSockets();
+app.UseMiddleware<WebSocketMiddleware>();
+
+app.MapGet("/", () => "WebSocket server is running!");
 
 if (app.Environment.IsDevelopment())
 {
@@ -105,4 +128,4 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.Run();
+app.Run("http://0.0.0.0:5149");

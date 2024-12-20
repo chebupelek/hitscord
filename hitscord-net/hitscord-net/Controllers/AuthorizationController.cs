@@ -9,12 +9,12 @@ namespace hitscord_net.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class UserController : ControllerBase
+public class AuthorizationController : ControllerBase
 {
-    private readonly IAuthService _authService;
+    private readonly IServices.IAuthorizationService _authService;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public UserController(IAuthService authService, IHttpContextAccessor httpContextAccessor)
+    public AuthorizationController(IServices.IAuthorizationService authService, IHttpContextAccessor httpContextAccessor)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));

@@ -6,8 +6,8 @@ namespace hitscord_net.IServices;
 
 public interface IChannelService
 {
+    Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId);
     Task CreateChannelAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType);
-    Task<ChannelListDTO> GetChannelListAsync(Guid serverId, string token);
     Task<bool> JoinToVoiceChannelAsync(Guid chnnelId, string token);
     Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, string token);
     Task<bool> DeleteChannelAsync(Guid chnnelId, string token);
@@ -16,5 +16,6 @@ public interface IChannelService
     Task<bool> RemoveRoleFromCanReadSettingAsync(Guid chnnelId, string token, Guid roleId);
     Task<bool> AddRoleToCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId);
     Task<bool> RemoveRoleFromCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId);
+    Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, string token, int number, int fromStart);
 
 }

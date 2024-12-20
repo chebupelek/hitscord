@@ -12,13 +12,13 @@ using System.Text.RegularExpressions;
 
 namespace hitscord_net.Services;
 
-public class AuthService : IAuthService
+public class AuthorizationService : IAuthorizationService
 {
     private readonly HitsContext _hitsContext;
     private readonly PasswordHasher<string> _passwordHasher;
     private readonly ITokenService _tokenService;
 
-    public AuthService(HitsContext hitsContext, ITokenService tokenService)
+    public AuthorizationService(HitsContext hitsContext, ITokenService tokenService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _passwordHasher = new PasswordHasher<string>();
@@ -165,6 +165,26 @@ public class AuthService : IAuthService
             var tokens = _tokenService.CreateTokens(newUser);
             await _tokenService.ValidateTokenAsync(tokens.AccessToken, tokens.RefreshToken, newUser.Id);
 
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId == newUser.Id);
+            if(userCoordinates != null) 
+            {
+                userCoordinates.ServerId = null;
+                userCoordinates.ChannelId = null;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+            else
+            {
+                userCoordinates = new UserServerChannelDbModel
+                {
+                    UserId = newUser.Id,
+                    ServerId = null,
+                    ChannelId = null
+                };
+                _hitsContext.UserCoordinates.Add(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+
             return tokens;
         }
         catch (CustomException ex)
@@ -197,6 +217,26 @@ public class AuthService : IAuthService
             var tokens = _tokenService.CreateTokens(userData);
             await _tokenService.ValidateTokenAsync(tokens.AccessToken, tokens.RefreshToken, userData.Id);
 
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId == userData.Id);
+            if (userCoordinates != null)
+            {
+                userCoordinates.ServerId = null;
+                userCoordinates.ChannelId = null;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+            else
+            {
+                userCoordinates = new UserServerChannelDbModel
+                {
+                    UserId = userData.Id,
+                    ServerId = null,
+                    ChannelId = null
+                };
+                _hitsContext.UserCoordinates.Add(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+
             return tokens;
         }
         catch (CustomException ex)
@@ -213,9 +253,18 @@ public class AuthService : IAuthService
     {
         try
         {
-            await CheckUserAuthAsync(token);
+            var userData = await GetUserByTokenAsync(token);
 
             await _tokenService.InvalidateTokenAsync(token);
+
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId == userData.Id);
+            if (userCoordinates != null)
+            {
+                userCoordinates.ServerId = null;
+                userCoordinates.ChannelId = null;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
         }
         catch (CustomException ex)
         {

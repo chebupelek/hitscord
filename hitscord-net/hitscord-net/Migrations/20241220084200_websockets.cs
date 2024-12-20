@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace hitscord_net.Migrations
 {
     /// <inheritdoc />
-    public partial class test : Migration
+    public partial class websockets : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -35,6 +35,20 @@ namespace hitscord_net.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Token", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserCoordinates",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ServerId = table.Column<Guid>(type: "uuid", nullable: true),
+                    ChannelId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserCoordinates", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -141,6 +155,50 @@ namespace hitscord_net.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Messages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Text = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: false),
+                    Tags = table.Column<string[]>(type: "text[]", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TextChannelId = table.Column<Guid>(type: "uuid", nullable: false),
+                    MessageType = table.Column<string>(type: "character varying(21)", maxLength: 21, nullable: false),
+                    NestedChannelId = table.Column<Guid>(type: "uuid", nullable: true),
+                    ReplyToMessageId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Messages", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Messages_Channel_NestedChannelId",
+                        column: x => x.NestedChannelId,
+                        principalTable: "Channel",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Messages_Channel_TextChannelId",
+                        column: x => x.TextChannelId,
+                        principalTable: "Channel",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Messages_Messages_ReplyToMessageId",
+                        column: x => x.ReplyToMessageId,
+                        principalTable: "Messages",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Messages_User_UserId",
+                        column: x => x.UserId,
+                        principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Server",
                 columns: table => new
                 {
@@ -155,6 +213,102 @@ namespace hitscord_net.Migrations
                         name: "FK_Server_User_CreatorId",
                         column: x => x.CreatorId,
                         principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "MessageDbModelRoleDbModel",
+                columns: table => new
+                {
+                    MessageDbModelId = table.Column<Guid>(type: "uuid", nullable: false),
+                    RolesId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MessageDbModelRoleDbModel", x => new { x.MessageDbModelId, x.RolesId });
+                    table.ForeignKey(
+                        name: "FK_MessageDbModelRoleDbModel_Messages_MessageDbModelId",
+                        column: x => x.MessageDbModelId,
+                        principalTable: "Messages",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_MessageDbModelRoleDbModel_Role_RolesId",
+                        column: x => x.RolesId,
+                        principalTable: "Role",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RoleDbModelServerDbModel",
+                columns: table => new
+                {
+                    RolesCanDeleteUsersId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ServerDbModelId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RoleDbModelServerDbModel", x => new { x.RolesCanDeleteUsersId, x.ServerDbModelId });
+                    table.ForeignKey(
+                        name: "FK_RoleDbModelServerDbModel_Role_RolesCanDeleteUsersId",
+                        column: x => x.RolesCanDeleteUsersId,
+                        principalTable: "Role",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RoleDbModelServerDbModel_Server_ServerDbModelId",
+                        column: x => x.ServerDbModelId,
+                        principalTable: "Server",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RoleDbModelServerDbModel1",
+                columns: table => new
+                {
+                    RolesCanWorkWithChannelsId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ServerDbModel1Id = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RoleDbModelServerDbModel1", x => new { x.RolesCanWorkWithChannelsId, x.ServerDbModel1Id });
+                    table.ForeignKey(
+                        name: "FK_RoleDbModelServerDbModel1_Role_RolesCanWorkWithChannelsId",
+                        column: x => x.RolesCanWorkWithChannelsId,
+                        principalTable: "Role",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RoleDbModelServerDbModel1_Server_ServerDbModel1Id",
+                        column: x => x.ServerDbModel1Id,
+                        principalTable: "Server",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RoleDbModelServerDbModel2",
+                columns: table => new
+                {
+                    RolesCanChangeRolesUsersId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ServerDbModel2Id = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RoleDbModelServerDbModel2", x => new { x.RolesCanChangeRolesUsersId, x.ServerDbModel2Id });
+                    table.ForeignKey(
+                        name: "FK_RoleDbModelServerDbModel2_Role_RolesCanChangeRolesUsersId",
+                        column: x => x.RolesCanChangeRolesUsersId,
+                        principalTable: "Role",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RoleDbModelServerDbModel2_Server_ServerDbModel2Id",
+                        column: x => x.ServerDbModel2Id,
+                        principalTable: "Server",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -212,6 +366,46 @@ namespace hitscord_net.Migrations
                 column: "RolesCanWriteId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_MessageDbModelRoleDbModel_RolesId",
+                table: "MessageDbModelRoleDbModel",
+                column: "RolesId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Messages_NestedChannelId",
+                table: "Messages",
+                column: "NestedChannelId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Messages_ReplyToMessageId",
+                table: "Messages",
+                column: "ReplyToMessageId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Messages_TextChannelId",
+                table: "Messages",
+                column: "TextChannelId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Messages_UserId",
+                table: "Messages",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoleDbModelServerDbModel_ServerDbModelId",
+                table: "RoleDbModelServerDbModel",
+                column: "ServerDbModelId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoleDbModelServerDbModel1_ServerDbModel1Id",
+                table: "RoleDbModelServerDbModel1",
+                column: "ServerDbModel1Id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoleDbModelServerDbModel2_ServerDbModel2Id",
+                table: "RoleDbModelServerDbModel2",
+                column: "ServerDbModel2Id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Server_CreatorId",
                 table: "Server",
                 column: "CreatorId");
@@ -265,10 +459,28 @@ namespace hitscord_net.Migrations
                 name: "ChannelDbModelRoleDbModel1");
 
             migrationBuilder.DropTable(
+                name: "MessageDbModelRoleDbModel");
+
+            migrationBuilder.DropTable(
+                name: "RoleDbModelServerDbModel");
+
+            migrationBuilder.DropTable(
+                name: "RoleDbModelServerDbModel1");
+
+            migrationBuilder.DropTable(
+                name: "RoleDbModelServerDbModel2");
+
+            migrationBuilder.DropTable(
                 name: "Token");
 
             migrationBuilder.DropTable(
+                name: "UserCoordinates");
+
+            migrationBuilder.DropTable(
                 name: "UserServer");
+
+            migrationBuilder.DropTable(
+                name: "Messages");
 
             migrationBuilder.DropTable(
                 name: "Role");

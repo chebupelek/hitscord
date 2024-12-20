@@ -67,6 +67,66 @@ namespace hitscord_net.Migrations
                     b.ToTable("ChannelDbModelRoleDbModel1");
                 });
 
+            modelBuilder.Entity("MessageDbModelRoleDbModel", b =>
+                {
+                    b.Property<Guid>("MessageDbModelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RolesId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("MessageDbModelId", "RolesId");
+
+                    b.HasIndex("RolesId");
+
+                    b.ToTable("MessageDbModelRoleDbModel");
+                });
+
+            modelBuilder.Entity("RoleDbModelServerDbModel", b =>
+                {
+                    b.Property<Guid>("RolesCanDeleteUsersId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ServerDbModelId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("RolesCanDeleteUsersId", "ServerDbModelId");
+
+                    b.HasIndex("ServerDbModelId");
+
+                    b.ToTable("RoleDbModelServerDbModel");
+                });
+
+            modelBuilder.Entity("RoleDbModelServerDbModel1", b =>
+                {
+                    b.Property<Guid>("RolesCanWorkWithChannelsId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ServerDbModel1Id")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("RolesCanWorkWithChannelsId", "ServerDbModel1Id");
+
+                    b.HasIndex("ServerDbModel1Id");
+
+                    b.ToTable("RoleDbModelServerDbModel1");
+                });
+
+            modelBuilder.Entity("RoleDbModelServerDbModel2", b =>
+                {
+                    b.Property<Guid>("RolesCanChangeRolesUsersId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ServerDbModel2Id")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("RolesCanChangeRolesUsersId", "ServerDbModel2Id");
+
+                    b.HasIndex("ServerDbModel2Id");
+
+                    b.ToTable("RoleDbModelServerDbModel2");
+                });
+
             modelBuilder.Entity("hitscord_net.Models.DBModels.ChannelDbModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -117,6 +177,51 @@ namespace hitscord_net.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Token");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.MessageDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(21)
+                        .HasColumnType("character varying(21)");
+
+                    b.Property<string[]>("Tags")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<Guid>("TextChannelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TextChannelId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Messages");
+
+                    b.HasDiscriminator<string>("MessageType").HasValue("MessageDbModel");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("hitscord_net.Models.DBModels.RoleDbModel", b =>
@@ -194,6 +299,26 @@ namespace hitscord_net.Migrations
                     b.ToTable("User");
                 });
 
+            modelBuilder.Entity("hitscord_net.Models.DBModels.UserServerChannelDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ChannelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ServerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("UserCoordinates");
+                });
+
             modelBuilder.Entity("hitscord_net.Models.DBModels.UserServerDbModel", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -243,6 +368,37 @@ namespace hitscord_net.Migrations
                     b.HasDiscriminator().HasValue("Voice");
                 });
 
+            modelBuilder.Entity("hitscord_net.Models.DBModels.ChannelMessageDbModel", b =>
+                {
+                    b.HasBaseType("hitscord_net.Models.DBModels.MessageDbModel");
+
+                    b.Property<Guid>("NestedChannelId")
+                        .HasColumnType("uuid");
+
+                    b.HasIndex("NestedChannelId");
+
+                    b.HasDiscriminator().HasValue("Channel");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.NormalMessageDbModel", b =>
+                {
+                    b.HasBaseType("hitscord_net.Models.DBModels.MessageDbModel");
+
+                    b.HasDiscriminator().HasValue("Normal");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.ReplyMessageDbModel", b =>
+                {
+                    b.HasBaseType("hitscord_net.Models.DBModels.MessageDbModel");
+
+                    b.Property<Guid>("ReplyToMessageId")
+                        .HasColumnType("uuid");
+
+                    b.HasIndex("ReplyToMessageId");
+
+                    b.HasDiscriminator().HasValue("Reply");
+                });
+
             modelBuilder.Entity("AnnouncementChannelDbModelRoleDbModel", b =>
                 {
                     b.HasOne("hitscord_net.Models.DBModels.AnnouncementChannelDbModel", null)
@@ -288,6 +444,66 @@ namespace hitscord_net.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MessageDbModelRoleDbModel", b =>
+                {
+                    b.HasOne("hitscord_net.Models.DBModels.MessageDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("MessageDbModelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord_net.Models.DBModels.RoleDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("RolesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RoleDbModelServerDbModel", b =>
+                {
+                    b.HasOne("hitscord_net.Models.DBModels.RoleDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("RolesCanDeleteUsersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord_net.Models.DBModels.ServerDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("ServerDbModelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RoleDbModelServerDbModel1", b =>
+                {
+                    b.HasOne("hitscord_net.Models.DBModels.RoleDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("RolesCanWorkWithChannelsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord_net.Models.DBModels.ServerDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("ServerDbModel1Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RoleDbModelServerDbModel2", b =>
+                {
+                    b.HasOne("hitscord_net.Models.DBModels.RoleDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("RolesCanChangeRolesUsersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord_net.Models.DBModels.ServerDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("ServerDbModel2Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("hitscord_net.Models.DBModels.ChannelDbModel", b =>
                 {
                     b.HasOne("hitscord_net.Models.DBModels.ServerDbModel", "Server")
@@ -297,6 +513,25 @@ namespace hitscord_net.Migrations
                         .IsRequired();
 
                     b.Navigation("Server");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.MessageDbModel", b =>
+                {
+                    b.HasOne("hitscord_net.Models.DBModels.TextChannelDbModel", "TextChannel")
+                        .WithMany("Messages")
+                        .HasForeignKey("TextChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord_net.Models.DBModels.UserDbModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TextChannel");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("hitscord_net.Models.DBModels.ServerDbModel", b =>
@@ -344,6 +579,28 @@ namespace hitscord_net.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("hitscord_net.Models.DBModels.ChannelMessageDbModel", b =>
+                {
+                    b.HasOne("hitscord_net.Models.DBModels.TextChannelDbModel", "NestedChannel")
+                        .WithMany()
+                        .HasForeignKey("NestedChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("NestedChannel");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.ReplyMessageDbModel", b =>
+                {
+                    b.HasOne("hitscord_net.Models.DBModels.MessageDbModel", "ReplyToMessage")
+                        .WithMany()
+                        .HasForeignKey("ReplyToMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReplyToMessage");
+                });
+
             modelBuilder.Entity("hitscord_net.Models.DBModels.ServerDbModel", b =>
                 {
                     b.Navigation("Channels");
@@ -354,6 +611,11 @@ namespace hitscord_net.Migrations
             modelBuilder.Entity("hitscord_net.Models.DBModels.UserDbModel", b =>
                 {
                     b.Navigation("UserServer");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.TextChannelDbModel", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("hitscord_net.Models.DBModels.VoiceChannelDbModel", b =>

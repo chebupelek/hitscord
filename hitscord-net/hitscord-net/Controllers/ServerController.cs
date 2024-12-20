@@ -21,6 +21,75 @@ public class ServerController : ControllerBase
 
     [Authorize]
     [HttpPost]
+    [Route("subscribetest")]
+    public async Task<IActionResult> ServerSubscribe([FromBody] SubscribeDTO data)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            await _serverService.SubscribeAsync(data.serverId, jwtToken, data.UserName);
+
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpDelete]
+    [Route("unsubscribetest")]
+    public async Task<IActionResult> ServerUnsubscribe([FromBody] UnsubscribeDTO data)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            await _serverService.UnsubscribeAsync(data.serverId, jwtToken);
+
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpGet]
+    [Route("getservers")]
+    public async Task<IActionResult> GetServers()
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            var servers = await _serverService.GetServerListAsync(jwtToken);
+
+            return Ok(servers);
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpPost]
     [Route("createServer")]
     public async Task<IActionResult> CreateServer([FromBody] ServerCreateDTO data)
     {
@@ -66,40 +135,17 @@ public class ServerController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost]
-    [Route("subscribetest")]
-    public async Task<IActionResult> ServerSubscribe([FromBody] SubscribeDTO data)
+    [HttpGet]
+    [Route("getserverdata")]
+    public async Task<IActionResult> GetServerData([FromQuery] Guid serverId)
     {
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 
-            await _serverService.SubscribeAsync(data.serverId, jwtToken, data.UserName);
+            var server = await _serverService.GetServerInfoAsync(jwtToken, serverId);
 
-            return Ok();
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-
-    [Authorize]
-    [HttpDelete]
-    [Route("unsubscribetest")]
-    public async Task<IActionResult> ServerUnsubscribe([FromBody] SubscribeDTO data)
-    {
-        try
-        {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-
-            await _serverService.UnsubscribeAsync(data.serverId, jwtToken);
-
-            return Ok();
+            return Ok(server);
         }
         catch (CustomException ex)
         {
@@ -135,78 +181,17 @@ public class ServerController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet]
-    [Route("getservers")]
-    public async Task<IActionResult> GetServers()
+    [HttpDelete]
+    [Route("deleteuser")]
+    public async Task<IActionResult> DeleteUser([FromBody] DeleteUserFromServerDTO data)
     {
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 
-            var servers = await _serverService.GetServerListAsync(jwtToken);
-
-            return Ok(servers);
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-
-    [Authorize]
-    [HttpGet]
-    [Route("getserverdata")]
-    public async Task<IActionResult> GetServerData([FromQuery] Guid serverId)
-    {
-        try
-        {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-
-            var server = await _serverService.GetServerInfoAsync(jwtToken, serverId);
-
-            return Ok(server);
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-
-    [HttpPost]
-    [Route("createroles")]
-    public async Task<IActionResult> CreateRoles()
-    {
-        try
-        {
-            await _serverService.CreateRolesAsync();
+            await _serverService.DeleteUserFromServerAsync(jwtToken, data.ServerId, data.UserId);
 
             return Ok();
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-
-    [HttpGet]
-    [Route("getroles")]
-    public async Task<IActionResult> GetRoles()
-    {
-        try
-        {
-            return Ok(await _serverService.GetRolesAsync());
         }
         catch (CustomException ex)
         {
