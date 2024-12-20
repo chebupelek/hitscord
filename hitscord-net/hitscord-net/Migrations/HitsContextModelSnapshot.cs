@@ -299,6 +299,26 @@ namespace hitscord_net.Migrations
                     b.ToTable("User");
                 });
 
+            modelBuilder.Entity("hitscord_net.Models.DBModels.UserServerChannelDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ChannelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ServerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("UserCoordinates");
+                });
+
             modelBuilder.Entity("hitscord_net.Models.DBModels.UserServerDbModel", b =>
                 {
                     b.Property<Guid>("UserId")

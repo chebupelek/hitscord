@@ -10,6 +10,7 @@ using static System.Net.Mime.MediaTypeNames;
 using System.Data;
 using Validate;
 using MailKit;
+using hitscord_net.OtherFunctions.WebSockets;
 
 namespace hitscord_net.Services;
 
@@ -19,13 +20,16 @@ public class MessageService : IMessageService
     private readonly IAuthorizationService _authService;
     private readonly IChannelService _channelService;
     private readonly IAuthenticationService _authenticationService;
+    private readonly WebSocketsManager _webSocketManager;
 
-    public MessageService(HitsContext hitsContext, IAuthorizationService authService, IChannelService channelService, IAuthenticationService authenticationService)
+
+    public MessageService(HitsContext hitsContext, IAuthorizationService authService, IChannelService channelService, IAuthenticationService authenticationService, WebSocketsManager webSocketManager)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
+        _webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
     }
 
     public async Task CreateNormalMessageAsync(Guid channelId, string token, string text, List<Guid>? roles, List<string>? tags)
@@ -58,6 +62,21 @@ public class MessageService : IMessageService
             };
             _hitsContext.Messages.Add(newMessage);
             await _hitsContext.SaveChangesAsync();
+
+            var messageDto = new MessageResponceDTO
+            {
+                Id = newMessage.Id,
+                Text = newMessage.Text,
+                AuthorId = user.Id,
+                AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == user.Id && us.ServerId == channel.ServerId))?.UserServerName ?? "Unknown",
+                CreatedAt = newMessage.CreatedAt,
+                ModifiedAt = newMessage.UpdatedAt
+            };
+            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            if(userMessage != null && userMessage.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "New message");
+            }
         }
         catch (CustomException ex)
         {

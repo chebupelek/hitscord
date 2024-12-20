@@ -165,6 +165,26 @@ public class AuthorizationService : IAuthorizationService
             var tokens = _tokenService.CreateTokens(newUser);
             await _tokenService.ValidateTokenAsync(tokens.AccessToken, tokens.RefreshToken, newUser.Id);
 
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId == newUser.Id);
+            if(userCoordinates != null) 
+            {
+                userCoordinates.ServerId = null;
+                userCoordinates.ChannelId = null;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+            else
+            {
+                userCoordinates = new UserServerChannelDbModel
+                {
+                    UserId = newUser.Id,
+                    ServerId = null,
+                    ChannelId = null
+                };
+                _hitsContext.UserCoordinates.Add(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+
             return tokens;
         }
         catch (CustomException ex)
@@ -197,6 +217,26 @@ public class AuthorizationService : IAuthorizationService
             var tokens = _tokenService.CreateTokens(userData);
             await _tokenService.ValidateTokenAsync(tokens.AccessToken, tokens.RefreshToken, userData.Id);
 
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId == userData.Id);
+            if (userCoordinates != null)
+            {
+                userCoordinates.ServerId = null;
+                userCoordinates.ChannelId = null;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+            else
+            {
+                userCoordinates = new UserServerChannelDbModel
+                {
+                    UserId = userData.Id,
+                    ServerId = null,
+                    ChannelId = null
+                };
+                _hitsContext.UserCoordinates.Add(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+
             return tokens;
         }
         catch (CustomException ex)
@@ -213,9 +253,18 @@ public class AuthorizationService : IAuthorizationService
     {
         try
         {
-            await CheckUserAuthAsync(token);
+            var userData = await GetUserByTokenAsync(token);
 
             await _tokenService.InvalidateTokenAsync(token);
+
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId == userData.Id);
+            if (userCoordinates != null)
+            {
+                userCoordinates.ServerId = null;
+                userCoordinates.ChannelId = null;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
         }
         catch (CustomException ex)
         {

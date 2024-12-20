@@ -4,6 +4,9 @@ using hitscord_net.IServices;
 using hitscord_net.Models.DBModels;
 using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
+using hitscord_net.OtherFunctions.WebSockets;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace hitscord_net.Services;
@@ -15,14 +18,16 @@ public class ChannelService : IChannelService
     private readonly IServerService _serverService;
     private readonly IRoleService _roleService;
     private readonly IAuthenticationService _authenticationService;
+    private readonly WebSocketsManager _webSocketManager;
 
-    public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IRoleService roleService, IServerService serverService, IAuthenticationService authenticationService)
+    public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IRoleService roleService, IServerService serverService, IAuthenticationService authenticationService, WebSocketsManager webSocketManager)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
         _roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
+        _webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
     }
 
     public async Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId, bool fullInfo)
@@ -139,6 +144,19 @@ public class ChannelService : IChannelService
             server.Channels.Add(newChannel);
             _hitsContext.Server.Update(server);
             await _hitsContext.SaveChangesAsync();
+
+            var newChannelResponse = new NewChannelResponseDTO
+            {
+                Create = true,
+                ChannelId = newChannel.Id,
+                ChannelName = newChannel.Name,
+                ChannelType = channelType
+            };
+            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId ==  serverId).Select(uc => uc.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newChannelResponse, usersServer, "New channel");
+            }
         }
         catch (CustomException ex)
         {
@@ -172,6 +190,20 @@ public class ChannelService : IChannelService
             ((VoiceChannelDbModel)channel).Users.Add(user);
             _hitsContext.Channel.Update(channel);
             await _hitsContext.SaveChangesAsync();
+
+            var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
+            {
+                isEnter = true,
+                UserId = user.Id,
+                ChannelId = channel.Id,
+                UserName = (await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == channel.ServerId)).UserServerName
+            };
+            var userVoiceChannel = ((VoiceChannelDbModel)channel).Users.Select(u => u.Id).ToList();
+            if (userVoiceChannel != null && userVoiceChannel.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, userVoiceChannel, "New user in voice channel");
+            }
+
             return (true);
         }
         catch (CustomException ex)
@@ -199,6 +231,20 @@ public class ChannelService : IChannelService
             ((VoiceChannelDbModel)channel).Users.Remove(user);
             _hitsContext.Channel.Update(channel);
             await _hitsContext.SaveChangesAsync();
+
+            var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
+            {
+                isEnter = false,
+                UserId = user.Id,
+                ChannelId = channel.Id,
+                UserName = (await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == channel.ServerId)).UserServerName
+            };
+            var userVoiceChannel = ((VoiceChannelDbModel)channel).Users.Select(u => u.Id).ToList();
+            if (userVoiceChannel != null && userVoiceChannel.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, userVoiceChannel, "User remove from voice channel");
+            }
+
             return (true);
         }
         catch (CustomException ex)
@@ -225,6 +271,20 @@ public class ChannelService : IChannelService
             } 
             _hitsContext.Channel.Remove(channel);
             await _hitsContext.SaveChangesAsync();
+
+            var deletedChannelResponse = new NewChannelResponseDTO
+            {
+                Create = false,
+                ChannelId = channel.Id,
+                ChannelName = channel.Name,
+                ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Announcement)
+            };
+            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == channel.ServerId).Select(uc => uc.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(deletedChannelResponse, usersServer, "Channel deleted");
+            }
+
             return (true);
         }
         catch (CustomException ex)
@@ -263,6 +323,14 @@ public class ChannelService : IChannelService
             var user = await _authService.GetUserByTokenAsync(token);
             var channel = await CheckTextChannelExistAsync(channelId);
             await _authenticationService.CheckUserRightsSeeChannel(channel.Id, user.Id);
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId == user.Id);
+            if(userCoordinates != null) 
+            {
+                userCoordinates.ServerId = channel.ServerId;
+                userCoordinates.ChannelId = channelId;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
             return new MessageListResponseDTO
             {
                 Messages = await _hitsContext.Messages
@@ -275,7 +343,7 @@ public class ChannelService : IChannelService
                         Id = m.Id,
                         Text = m.Text,
                         AuthorId = m.UserId,
-                        AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == m.UserId && us.ServerId == channel.ServerId)).UserServerName,
+                        AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == m.UserId && us.ServerId == channel.ServerId)) != null ? (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == m.UserId && us.ServerId == channel.ServerId)).UserServerName : "Неизвестен",
                         CreatedAt = m.CreatedAt,
                         ModifiedAt = m.UpdatedAt
                     })

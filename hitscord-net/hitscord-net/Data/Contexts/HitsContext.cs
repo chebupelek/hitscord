@@ -21,7 +21,7 @@ namespace hitscord_net.Data.Contexts
         public DbSet<ReplyMessageDbModel> ReplyMessages { get; set; }
         public DbSet<ChannelMessageDbModel> ChannelMessages { get; set; }
         public DbSet<LogDbModel> Token { get; set; }
-
+        public DbSet<UserServerChannelDbModel> UserCoordinates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

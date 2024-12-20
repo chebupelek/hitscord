@@ -1,5 +1,6 @@
 using hitscord_net.Data.Contexts;
 using hitscord_net.IServices;
+using hitscord_net.OtherFunctions.WebSockets;
 using hitscord_net.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,9 @@ builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
+
+builder.Services.AddSingleton<WebSocketsManager>();
+builder.Services.AddSingleton<WebSocketHandler>();
 
 builder.Services.AddSignalR();
 
@@ -94,6 +98,11 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors("AllowSpecificOrigin");
+
+app.UseWebSockets();
+app.UseMiddleware<WebSocketMiddleware>();
+
+app.MapGet("/", () => "WebSocket server is running!");
 
 if (app.Environment.IsDevelopment())
 {

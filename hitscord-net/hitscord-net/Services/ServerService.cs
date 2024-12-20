@@ -5,8 +5,10 @@ using hitscord_net.IServices;
 using hitscord_net.Models.DBModels;
 using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
+using hitscord_net.OtherFunctions.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Threading.Channels;
 
 namespace hitscord_net.Services;
 
@@ -16,13 +18,15 @@ public class ServerService : IServerService
     private readonly IAuthorizationService _authorizationService;
     private readonly IRoleService _roleService;
     private readonly IAuthenticationService _authenticationService;
+    private readonly WebSocketsManager _webSocketManager;
 
-    public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IRoleService roleService, IAuthenticationService authenticationService)
+    public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IRoleService roleService, IAuthenticationService authenticationService, WebSocketsManager webSocketManager)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
         _roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
+        _webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
     }
 
     public async Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels)
@@ -154,16 +158,29 @@ public class ServerService : IServerService
             var user = await _authorizationService.GetUserByTokenAsync(token);
             var server = await CheckServerExistAsync(serverId, false);
             await _authenticationService.CheckSubscriptionNotExistAsync(server.Id, user.Id);
-            var uncertainRole = (await _roleService.CheckRoleExistAsync("Uncertain")).Id;
+            var uncertainRole = await _roleService.CheckRoleExistAsync("Uncertain");
             var newSub = new UserServerDbModel
             {
                 UserId = user.Id,
                 ServerId = serverId,
-                RoleId = uncertainRole,
+                RoleId = uncertainRole.Id,
                 UserServerName = userName != null ? userName : user.AccountName
             };
             await _hitsContext.UserServer.AddAsync(newSub);
             await _hitsContext.SaveChangesAsync();
+
+            var newSubscriberResponse = new NewSubscribeResponseDTO
+            {
+                ServerId = serverId,
+                UserId = user.Id,
+                UserName = newSub.UserServerName,
+                Role = uncertainRole
+            };
+            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, usersServer, "New user on server");
+            }
         }
         catch (CustomException ex)
         {
@@ -195,6 +212,26 @@ public class ServerService : IServerService
             }
             _hitsContext.UserServer.Remove(sub);
             await _hitsContext.SaveChangesAsync();
+
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId == user.Id && uc.ServerId == serverId);
+            if (userCoordinates != null)
+            {
+                userCoordinates.ServerId = null;
+                userCoordinates.ChannelId = null;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+
+            var newUnsubscriberResponse = new UnsubscribeResponseDTO
+            {
+                ServerId = serverId,
+                UserId = user.Id,
+            };
+            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, usersServer, "User unsubscribe");
+            }
         }
         catch (CustomException ex)
         {
@@ -233,6 +270,36 @@ public class ServerService : IServerService
             newCreatorSub.RoleId = adminRole;
             _hitsContext.UserServer.Update(newCreatorSub);
             await _hitsContext.SaveChangesAsync();
+
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId == owner.Id && uc.ServerId == serverId);
+            if (userCoordinates != null)
+            {
+                userCoordinates.ServerId = null;
+                userCoordinates.ChannelId = null;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+
+            var newUnsubscriberResponse = new UnsubscribeResponseDTO
+            {
+                ServerId = serverId,
+                UserId = owner.Id,
+            };
+            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, usersServer, "User unsubscribe");
+            }
+
+            var newUserRole = new NewUserRoleResponseDTO
+            {
+                UserId = newCreatorSub.UserId,
+                RoleId = adminRole,
+            };
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newUserRole, usersServer, "Role changed");
+            }
         }
         catch (CustomException ex)
         {
@@ -262,6 +329,12 @@ public class ServerService : IServerService
             _hitsContext.Channel.RemoveRange(channelsToDelete);
             _hitsContext.Server.Remove(server);
             await _hitsContext.SaveChangesAsync();
+
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(new { ServerId =  server.Id}, usersServer, "Server deleted");
+            }
         }
         catch (CustomException ex)
         {
@@ -324,6 +397,17 @@ public class ServerService : IServerService
             userSub.RoleId = role.Id;
             _hitsContext.UserServer.Update(userSub);
             await _hitsContext.SaveChangesAsync();
+
+            var newUserRole = new NewUserRoleResponseDTO
+            {
+                UserId = userId,
+                RoleId = roleId,
+            };
+            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newUserRole, usersServer, "Role changed");
+            }
         }
         catch (CustomException ex)
         {
@@ -349,7 +433,7 @@ public class ServerService : IServerService
                 .Where(c => c.ServerId == serverId && c is AnnouncementChannelDbModel)
                 .ToListAsync();
 
-            return new ServerInfoDTO
+            var info = new ServerInfoDTO
             {
                 ServerId = serverId,
                 ServerName = server.Name,
@@ -429,6 +513,17 @@ public class ServerService : IServerService
                     .ToList()*/
                 }
             };
+
+            var userCoordinates = await _hitsContext.UserCoordinates.FirstOrDefaultAsync(uc => uc.UserId ==  user.Id);
+            if (userCoordinates != null)
+            {
+                userCoordinates.ServerId = server.Id;
+                userCoordinates.ChannelId = null;
+                _hitsContext.UserCoordinates.Update(userCoordinates);
+                await _hitsContext.SaveChangesAsync();
+            }
+
+            return info;
         }
         catch (CustomException ex)
         {
@@ -459,6 +554,17 @@ public class ServerService : IServerService
             }
             _hitsContext.UserServer.Remove(userSub);
             await _hitsContext.SaveChangesAsync();
+
+            var newUnsubscriberResponse = new UnsubscribeResponseDTO
+            {
+                ServerId = serverId,
+                UserId = userId,
+            };
+            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, usersServer, "User unsubscribe");
+            }
         }
         catch (CustomException ex)
         {
