@@ -88,6 +88,62 @@ public class MessageService : IMessageService
         }
     }
 
+    public async Task CreateNormalMessageWebsocketAsync(Guid channelId, Guid UserId, string text, List<Guid>? roles, List<string>? tags)
+    {
+        try
+        {
+            var user = await _authService.GetUserByIdAsync(UserId);
+            var channel = await _channelService.CheckTextChannelExistAsync(channelId);
+            await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
+            var RolesList = new List<RoleDbModel>();
+            if (roles != null)
+            {
+                foreach (Guid role in roles)
+                {
+                    var addedRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == role);
+                    if (addedRole != null && !RolesList.Contains(addedRole))
+                    {
+                        RolesList.Add(addedRole);
+                    }
+                }
+            }
+            var newMessage = new NormalMessageDbModel
+            {
+                Text = text,
+                Roles = roles == null ? new List<RoleDbModel>() : RolesList,
+                Tags = tags == null ? new List<string>() : tags,
+                UpdatedAt = null,
+                UserId = user.Id,
+                TextChannelId = channel.Id
+            };
+            _hitsContext.Messages.Add(newMessage);
+            await _hitsContext.SaveChangesAsync();
+
+            var messageDto = new MessageResponceDTO
+            {
+                Id = newMessage.Id,
+                Text = newMessage.Text,
+                AuthorId = user.Id,
+                AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == user.Id && us.ServerId == channel.ServerId))?.UserServerName ?? "Unknown",
+                CreatedAt = newMessage.CreatedAt,
+                ModifiedAt = newMessage.UpdatedAt
+            };
+            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            if (userMessage != null && userMessage.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "New message");
+            }
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
     public async Task UpdateNormalMessageAsync(Guid messageId, string token, string text, List<Guid>? roles, List<string>? tags)
     {
         try
