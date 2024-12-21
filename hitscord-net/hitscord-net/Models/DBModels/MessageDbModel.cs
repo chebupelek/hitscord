@@ -20,7 +20,7 @@ public abstract class MessageDbModel
     public required string Text { get; set; }
 
     public required ICollection<RoleDbModel> Roles { get; set; }
-    public required ICollection<string> Tags { get; set; }
+    public required IList<string> Tags { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
