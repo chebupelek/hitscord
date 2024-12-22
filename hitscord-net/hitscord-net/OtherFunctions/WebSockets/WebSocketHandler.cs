@@ -1,10 +1,16 @@
-﻿using hitscord_net.IServices;
+﻿using Authzed.Api.V0;
+using Grpc.Gateway.ProtocGenOpenapiv2.Options;
+using hitscord_net.IServices;
 using hitscord_net.Models.DTOModels.RequestsDTO;
+using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
+using hitscord_net.Services;
 using System.ComponentModel.DataAnnotations;
+using System.Data;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace hitscord_net.OtherFunctions.WebSockets;
 
@@ -48,85 +54,82 @@ public class WebSocketHandler
 
     private async Task HandleMessageAsync(Guid userId, string json)
     {
-        // Десериализуем базовое сообщение
-        WebSocketMessageBase messageBase;
-        try
-        {
-            messageBase = JsonSerializer.Deserialize<WebSocketMessageBase>(json);
-        }
-        catch (JsonException ex)
-        {
-            Console.WriteLine($"Invalid JSON format: {ex.Message}");
-            await SendErrorMessageAsync(userId, "Invalid JSON format.");
-            return;
-        }
+        var messageBase = JsonSerializer.Deserialize<WebSocketMessageBase>(json);
 
         switch (messageBase?.Type)
         {
-            case "createMessage":
-                var createMessageDto = JsonSerializer.Deserialize<CreateMessageWebSocketMessage>(json);
-                if (createMessageDto != null)
+            case "New message":
+                var newMessage = JsonSerializer.Deserialize<NewMessageWebsocket>(json);
+                Console.WriteLine($"User {userId} sent text: {newMessage?.Content}");
+                if(newMessage != null)
                 {
+                    var newMesssageData = newMessage.Content;
                     try
                     {
-                        if (string.IsNullOrEmpty(createMessageDto.Text))
-                        {
-                            throw new CustomException("Message text cannot be empty.", "ValidationError", "Message", 400);
-                        }
-
-                        if (createMessageDto.Text.Length > 5000)
-                        {
-                            throw new CustomException("Message text exceeds the maximum length.", "ValidationError", "Message", 400);
-                        }
-
-                        await _messageService.CreateNormalMessageWebsocketAsync(
-                            createMessageDto.ChannelId,
-                            userId,
-                            createMessageDto.Text,
-                            createMessageDto.Roles,
-                            createMessageDto.Tags);
-
-                        Console.WriteLine($"Message from user {userId} created for channel {createMessageDto.ChannelId}");
+                        await _messageService.CreateNormalMessageWebsocketAsync(newMesssageData.ChannelId, userId, newMesssageData.Text, newMesssageData.Roles, newMesssageData.Tags);
                     }
                     catch (CustomException ex)
                     {
-                        Console.WriteLine($"Custom error while creating message: {ex.Message}");
-                        await SendErrorMessageAsync(userId, $"Custom error occurred: {ex.Message}");
+                        await _webSocketManager.BroadcastMessageAsync( new { Message = ex.Message, Type = ex.Type, Object = ex.Object, Code = ex.Code }, new List<Guid> { userId }, "New message exception");
+                        Console.WriteLine($"Code: {ex.Code}; Type: {ex.Type}; Object: {ex.Object}; Message: {ex.Message};");
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Error while creating message: {ex.Message}");
-                        await SendErrorMessageAsync(userId, $"Error occurred: {ex.Message}");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "New message exception");
+                        Console.WriteLine($"Message: {ex.Message};");
                     }
                 }
-                else
+                break;
+
+            case "Delete message":
+                var deleteMessage = JsonSerializer.Deserialize<DeleteMessageWebsocket>(json);
+                Console.WriteLine($"User {userId} sent text: {deleteMessage?.Content}");
+                if (deleteMessage != null)
                 {
-                    Console.WriteLine("Invalid message format for createMessage");
-                    await SendErrorMessageAsync(userId, "Invalid message format for createMessage");
+                    var deleteMesssageData = deleteMessage.Content;
+                    try
+                    {
+                        await _messageService.DeleteNormalMessageWebsocketAsync(deleteMesssageData, userId);
+                    }
+                    catch (CustomException ex)
+                    {
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Type = ex.Type, Object = ex.Object, Code = ex.Code }, new List<Guid> { userId }, "Delete message exception");
+                        Console.WriteLine($"Code: {ex.Code}; Type: {ex.Type}; Object: {ex.Object}; Message: {ex.Message};");
+                    }
+                    catch (Exception ex)
+                    {
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Delete message exception");
+                        Console.WriteLine($"Message: {ex.Message};");
+                    }
+                }
+                break;
+
+            case "Update message":
+                var updateMessage = JsonSerializer.Deserialize<UpdateMessageWebsocket>(json);
+                Console.WriteLine($"User {userId} sent text: {updateMessage?.Content}");
+                if (updateMessage != null)
+                {
+                    var updateMessageData = updateMessage.Content;
+                    try
+                    {
+                        await _messageService.UpdateNormalMessageWebsocketAsync(updateMessageData.MessageId, userId, updateMessageData.Text, updateMessageData.Roles, updateMessageData.Tags);
+                    }
+                    catch (CustomException ex)
+                    {
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Type = ex.Type, Object = ex.Object, Code = ex.Code }, new List<Guid> { userId }, "Update message exception");
+                        Console.WriteLine($"Code: {ex.Code}; Type: {ex.Type}; Object: {ex.Object}; Message: {ex.Message};");
+                    }
+                    catch (Exception ex)
+                    {
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Update message exception");
+                        Console.WriteLine($"Message: {ex.Message};");
+                    }
                 }
                 break;
 
             default:
                 Console.WriteLine("Unknown message type.");
                 break;
-        }
-    }
-
-    private async Task SendErrorMessageAsync(Guid userId, string errorMessage)
-    {
-        var errorMessageDto = new
-        {
-            Type = "error",
-            Message = errorMessage
-        };
-
-        var jsonError = JsonSerializer.Serialize(errorMessageDto);
-        var socket = _webSocketManager.GetConnection(userId);
-
-        if (socket != null && socket.State == WebSocketState.Open)
-        {
-            var buffer = Encoding.UTF8.GetBytes(jsonError);
-            await socket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
         }
     }
 }
@@ -136,16 +139,17 @@ public class WebSocketMessageBase
     public string Type { get; set; } = default!;
 }
 
-public class CreateMessageWebSocketMessage : WebSocketMessageBase
+public class NewMessageWebsocket : WebSocketMessageBase
 {
-    public Guid ChannelId { get; set; }
-
-    [Required]
-    [MinLength(1)]
-    [MaxLength(5000)]
-    public string Text { get; set; } = default!;
-
-    public List<Guid>? Roles { get; set; }
-    public List<string>? Tags { get; set; }
+    public CreateMessageDTO Content { get; set; } = default!;
 }
 
+public class UpdateMessageWebsocket : WebSocketMessageBase
+{
+    public UpdateMessageDTO Content { get; set; } = default!;
+}
+
+public class DeleteMessageWebsocket : WebSocketMessageBase
+{
+    public Guid Content { get; set; } = default!;
+}

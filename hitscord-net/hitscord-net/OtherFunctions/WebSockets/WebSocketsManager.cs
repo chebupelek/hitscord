@@ -6,36 +6,37 @@ namespace hitscord_net.OtherFunctions.WebSockets;
 
 public class WebSocketsManager
 {
-    private readonly Dictionary<Guid, WebSocket> _connections = new();
+    private readonly WebSocketConnectionStore _connectionStore;
+
+    public WebSocketsManager(WebSocketConnectionStore connectionStore)
+    {
+        _connectionStore = connectionStore;
+    }
 
     public void AddConnection(Guid userId, WebSocket socket)
     {
-        if (!_connections.ContainsKey(userId))
-        {
-            _connections[userId] = socket;
-        }
+        _connectionStore.AddConnection(userId, socket);
     }
 
     public void RemoveConnection(Guid userId)
     {
-        if (_connections.ContainsKey(userId))
-        {
-            _connections[userId].Abort();
-            _connections.Remove(userId);
-        }
+        _connectionStore.RemoveConnection(userId);
     }
 
     public WebSocket? GetConnection(Guid userId)
     {
-        _connections.TryGetValue(userId, out var socket);
-        return socket;
+        return _connectionStore.GetConnection(userId);
     }
 
-    public IEnumerable<Guid> GetAllUserIds() => _connections.Keys;
+    public IEnumerable<Guid> GetAllUserIds()
+    {
+        return _connectionStore.GetAllUserIds();
+    }
 
     public async Task SendMessageAsync<T>(Guid userId, T message)
     {
-        if (_connections.TryGetValue(userId, out var socket) && socket.State == WebSocketState.Open)
+        var socket = _connectionStore.GetConnection(userId);
+        if (socket != null && socket.State == WebSocketState.Open)
         {
             var json = JsonSerializer.Serialize(message);
             var buffer = Encoding.UTF8.GetBytes(json);
@@ -56,7 +57,8 @@ public class WebSocketsManager
 
         foreach (var userId in userIds)
         {
-            if (_connections.TryGetValue(userId, out var connection) && connection.State == WebSocketState.Open)
+            var connection = _connectionStore.GetConnection(userId);
+            if (connection != null && connection.State == WebSocketState.Open)
             {
                 await connection.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
             }
