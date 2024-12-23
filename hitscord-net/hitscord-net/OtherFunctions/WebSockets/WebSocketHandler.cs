@@ -70,12 +70,12 @@ public class WebSocketHandler
                     }
                     catch (CustomException ex)
                     {
-                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Type = ex.Type, Object = ex.Object, Code = ex.Code }, new List<Guid> { userId }, "New message exception");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Type = ex.Type, Object = ex.Object, Code = ex.Code }, new List<Guid> { userId }, "Exception");
                         Console.WriteLine($"Code: {ex.Code}; Type: {ex.Type}; Object: {ex.Object}; Message: {ex.Message};");
                     }
                     catch (Exception ex)
                     {
-                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "New message exception");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Exception");
                         Console.WriteLine($"Message: {ex.Message};");
                     }
                 }
@@ -93,12 +93,12 @@ public class WebSocketHandler
                     }
                     catch (CustomException ex)
                     {
-                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Type = ex.Type, Object = ex.Object, Code = ex.Code }, new List<Guid> { userId }, "Delete message exception");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Type = ex.Type, Object = ex.Object, Code = ex.Code }, new List<Guid> { userId }, "Exception");
                         Console.WriteLine($"Code: {ex.Code}; Type: {ex.Type}; Object: {ex.Object}; Message: {ex.Message};");
                     }
                     catch (Exception ex)
                     {
-                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Delete message exception");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Exception");
                         Console.WriteLine($"Message: {ex.Message};");
                     }
                 }
@@ -116,12 +116,12 @@ public class WebSocketHandler
                     }
                     catch (CustomException ex)
                     {
-                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Type = ex.Type, Object = ex.Object, Code = ex.Code }, new List<Guid> { userId }, "Update message exception");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Type = ex.Type, Object = ex.Object, Code = ex.Code }, new List<Guid> { userId }, "Exception");
                         Console.WriteLine($"Code: {ex.Code}; Type: {ex.Type}; Object: {ex.Object}; Message: {ex.Message};");
                     }
                     catch (Exception ex)
                     {
-                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Update message exception");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Exception");
                         Console.WriteLine($"Message: {ex.Message};");
                     }
                 }
