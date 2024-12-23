@@ -11,6 +11,7 @@ using System.Data;
 using Validate;
 using MailKit;
 using hitscord_net.OtherFunctions.WebSockets;
+using Newtonsoft.Json.Linq;
 
 namespace hitscord_net.Services;
 
@@ -40,12 +41,12 @@ public class MessageService : IMessageService
             var channel = await _channelService.CheckTextChannelExistAsync(channelId);
             await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
             var RolesList = new List<RoleDbModel>();
-            if(roles != null) 
+            if (roles != null)
             {
-                foreach(Guid role in roles) 
+                foreach (Guid role in roles)
                 {
                     var addedRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == role);
-                    if(addedRole != null && !RolesList.Contains(addedRole))
+                    if (addedRole != null && !RolesList.Contains(addedRole))
                     {
                         RolesList.Add(addedRole);
                     }
@@ -65,6 +66,7 @@ public class MessageService : IMessageService
 
             var messageDto = new MessageResponceDTO
             {
+                ChannelId = channelId,
                 Id = newMessage.Id,
                 Text = newMessage.Text,
                 AuthorId = user.Id,
@@ -73,7 +75,64 @@ public class MessageService : IMessageService
                 ModifiedAt = newMessage.UpdatedAt
             };
             var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
-            if(userMessage != null && userMessage.Count() > 0)
+            if (userMessage != null && userMessage.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "New message");
+            }
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task CreateNormalMessageWebsocketAsync(Guid channelId, Guid UserId, string text, List<Guid>? roles, List<string>? tags)
+    {
+        try
+        {
+            var user = await _authService.GetUserByIdAsync(UserId);
+            var channel = await _channelService.CheckTextChannelExistAsync(channelId);
+            await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
+            var RolesList = new List<RoleDbModel>();
+            if (roles != null)
+            {
+                foreach (Guid role in roles)
+                {
+                    var addedRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == role);
+                    if (addedRole != null && !RolesList.Contains(addedRole))
+                    {
+                        RolesList.Add(addedRole);
+                    }
+                }
+            }
+            var newMessage = new NormalMessageDbModel
+            {
+                Text = text,
+                Roles = roles == null ? new List<RoleDbModel>() : RolesList,
+                Tags = tags == null ? new List<string>() : tags,
+                UpdatedAt = null,
+                UserId = user.Id,
+                TextChannelId = channel.Id
+            };
+            _hitsContext.Messages.Add(newMessage);
+            await _hitsContext.SaveChangesAsync();
+
+            var messageDto = new MessageResponceDTO
+            {
+                ChannelId = channelId,
+                Id = newMessage.Id,
+                Text = newMessage.Text,
+                AuthorId = user.Id,
+                AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == user.Id && us.ServerId == channel.ServerId))?.UserServerName ?? "Unknown",
+                CreatedAt = newMessage.CreatedAt,
+                ModifiedAt = newMessage.UpdatedAt
+            };
+            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            if (userMessage != null && userMessage.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "New message");
             }
@@ -94,7 +153,7 @@ public class MessageService : IMessageService
         {
             var user = await _authService.GetUserByTokenAsync(token);
             var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m is NormalMessageDbModel);
-            if(message == null)
+            if (message == null)
             {
                 throw new CustomException("Message not found", "Update normal message", "Normal message", 404);
             }
@@ -122,6 +181,83 @@ public class MessageService : IMessageService
             message.UpdatedAt = DateTime.UtcNow;
             _hitsContext.Messages.Update(message);
             await _hitsContext.SaveChangesAsync();
+
+            var messageDto = new MessageResponceDTO
+            {
+                ChannelId = message.TextChannelId,
+                Id = message.Id,
+                Text = message.Text,
+                AuthorId = user.Id,
+                AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == user.Id && us.ServerId == channel.ServerId))?.UserServerName ?? "Unknown",
+                CreatedAt = message.CreatedAt,
+                ModifiedAt = message.UpdatedAt
+            };
+            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            if (userMessage != null && userMessage.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "Updated message");
+            }
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task UpdateNormalMessageWebsocketAsync(Guid messageId, Guid UserId, string text, List<Guid>? roles, List<string>? tags)
+    {
+        try
+        {
+            var user = await _authService.GetUserByIdAsync(UserId);
+            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m is NormalMessageDbModel);
+            if (message == null)
+            {
+                throw new CustomException("Message not found", "Update normal message", "Normal message", 404);
+            }
+            if (message.UserId != user.Id)
+            {
+                throw new CustomException("User not creator of this message", "Update normal message", "User", 401);
+            }
+            var channel = await _channelService.CheckTextChannelExistAsync(message.TextChannelId);
+            await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
+            var RolesList = new List<RoleDbModel>();
+            if (roles != null)
+            {
+                foreach (Guid role in roles)
+                {
+                    var addedRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == role);
+                    if (addedRole != null && !RolesList.Contains(addedRole))
+                    {
+                        RolesList.Add(addedRole);
+                    }
+                }
+            }
+            message.Text = text;
+            message.Roles = roles == null ? new List<RoleDbModel>() : RolesList;
+            message.Tags = tags == null ? new List<string>() : tags;
+            message.UpdatedAt = DateTime.UtcNow;
+            _hitsContext.Messages.Update(message);
+            await _hitsContext.SaveChangesAsync();
+
+            var messageDto = new MessageResponceDTO
+            {
+                ChannelId = message.TextChannelId,
+                Id = message.Id,
+                Text = message.Text,
+                AuthorId = user.Id,
+                AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == user.Id && us.ServerId == channel.ServerId))?.UserServerName ?? "Unknown",
+                CreatedAt = message.CreatedAt,
+                ModifiedAt = message.UpdatedAt
+            };
+            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            if (userMessage != null && userMessage.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "Updated message");
+            }
         }
         catch (CustomException ex)
         {
@@ -151,6 +287,57 @@ public class MessageService : IMessageService
             await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
             _hitsContext.Messages.Remove(message);
             await _hitsContext.SaveChangesAsync();
+
+            var messageDto = new DeletedMessageResponceDTO
+            {
+                ChannelId = message.TextChannelId,
+                MessageId = message.Id
+            };
+            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            if (userMessage != null && userMessage.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "Deleted message");
+            }
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task DeleteNormalMessageWebsocketAsync(Guid messageId, Guid UserId)
+    {
+        try
+        {
+            var user = await _authService.GetUserByIdAsync(UserId);
+            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m is NormalMessageDbModel);
+            if (message == null)
+            {
+                throw new CustomException("Message not found", "Delete normal message", "Normal message", 404);
+            }
+            if (message.UserId != user.Id)
+            {
+                throw new CustomException("User not creator of this message", "Delete normal message", "User", 401);
+            }
+            var channel = await _channelService.CheckTextChannelExistAsync(message.TextChannelId);
+            await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
+            _hitsContext.Messages.Remove(message);
+            await _hitsContext.SaveChangesAsync();
+
+            var messageDto = new DeletedMessageResponceDTO
+            {
+                ChannelId = message.TextChannelId,
+                MessageId = message.Id
+            };
+            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            if (userMessage != null && userMessage.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "Deleted message");
+            }
         }
         catch (CustomException ex)
         {

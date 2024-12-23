@@ -28,8 +28,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 
-builder.Services.AddSingleton<WebSocketsManager>();
-builder.Services.AddSingleton<WebSocketHandler>();
+builder.Services.AddSingleton<WebSocketConnectionStore>();
+builder.Services.AddScoped<WebSocketsManager>();
+builder.Services.AddScoped<WebSocketHandler>();
 
 builder.Services.AddSignalR();
 
