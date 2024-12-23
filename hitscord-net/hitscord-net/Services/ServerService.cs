@@ -293,6 +293,7 @@ public class ServerService : IServerService
 
             var newUserRole = new NewUserRoleResponseDTO
             {
+                ServerId = serverId,
                 UserId = newCreatorSub.UserId,
                 RoleId = adminRole,
             };
@@ -400,6 +401,7 @@ public class ServerService : IServerService
 
             var newUserRole = new NewUserRoleResponseDTO
             {
+                ServerId = serverId,
                 UserId = userId,
                 RoleId = roleId,
             };

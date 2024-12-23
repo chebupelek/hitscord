@@ -75,7 +75,7 @@ public class WebSocketHandler
                     }
                     catch (Exception ex)
                     {
-                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Exception");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Exception uncertain");
                         Console.WriteLine($"Message: {ex.Message};");
                     }
                 }
@@ -98,7 +98,7 @@ public class WebSocketHandler
                     }
                     catch (Exception ex)
                     {
-                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Exception");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Exception uncertain");
                         Console.WriteLine($"Message: {ex.Message};");
                     }
                 }
@@ -121,7 +121,7 @@ public class WebSocketHandler
                     }
                     catch (Exception ex)
                     {
-                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Exception");
+                        await _webSocketManager.BroadcastMessageAsync(new { Message = ex.Message, Code = 500 }, new List<Guid> { userId }, "Exception uncertain");
                         Console.WriteLine($"Message: {ex.Message};");
                     }
                 }

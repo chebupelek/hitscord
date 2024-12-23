@@ -148,6 +148,7 @@ public class ChannelService : IChannelService
             var newChannelResponse = new NewChannelResponseDTO
             {
                 Create = true,
+                ServerId = serverId,
                 ChannelId = newChannel.Id,
                 ChannelName = newChannel.Name,
                 ChannelType = channelType
@@ -275,6 +276,7 @@ public class ChannelService : IChannelService
             var deletedChannelResponse = new NewChannelResponseDTO
             {
                 Create = false,
+                ServerId = channel.ServerId,
                 ChannelId = channel.Id,
                 ChannelName = channel.Name,
                 ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Announcement)
