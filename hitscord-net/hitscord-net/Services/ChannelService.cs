@@ -340,6 +340,7 @@ public class ChannelService : IChannelService
                     .Take(number)
                     .Select(m => new MessageResponceDTO
                     {
+                        ChannelId = channel.Id,
                         Id = m.Id,
                         Text = m.Text,
                         AuthorId = m.UserId,
