@@ -41,12 +41,12 @@ public class MessageService : IMessageService
             var channel = await _channelService.CheckTextChannelExistAsync(channelId);
             await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
             var RolesList = new List<RoleDbModel>();
-            if(roles != null) 
+            if (roles != null)
             {
-                foreach(Guid role in roles) 
+                foreach (Guid role in roles)
                 {
                     var addedRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == role);
-                    if(addedRole != null && !RolesList.Contains(addedRole))
+                    if (addedRole != null && !RolesList.Contains(addedRole))
                     {
                         RolesList.Add(addedRole);
                     }
@@ -75,7 +75,7 @@ public class MessageService : IMessageService
                 ModifiedAt = newMessage.UpdatedAt
             };
             var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
-            if(userMessage != null && userMessage.Count() > 0)
+            if (userMessage != null && userMessage.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "New message");
             }
@@ -153,7 +153,7 @@ public class MessageService : IMessageService
         {
             var user = await _authService.GetUserByTokenAsync(token);
             var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m is NormalMessageDbModel);
-            if(message == null)
+            if (message == null)
             {
                 throw new CustomException("Message not found", "Update normal message", "Normal message", 404);
             }

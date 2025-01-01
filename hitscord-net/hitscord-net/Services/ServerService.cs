@@ -293,6 +293,7 @@ public class ServerService : IServerService
 
             var newUserRole = new NewUserRoleResponseDTO
             {
+                ServerId = serverId,
                 UserId = newCreatorSub.UserId,
                 RoleId = adminRole,
             };
@@ -318,6 +319,7 @@ public class ServerService : IServerService
             var owner = await _authorizationService.GetUserByTokenAsync(token);
             var server = await CheckServerExistAsync(serverId, true);
             await _authenticationService.CheckUserCreatorAsync(server.Id, owner.Id);
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
             var userServerRelations = _hitsContext.UserServer.Where(us => us.ServerId == server.Id);
             _hitsContext.UserServer.RemoveRange(userServerRelations);
             var voiceChannels = server.Channels.OfType<VoiceChannelDbModel>().ToList();
@@ -330,7 +332,6 @@ public class ServerService : IServerService
             _hitsContext.Server.Remove(server);
             await _hitsContext.SaveChangesAsync();
 
-            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
             if (usersServer != null && usersServer.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(new { ServerId =  server.Id}, usersServer, "Server deleted");
@@ -400,6 +401,7 @@ public class ServerService : IServerService
 
             var newUserRole = new NewUserRoleResponseDTO
             {
+                ServerId = serverId,
                 UserId = userId,
                 RoleId = roleId,
             };
@@ -440,6 +442,7 @@ public class ServerService : IServerService
                 Roles = await _hitsContext.Role.ToListAsync(),
                 UserRoleId = sub.RoleId,
                 UserRole = sub.Role.Name,
+                IsCreator = server.CreatorId == user.Id,
                 CanChangeRole = server.RolesCanChangeRolesUsers.Contains(sub.Role),
                 CanDeleteUsers = server.RolesCanDeleteUsers.Contains(sub.Role),
                 CanWorkWithChannels = server.RolesCanWorkWithChannels.Contains(sub.Role),

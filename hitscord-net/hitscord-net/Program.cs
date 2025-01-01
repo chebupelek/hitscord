@@ -31,7 +31,6 @@ builder.Services.AddSingleton<WebSocketConnectionStore>();
 builder.Services.AddScoped<WebSocketsManager>();
 builder.Services.AddScoped<WebSocketHandler>();
 
-
 builder.Services.AddSignalR();
 
 builder.Services.AddAuthentication(opt => {
