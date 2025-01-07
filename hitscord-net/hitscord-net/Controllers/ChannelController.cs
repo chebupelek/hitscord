@@ -229,4 +229,25 @@ public class ChannelController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+    [Authorize]
+    [HttpDelete]
+    [Route("removeuserfromvoicechannel")]
+    public async Task<IActionResult> RemoveUserFromVoiceChannel([FromBody] RemoveUserDTO channelId)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.RemoveUserFromVoiceChannelAsync(channelId.VoiceChannelId, jwtToken, channelId.UserID);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
 }

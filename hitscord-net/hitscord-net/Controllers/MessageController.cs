@@ -28,7 +28,7 @@ public class MessageController : ControllerBase
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _messageService.CreateNormalMessageAsync(data.ChannelId, jwtToken, data.Text, data.Roles, data.Tags);
+            await _messageService.CreateMessageAsync(data.ChannelId, jwtToken, data.Text, data.Roles, data.Tags, data.ReplyToMessageId);
             return Ok();
         }
         catch (CustomException ex)
@@ -49,7 +49,7 @@ public class MessageController : ControllerBase
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _messageService.UpdateNormalMessageAsync(data.MessageId, jwtToken, data.Text, data.Roles, data.Tags);
+            await _messageService.UpdateMessageAsync(data.MessageId, jwtToken, data.Text, data.Roles, data.Tags);
             return Ok();
         }
         catch (CustomException ex)
@@ -70,7 +70,7 @@ public class MessageController : ControllerBase
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _messageService.DeleteNormalMessageAsync(data.messageId, jwtToken);
+            await _messageService.DeleteMessageAsync(data.messageId, jwtToken);
             return Ok();
         }
         catch (CustomException ex)

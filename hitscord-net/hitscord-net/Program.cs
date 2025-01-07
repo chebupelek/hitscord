@@ -1,4 +1,3 @@
-using System.Security.Cryptography.X509Certificates;
 using hitscord_net.Data.Contexts;
 using hitscord_net.IServices;
 using hitscord_net.OtherFunctions.WebSockets;
@@ -7,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -98,7 +98,6 @@ builder.WebHost.ConfigureKestrel(options =>
         listenOptions.UseHttps(certificate);
     });
 });
-
 
 var app = builder.Build();
 

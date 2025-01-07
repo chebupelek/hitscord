@@ -1,6 +1,6 @@
 ﻿namespace hitscord_net.Models.DBModels;
 
-public class AnnouncementChannelDbModel : ChannelDbModel
+public class AnnouncementChannelDbModel : TextChannelDbModel
 {
     public AnnouncementChannelDbModel()
     {

@@ -1,12 +1,10 @@
-﻿using Authzed.Api.V0;
+﻿using Grpc.Core;
 using hitscord_net.Data.Contexts;
 using hitscord_net.IServices;
 using hitscord_net.Models.DBModels;
 using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
 using hitscord_net.OtherFunctions.WebSockets;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace hitscord_net.Services;
@@ -131,6 +129,7 @@ public class ChannelService : IChannelService
                     {
                         Name = name,
                         ServerId = serverId,
+                        IsMessage = false,
                         RolesCanView = await _hitsContext.Role.ToListAsync(),
                         RolesCanWrite = await _hitsContext.Role.ToListAsync()
                     };
@@ -153,10 +152,10 @@ public class ChannelService : IChannelService
                 ChannelName = newChannel.Name,
                 ChannelType = channelType
             };
-            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId ==  serverId).Select(uc => uc.UserId).ToListAsync();
-            if (usersServer != null && usersServer.Count() > 0)
+            var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == serverId).Select(us => us.UserId).ToListAsync();
+            if (alertedUsers != null && alertedUsers.Count() > 0)
             {
-                await _webSocketManager.BroadcastMessageAsync(newChannelResponse, usersServer, "New channel");
+                await _webSocketManager.BroadcastMessageAsync(newChannelResponse, alertedUsers, "New channel");
             }
         }
         catch (CustomException ex)
@@ -194,15 +193,16 @@ public class ChannelService : IChannelService
 
             var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
             {
+                ServerId = channel.ServerId,
                 isEnter = true,
                 UserId = user.Id,
                 ChannelId = channel.Id,
                 UserName = (await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == channel.ServerId)).UserServerName
             };
-            var userVoiceChannel = ((VoiceChannelDbModel)channel).Users.Select(u => u.Id).ToList();
-            if (userVoiceChannel != null && userVoiceChannel.Count() > 0)
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == channel.ServerId).Select(us => us.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
             {
-                await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, userVoiceChannel, "New user in voice channel");
+                await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, usersServer, "New user in voice channel");
             }
 
             return (true);
@@ -235,16 +235,63 @@ public class ChannelService : IChannelService
 
             var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
             {
+                ServerId = channel.ServerId,
                 isEnter = false,
                 UserId = user.Id,
                 ChannelId = channel.Id,
                 UserName = (await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == channel.ServerId)).UserServerName
             };
-            var userVoiceChannel = ((VoiceChannelDbModel)channel).Users.Select(u => u.Id).ToList();
-            if (userVoiceChannel != null && userVoiceChannel.Count() > 0)
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == channel.ServerId).Select(us => us.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
             {
-                await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, userVoiceChannel, "User remove from voice channel");
+                await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, usersServer, "User remove from voice channel");
             }
+
+            return (true);
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task<bool> RemoveUserFromVoiceChannelAsync(Guid chnnelId, string token, Guid UserId)
+    {
+        try
+        {
+            var user = await _authService.GetUserByTokenAsync(token);
+            var removedUser = await _authService.GetUserByIdAsync(UserId);
+            var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
+            var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
+            await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+            await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
+            if (!((VoiceChannelDbModel)channel).Users.Contains(removedUser))
+            {
+                throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400);
+            }
+            ((VoiceChannelDbModel)channel).Users.Remove(removedUser);
+            _hitsContext.Channel.Update(channel);
+            await _hitsContext.SaveChangesAsync();
+
+            var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
+            {
+                ServerId = channel.ServerId,
+                isEnter = false,
+                UserId = user.Id,
+                ChannelId = channel.Id,
+                UserName = (await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == removedUser.Id && us.ServerId == channel.ServerId)).UserServerName
+            };
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == channel.ServerId).Select(us => us.UserId).ToListAsync();
+            if (usersServer != null && usersServer.Count() > 0)
+            {
+                await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, usersServer, "User removed from voice channel");
+            }
+
+            await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, new List<Guid> { removedUser.Id }, "You removed from voice channel");
 
             return (true);
         }
@@ -281,7 +328,7 @@ public class ChannelService : IChannelService
                 ChannelName = channel.Name,
                 ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Announcement)
             };
-            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == channel.ServerId).Select(uc => uc.UserId).ToListAsync();
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == channel.ServerId).Select(us => us.UserId).ToListAsync();
             if (usersServer != null && usersServer.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(deletedChannelResponse, usersServer, "Channel deleted");
@@ -342,13 +389,36 @@ public class ChannelService : IChannelService
                     .Take(number)
                     .Select(m => new MessageResponceDTO
                     {
+                        ServerId = channel.ServerId,
                         ChannelId = channel.Id,
                         Id = m.Id,
                         Text = m.Text,
                         AuthorId = m.UserId,
                         AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == m.UserId && us.ServerId == channel.ServerId)) != null ? (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == m.UserId && us.ServerId == channel.ServerId)).UserServerName : "Неизвестен",
                         CreatedAt = m.CreatedAt,
-                        ModifiedAt = m.UpdatedAt
+                        ModifiedAt = m.UpdatedAt,
+                        NestedChannelId = m.NestedChannelId,
+                        ReplyToMessage = m.ReplyToMessageId != null
+                            ? _hitsContext.Messages
+                                .Where(r => r.Id == m.ReplyToMessageId)
+                                .Select(r => new MessageResponceDTO
+                                {
+                                    ServerId = channel.ServerId,
+                                    ChannelId = channel.Id,
+                                    Id = r.Id,
+                                    Text = r.Text,
+                                    AuthorId = r.UserId,
+                                    AuthorName = _hitsContext.UserServer
+                                        .Where(us => us.UserId == r.UserId && us.ServerId == channel.ServerId)
+                                        .Select(us => us.UserServerName)
+                                        .FirstOrDefault() ?? "Неизвестен",
+                                    CreatedAt = r.CreatedAt,
+                                    ModifiedAt = r.UpdatedAt,
+                                    NestedChannelId = r.NestedChannelId,
+                                    ReplyToMessage = null
+                                })
+                                .FirstOrDefault()
+                            : null
                     })
                     .ToListAsync(),
                 NumberOfMessages = number,

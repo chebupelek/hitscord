@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace hitscord_net.Models.DBModels;
 
-public abstract class MessageDbModel
+public class MessageDbModel
 {
     public MessageDbModel()
     {
@@ -37,4 +37,12 @@ public abstract class MessageDbModel
 
     [ForeignKey(nameof(TextChannelId))]
     public TextChannelDbModel TextChannel { get; set; }
+
+    public Guid? NestedChannelId { get; set; }
+    [ForeignKey(nameof(NestedChannelId))]
+    public TextChannelDbModel? NestedChannel { get; set; }
+
+    public Guid? ReplyToMessageId { get; set; }
+    [ForeignKey(nameof(ReplyToMessageId))]
+    public MessageDbModel? ReplyToMessage { get; set; }
 }
