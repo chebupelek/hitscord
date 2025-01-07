@@ -12,6 +12,9 @@ using Validate;
 using MailKit;
 using hitscord_net.OtherFunctions.WebSockets;
 using Newtonsoft.Json.Linq;
+using Grpc.Core;
+using System.Xml.Linq;
+using System.Threading.Channels;
 
 namespace hitscord_net.Services;
 
@@ -20,25 +23,59 @@ public class MessageService : IMessageService
     private readonly HitsContext _hitsContext;
     private readonly IAuthorizationService _authService;
     private readonly IChannelService _channelService;
+    private readonly IServerService _serverService;
     private readonly IAuthenticationService _authenticationService;
     private readonly WebSocketsManager _webSocketManager;
 
 
-    public MessageService(HitsContext hitsContext, IAuthorizationService authService, IChannelService channelService, IAuthenticationService authenticationService, WebSocketsManager webSocketManager)
+    public MessageService(HitsContext hitsContext, IAuthorizationService authService, IChannelService channelService, IServerService serverService, IAuthenticationService authenticationService, WebSocketsManager webSocketManager)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
         _webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+        _serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
     }
 
-    public async Task CreateNormalMessageAsync(Guid channelId, string token, string text, List<Guid>? roles, List<string>? tags)
+    private async Task<Guid> CreateNestedChannel(Guid serverId, Guid userId, string text)
+    {
+        try
+        {
+            var server = await _serverService.CheckServerExistAsync(serverId, false);
+            await _authenticationService.CheckUserRightsWorkWithChannels(server.Id, userId);
+            var newChannel = new TextChannelDbModel
+            {
+                Name = text,
+                ServerId = server.Id,
+                IsMessage = true,
+                RolesCanView = await _hitsContext.Role.ToListAsync(),
+                RolesCanWrite = await _hitsContext.Role.ToListAsync()
+            };
+            await _hitsContext.Channel.AddAsync(newChannel);
+            await _hitsContext.SaveChangesAsync();
+            server.Channels.Add(newChannel);
+            _hitsContext.Server.Update(server);
+            await _hitsContext.SaveChangesAsync();
+            return newChannel.Id;
+        }
+        catch (CustomException ex)
+        {
+            throw new CustomException(ex.Message, ex.Type, ex.Object, ex.Code);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
+    }
+
+    public async Task CreateMessageAsync(Guid channelId, string token, string text, List<Guid>? roles, List<string>? tags, Guid? ReplyToMessageId)
     {
         try
         {
             var user = await _authService.GetUserByTokenAsync(token);
-            var channel = await _channelService.CheckTextChannelExistAsync(channelId);
+            await _channelService.CheckTextChannelExistAsync(channelId);
+            var channel = await _channelService.CheckChannelExistAsync(channelId, true);
             await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
             var RolesList = new List<RoleDbModel>();
             if (roles != null)
@@ -52,32 +89,99 @@ public class MessageService : IMessageService
                     }
                 }
             }
-            var newMessage = new NormalMessageDbModel
+            if (tags != null)
+            {
+                var userTagsOnServer = await _hitsContext.UserServer
+                    .Include(us => us.User)
+                    .Where(us => us.ServerId == channel.ServerId)
+                    .Select(us => us.User.AccountTag)
+                    .ToListAsync();
+                if(!tags.All(tag => userTagsOnServer.Contains(tag)))
+                {
+                    throw new CustomException("Not all users on this server", "Create message", "Tags", 400);
+                }
+            }
+            if(ReplyToMessageId != null)
+            {
+                var replyingMessage = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == ReplyToMessageId);
+                if(replyingMessage == null || replyingMessage.TextChannelId != channel.Id) { throw new CustomException("Message not found", "Create message", "Replying message", 404); }
+            }
+            var newMessage = new MessageDbModel
             {
                 Text = text,
                 Roles = roles == null ? new List<RoleDbModel>() : RolesList,
                 Tags = tags == null ? new List<string>() : tags,
                 UpdatedAt = null,
                 UserId = user.Id,
-                TextChannelId = channel.Id
+                TextChannelId = channel.Id,
+                NestedChannelId = null,
+                ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null
             };
             _hitsContext.Messages.Add(newMessage);
             await _hitsContext.SaveChangesAsync();
 
+            var replyToMessage = newMessage.ReplyToMessageId != null ?
+                (
+                    await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == ReplyToMessageId) != null ? await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == ReplyToMessageId) : null
+                ) : null;
+
             var messageDto = new MessageResponceDTO
             {
+                ServerId = channel.ServerId,
                 ChannelId = channelId,
                 Id = newMessage.Id,
                 Text = newMessage.Text,
                 AuthorId = user.Id,
                 AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == user.Id && us.ServerId == channel.ServerId))?.UserServerName ?? "Unknown",
                 CreatedAt = newMessage.CreatedAt,
-                ModifiedAt = newMessage.UpdatedAt
+                ModifiedAt = newMessage.UpdatedAt,
+                NestedChannelId = newMessage.NestedChannelId,
+                ReplyToMessage = newMessage.ReplyToMessageId != null ? new MessageResponceDTO 
+                    {
+                        ServerId = channel.Server.Id,
+                        ChannelId = channelId,
+                        Id = replyToMessage.Id,
+                        Text = replyToMessage.Text,
+                        AuthorId = replyToMessage.UserId,
+                        AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == replyToMessage.UserId && us.ServerId == channel.ServerId))?.UserServerName ?? "Unknown",
+                        CreatedAt = replyToMessage.CreatedAt,
+                        ModifiedAt = replyToMessage.UpdatedAt,
+                        NestedChannelId = replyToMessage.NestedChannelId,
+                        ReplyToMessage = null
+                    } : null,
             };
-            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+
+            var userMessage = await _hitsContext.User
+                .Include(u => u.UserServer)
+                .Where(u =>
+                    _hitsContext.UserServer
+                    .Where(us => us.ServerId == channel.ServerId && channel.RolesCanView.Contains(us.Role))
+                    .Select(us => us.UserId)
+                    .ToList()
+                    .Contains(u.Id)
+                )
+                .ToListAsync();
+
+            var userMessagesId = userMessage.Select(u => u.Id).ToList();
+
             if (userMessage != null && userMessage.Count() > 0)
             {
-                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "New message");
+                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessagesId, "New message");
+
+                var alertUsers = userMessage
+                .Where(u =>
+                    (roles != null && roles.Any(role => u.UserServer.Any(us => us.RoleId == role))) ||
+                    (tags != null && tags.Contains(u.AccountTag)))
+                .Select(u => u.Id)
+                .Distinct()
+                .ToList();
+
+                if (replyToMessage != null && !alertUsers.Contains(replyToMessage.UserId)) { alertUsers.Add(replyToMessage.UserId); }
+                if (replyToMessage != null && alertUsers.Contains(messageDto.AuthorId)) { alertUsers.Remove(messageDto.AuthorId); }
+                if (userMessage != null && userMessage.Count() > 0)
+                {
+                    await _webSocketManager.BroadcastMessageAsync(messageDto, alertUsers, "Alert, you tagged by message");
+                }
             }
         }
         catch (CustomException ex)
@@ -90,12 +194,13 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task CreateNormalMessageWebsocketAsync(Guid channelId, Guid UserId, string text, List<Guid>? roles, List<string>? tags)
+    public async Task CreateMessageWebsocketAsync(Guid channelId, Guid UserId, string text, List<Guid>? roles, List<string>? tags, Guid? ReplyToMessageId)
     {
         try
         {
             var user = await _authService.GetUserByIdAsync(UserId);
-            var channel = await _channelService.CheckTextChannelExistAsync(channelId);
+            await _channelService.CheckTextChannelExistAsync(channelId);
+            var channel = await _channelService.CheckChannelExistAsync(channelId, true);
             await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
             var RolesList = new List<RoleDbModel>();
             if (roles != null)
@@ -109,32 +214,99 @@ public class MessageService : IMessageService
                     }
                 }
             }
-            var newMessage = new NormalMessageDbModel
+            if (tags != null)
+            {
+                var userTagsOnServer = await _hitsContext.UserServer
+                    .Include(us => us.User)
+                    .Where(us => us.ServerId == channel.ServerId)
+                    .Select(us => us.User.AccountTag)
+                    .ToListAsync();
+                if (!tags.All(tag => userTagsOnServer.Contains(tag)))
+                {
+                    throw new CustomException("Not all users on this server", "Create message", "Tags", 400);
+                }
+            }
+            if (ReplyToMessageId != null)
+            {
+                var replyingMessage = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == ReplyToMessageId);
+                if (replyingMessage == null || replyingMessage.TextChannelId != channel.Id) { throw new CustomException("Message not found", "Create message", "Replying message", 404); }
+            }
+            var newMessage = new MessageDbModel
             {
                 Text = text,
                 Roles = roles == null ? new List<RoleDbModel>() : RolesList,
                 Tags = tags == null ? new List<string>() : tags,
                 UpdatedAt = null,
                 UserId = user.Id,
-                TextChannelId = channel.Id
+                TextChannelId = channel.Id,
+                NestedChannelId = null,
+                ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null
             };
             _hitsContext.Messages.Add(newMessage);
             await _hitsContext.SaveChangesAsync();
 
+            var replyToMessage = newMessage.ReplyToMessageId != null ?
+                (
+                    await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == ReplyToMessageId) != null ? await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == ReplyToMessageId) : null
+                ) : null;
+
             var messageDto = new MessageResponceDTO
             {
+                ServerId = channel.ServerId,
                 ChannelId = channelId,
                 Id = newMessage.Id,
                 Text = newMessage.Text,
                 AuthorId = user.Id,
                 AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == user.Id && us.ServerId == channel.ServerId))?.UserServerName ?? "Unknown",
                 CreatedAt = newMessage.CreatedAt,
-                ModifiedAt = newMessage.UpdatedAt
+                ModifiedAt = newMessage.UpdatedAt,
+                NestedChannelId = newMessage.NestedChannelId,
+                ReplyToMessage = replyToMessage != null ? new MessageResponceDTO
+                {
+                    ServerId = channel.Server.Id,
+                    ChannelId = channelId,
+                    Id = replyToMessage.Id,
+                    Text = replyToMessage.Text,
+                    AuthorId = replyToMessage.UserId,
+                    AuthorName = (_hitsContext.UserServer.FirstOrDefault(us => us.UserId == replyToMessage.UserId && us.ServerId == channel.ServerId))?.UserServerName ?? "Unknown",
+                    CreatedAt = replyToMessage.CreatedAt,
+                    ModifiedAt = replyToMessage.UpdatedAt,
+                    NestedChannelId = replyToMessage.NestedChannelId,
+                    ReplyToMessage = null
+                } : null,
             };
-            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+
+            var userMessage = await _hitsContext.User
+                .Include(u => u.UserServer)
+                .Where(u =>
+                    _hitsContext.UserServer
+                    .Where(us => us.ServerId == channel.ServerId && channel.RolesCanView.Contains(us.Role))
+                    .Select(us => us.UserId)
+                    .ToList()
+                    .Contains(u.Id)
+                )
+                .ToListAsync();
+
+            var userMessagesId = userMessage.Select(u => u.Id).ToList();
+
             if (userMessage != null && userMessage.Count() > 0)
             {
-                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "New message");
+                await _webSocketManager.BroadcastMessageAsync(messageDto, userMessagesId, "New message");
+
+                var alertUsers = userMessage
+                .Where(u =>
+                    (roles != null && roles.Any(role => u.UserServer.Any(us => us.RoleId == role))) ||
+                    (tags != null && tags.Contains(u.AccountTag)))
+                .Select(u => u.Id)
+                .Distinct()
+                .ToList();
+
+                if (replyToMessage != null && !alertUsers.Contains(replyToMessage.UserId)) { alertUsers.Add(replyToMessage.UserId); }
+                if (replyToMessage != null && alertUsers.Contains(messageDto.AuthorId)) { alertUsers.Remove(messageDto.AuthorId); }
+                if (userMessage != null && userMessage.Count() > 0)
+                {
+                    await _webSocketManager.BroadcastMessageAsync(messageDto, alertUsers, "Alert, you tagged by message");
+                }
             }
         }
         catch (CustomException ex)
@@ -147,12 +319,12 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task UpdateNormalMessageAsync(Guid messageId, string token, string text, List<Guid>? roles, List<string>? tags)
+    public async Task UpdateMessageAsync(Guid messageId, string token, string text, List<Guid>? roles, List<string>? tags)
     {
         try
         {
             var user = await _authService.GetUserByTokenAsync(token);
-            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m is NormalMessageDbModel);
+            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
             if (message == null)
             {
                 throw new CustomException("Message not found", "Update normal message", "Normal message", 404);
@@ -184,6 +356,7 @@ public class MessageService : IMessageService
 
             var messageDto = new MessageResponceDTO
             {
+                ServerId = channel.ServerId,
                 ChannelId = message.TextChannelId,
                 Id = message.Id,
                 Text = message.Text,
@@ -192,7 +365,10 @@ public class MessageService : IMessageService
                 CreatedAt = message.CreatedAt,
                 ModifiedAt = message.UpdatedAt
             };
-            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            var userMessage = await _hitsContext.UserServer
+                    .Where(us => us.ServerId == channel.ServerId && channel.RolesCanView.Contains(us.Role))
+                    .Select(us => us.UserId)
+                    .ToListAsync();
             if (userMessage != null && userMessage.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "Updated message");
@@ -208,12 +384,12 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task UpdateNormalMessageWebsocketAsync(Guid messageId, Guid UserId, string text, List<Guid>? roles, List<string>? tags)
+    public async Task UpdateMessageWebsocketAsync(Guid messageId, Guid UserId, string text, List<Guid>? roles, List<string>? tags)
     {
         try
         {
             var user = await _authService.GetUserByIdAsync(UserId);
-            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m is NormalMessageDbModel);
+            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
             if (message == null)
             {
                 throw new CustomException("Message not found", "Update normal message", "Normal message", 404);
@@ -245,6 +421,7 @@ public class MessageService : IMessageService
 
             var messageDto = new MessageResponceDTO
             {
+                ServerId = channel.ServerId,
                 ChannelId = message.TextChannelId,
                 Id = message.Id,
                 Text = message.Text,
@@ -253,7 +430,10 @@ public class MessageService : IMessageService
                 CreatedAt = message.CreatedAt,
                 ModifiedAt = message.UpdatedAt
             };
-            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            var userMessage = await _hitsContext.UserServer
+                    .Where(us => us.ServerId == channel.ServerId && channel.RolesCanView.Contains(us.Role))
+                    .Select(us => us.UserId)
+                    .ToListAsync();
             if (userMessage != null && userMessage.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "Updated message");
@@ -269,12 +449,12 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task DeleteNormalMessageAsync(Guid messageId, string token)
+    public async Task DeleteMessageAsync(Guid messageId, string token)
     {
         try
         {
             var user = await _authService.GetUserByTokenAsync(token);
-            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m is NormalMessageDbModel);
+            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
             if (message == null)
             {
                 throw new CustomException("Message not found", "Delete normal message", "Normal message", 404);
@@ -293,7 +473,10 @@ public class MessageService : IMessageService
                 ChannelId = message.TextChannelId,
                 MessageId = message.Id
             };
-            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            var userMessage = await _hitsContext.UserServer
+                    .Where(us => us.ServerId == channel.ServerId && channel.RolesCanView.Contains(us.Role))
+                    .Select(us => us.UserId)
+                    .ToListAsync();
             if (userMessage != null && userMessage.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "Deleted message");
@@ -309,12 +492,12 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task DeleteNormalMessageWebsocketAsync(Guid messageId, Guid UserId)
+    public async Task DeleteMessageWebsocketAsync(Guid messageId, Guid UserId)
     {
         try
         {
             var user = await _authService.GetUserByIdAsync(UserId);
-            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m is NormalMessageDbModel);
+            var message = await _hitsContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
             if (message == null)
             {
                 throw new CustomException("Message not found", "Delete normal message", "Normal message", 404);
@@ -333,7 +516,10 @@ public class MessageService : IMessageService
                 ChannelId = message.TextChannelId,
                 MessageId = message.Id
             };
-            var userMessage = await _hitsContext.UserCoordinates.Where(uc => uc.ChannelId != null && uc.ChannelId == channel.Id).Select(uc => uc.UserId).ToListAsync();
+            var userMessage = await _hitsContext.UserServer
+                    .Where(us => us.ServerId == channel.ServerId && channel.RolesCanView.Contains(us.Role))
+                    .Select(us => us.UserId)
+                    .ToListAsync();
             if (userMessage != null && userMessage.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(messageDto, userMessage, "Deleted message");

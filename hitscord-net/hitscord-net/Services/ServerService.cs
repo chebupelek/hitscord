@@ -127,6 +127,7 @@ public class ServerService : IServerService
             {
                 Name = "Основной опросный",
                 ServerId = newServer.Id,
+                IsMessage = false,
                 RolesCanView = await _hitsContext.Role.ToListAsync(),
                 RolesCanWrite = await _hitsContext.Role.ToListAsync()
             };
@@ -176,7 +177,7 @@ public class ServerService : IServerService
                 UserName = newSub.UserServerName,
                 Role = uncertainRole
             };
-            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == serverId).Select(us => us.UserId).ToListAsync();
             if (usersServer != null && usersServer.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, usersServer, "New user on server");
@@ -227,7 +228,7 @@ public class ServerService : IServerService
                 ServerId = serverId,
                 UserId = user.Id,
             };
-            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == serverId).Select(us => us.UserId).ToListAsync();
             if (usersServer != null && usersServer.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, usersServer, "User unsubscribe");
@@ -285,7 +286,7 @@ public class ServerService : IServerService
                 ServerId = serverId,
                 UserId = owner.Id,
             };
-            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == serverId).Select(us => us.UserId).ToListAsync();
             if (usersServer != null && usersServer.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, usersServer, "User unsubscribe");
@@ -405,7 +406,7 @@ public class ServerService : IServerService
                 UserId = userId,
                 RoleId = roleId,
             };
-            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == serverId).Select(us => us.UserId).ToListAsync();
             if (usersServer != null && usersServer.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(newUserRole, usersServer, "Role changed");
@@ -468,6 +469,7 @@ public class ServerService : IServerService
                             server.CreatorId == user.Id
                         ) &&
                         c is TextChannelDbModel &&
+                        !(c is AnnouncementChannelDbModel) &&
                         ((TextChannelDbModel)c).IsMessage == false)
                     .Select(c => new TextChannelResponseDTO
                     {
@@ -563,7 +565,7 @@ public class ServerService : IServerService
                 ServerId = serverId,
                 UserId = userId,
             };
-            var usersServer = await _hitsContext.UserCoordinates.Where(uc => uc.ServerId == serverId).Select(uc => uc.UserId).ToListAsync();
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == serverId).Select(us => us.UserId).ToListAsync();
             if (usersServer != null && usersServer.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, usersServer, "User unsubscribe");

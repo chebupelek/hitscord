@@ -14,4 +14,6 @@ public class CreateMessageDTO
 
     public List<Guid>? Roles { get; set; }
     public List<string>? Tags { get; set; }
+    public required bool NestedChannel { get; set; }
+    public Guid? ReplyToMessageId { get; set; }
 }

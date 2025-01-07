@@ -17,9 +17,6 @@ namespace hitscord_net.Data.Contexts
         public DbSet<VoiceChannelDbModel> VoiceChannel { get; set; }
         public DbSet<AnnouncementChannelDbModel> AnnouncementChannel { get; set; }
         public DbSet<MessageDbModel> Messages { get; set; }
-        public DbSet<NormalMessageDbModel> NormalMessages { get; set; }
-        public DbSet<ReplyMessageDbModel> ReplyMessages { get; set; }
-        public DbSet<ChannelMessageDbModel> ChannelMessages { get; set; }
         public DbSet<LogDbModel> Token { get; set; }
         public DbSet<UserServerChannelDbModel> UserCoordinates { get; set; }
 
@@ -109,11 +106,6 @@ namespace hitscord_net.Data.Contexts
 
             modelBuilder.Entity<MessageDbModel>(entity =>
             {
-                entity.HasDiscriminator<string>("MessageType")
-                    .HasValue<NormalMessageDbModel>("Normal")
-                    .HasValue<ReplyMessageDbModel>("Reply")
-                    .HasValue<ChannelMessageDbModel>("Channel");
-
                 entity.HasOne(m => m.TextChannel)
                     .WithMany(tc => tc.Messages)
                     .HasForeignKey(m => m.TextChannelId)
@@ -126,17 +118,11 @@ namespace hitscord_net.Data.Contexts
 
                 entity.HasMany(e => e.Roles)
                     .WithMany();
-            });
 
-            modelBuilder.Entity<ReplyMessageDbModel>(entity =>
-            {
                 entity.HasOne(r => r.ReplyToMessage)
                     .WithMany()
                     .HasForeignKey(r => r.ReplyToMessageId);
-            });
 
-            modelBuilder.Entity<ChannelMessageDbModel>(entity =>
-            {
                 entity.HasOne(c => c.NestedChannel)
                     .WithMany()
                     .HasForeignKey(c => c.NestedChannelId)

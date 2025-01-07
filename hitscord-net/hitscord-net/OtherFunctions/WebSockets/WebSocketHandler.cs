@@ -66,7 +66,7 @@ public class WebSocketHandler
                     var newMesssageData = newMessage.Content;
                     try
                     {
-                        await _messageService.CreateNormalMessageWebsocketAsync(newMesssageData.ChannelId, userId, newMesssageData.Text, newMesssageData.Roles, newMesssageData.Tags);
+                        await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, userId, newMesssageData.Text, newMesssageData.Roles, newMesssageData.Tags, newMesssageData.ReplyToMessageId);
                     }
                     catch (CustomException ex)
                     {
@@ -89,7 +89,7 @@ public class WebSocketHandler
                     var deleteMesssageData = deleteMessage.Content;
                     try
                     {
-                        await _messageService.DeleteNormalMessageWebsocketAsync(deleteMesssageData, userId);
+                        await _messageService.DeleteMessageWebsocketAsync(deleteMesssageData, userId);
                     }
                     catch (CustomException ex)
                     {
@@ -112,7 +112,7 @@ public class WebSocketHandler
                     var updateMessageData = updateMessage.Content;
                     try
                     {
-                        await _messageService.UpdateNormalMessageWebsocketAsync(updateMessageData.MessageId, userId, updateMessageData.Text, updateMessageData.Roles, updateMessageData.Tags);
+                        await _messageService.UpdateMessageWebsocketAsync(updateMessageData.MessageId, userId, updateMessageData.Text, updateMessageData.Roles, updateMessageData.Tags);
                     }
                     catch (CustomException ex)
                     {

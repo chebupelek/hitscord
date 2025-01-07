@@ -188,10 +188,11 @@ namespace hitscord_net.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("MessageType")
-                        .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("character varying(21)");
+                    b.Property<Guid?>("NestedChannelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ReplyToMessageId")
+                        .HasColumnType("uuid");
 
                     b.Property<string[]>("Tags")
                         .IsRequired()
@@ -213,15 +214,15 @@ namespace hitscord_net.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("NestedChannelId");
+
+                    b.HasIndex("ReplyToMessageId");
+
                     b.HasIndex("TextChannelId");
 
                     b.HasIndex("UserId");
 
                     b.ToTable("Messages");
-
-                    b.HasDiscriminator<string>("MessageType").HasValue("MessageDbModel");
-
-                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("hitscord_net.Models.DBModels.RoleDbModel", b =>
@@ -344,13 +345,6 @@ namespace hitscord_net.Migrations
                     b.ToTable("UserServer");
                 });
 
-            modelBuilder.Entity("hitscord_net.Models.DBModels.AnnouncementChannelDbModel", b =>
-                {
-                    b.HasBaseType("hitscord_net.Models.DBModels.ChannelDbModel");
-
-                    b.HasDiscriminator().HasValue("Announcement");
-                });
-
             modelBuilder.Entity("hitscord_net.Models.DBModels.TextChannelDbModel", b =>
                 {
                     b.HasBaseType("hitscord_net.Models.DBModels.ChannelDbModel");
@@ -368,35 +362,11 @@ namespace hitscord_net.Migrations
                     b.HasDiscriminator().HasValue("Voice");
                 });
 
-            modelBuilder.Entity("hitscord_net.Models.DBModels.ChannelMessageDbModel", b =>
+            modelBuilder.Entity("hitscord_net.Models.DBModels.AnnouncementChannelDbModel", b =>
                 {
-                    b.HasBaseType("hitscord_net.Models.DBModels.MessageDbModel");
+                    b.HasBaseType("hitscord_net.Models.DBModels.TextChannelDbModel");
 
-                    b.Property<Guid>("NestedChannelId")
-                        .HasColumnType("uuid");
-
-                    b.HasIndex("NestedChannelId");
-
-                    b.HasDiscriminator().HasValue("Channel");
-                });
-
-            modelBuilder.Entity("hitscord_net.Models.DBModels.NormalMessageDbModel", b =>
-                {
-                    b.HasBaseType("hitscord_net.Models.DBModels.MessageDbModel");
-
-                    b.HasDiscriminator().HasValue("Normal");
-                });
-
-            modelBuilder.Entity("hitscord_net.Models.DBModels.ReplyMessageDbModel", b =>
-                {
-                    b.HasBaseType("hitscord_net.Models.DBModels.MessageDbModel");
-
-                    b.Property<Guid>("ReplyToMessageId")
-                        .HasColumnType("uuid");
-
-                    b.HasIndex("ReplyToMessageId");
-
-                    b.HasDiscriminator().HasValue("Reply");
+                    b.HasDiscriminator().HasValue("Announcement");
                 });
 
             modelBuilder.Entity("AnnouncementChannelDbModelRoleDbModel", b =>
@@ -517,6 +487,15 @@ namespace hitscord_net.Migrations
 
             modelBuilder.Entity("hitscord_net.Models.DBModels.MessageDbModel", b =>
                 {
+                    b.HasOne("hitscord_net.Models.DBModels.TextChannelDbModel", "NestedChannel")
+                        .WithMany()
+                        .HasForeignKey("NestedChannelId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("hitscord_net.Models.DBModels.MessageDbModel", "ReplyToMessage")
+                        .WithMany()
+                        .HasForeignKey("ReplyToMessageId");
+
                     b.HasOne("hitscord_net.Models.DBModels.TextChannelDbModel", "TextChannel")
                         .WithMany("Messages")
                         .HasForeignKey("TextChannelId")
@@ -528,6 +507,10 @@ namespace hitscord_net.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("NestedChannel");
+
+                    b.Navigation("ReplyToMessage");
 
                     b.Navigation("TextChannel");
 
@@ -577,28 +560,6 @@ namespace hitscord_net.Migrations
                     b.Navigation("Server");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("hitscord_net.Models.DBModels.ChannelMessageDbModel", b =>
-                {
-                    b.HasOne("hitscord_net.Models.DBModels.TextChannelDbModel", "NestedChannel")
-                        .WithMany()
-                        .HasForeignKey("NestedChannelId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("NestedChannel");
-                });
-
-            modelBuilder.Entity("hitscord_net.Models.DBModels.ReplyMessageDbModel", b =>
-                {
-                    b.HasOne("hitscord_net.Models.DBModels.MessageDbModel", "ReplyToMessage")
-                        .WithMany()
-                        .HasForeignKey("ReplyToMessageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ReplyToMessage");
                 });
 
             modelBuilder.Entity("hitscord_net.Models.DBModels.ServerDbModel", b =>
