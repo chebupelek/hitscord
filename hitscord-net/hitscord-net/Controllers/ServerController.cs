@@ -66,6 +66,29 @@ public class ServerController : ControllerBase
     }
 
     [Authorize]
+    [HttpDelete]
+    [Route("unsubscribeforcreator")]
+    public async Task<IActionResult> ServerUnsubscribeForCreator([FromBody] UnsubscribeForCreatorDTO data)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            await _serverService.UnsubscribeForCreatorAsync(data.serverId, jwtToken, data.newCreatorId);
+
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.Object, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
     [HttpGet]
     [Route("getservers")]
     public async Task<IActionResult> GetServers()

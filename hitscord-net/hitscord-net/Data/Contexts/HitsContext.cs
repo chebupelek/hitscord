@@ -19,6 +19,8 @@ namespace hitscord_net.Data.Contexts
         public DbSet<MessageDbModel> Messages { get; set; }
         public DbSet<LogDbModel> Token { get; set; }
         public DbSet<UserServerChannelDbModel> UserCoordinates { get; set; }
+        public DbSet<FriendshipDbModel> Friendship { get; set; }
+        public DbSet<FriendshipApplicationDbModel> FriendshipApplication { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -127,6 +129,36 @@ namespace hitscord_net.Data.Contexts
                     .WithMany()
                     .HasForeignKey(c => c.NestedChannelId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<FriendshipDbModel>(entity =>
+            {
+                entity.HasKey(e => new { e.UserFirstId, e.UserSecondId });
+
+                entity.HasOne(e => e.UserFirst)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserFirstId)
+                    .IsRequired();
+
+                entity.HasOne(e => e.UserSecond)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserSecondId)
+                    .IsRequired();
+            });
+
+            modelBuilder.Entity<FriendshipApplicationDbModel>(entity =>
+            {
+                entity.HasKey(e => new { e.UserFromId, e.UserToId });
+
+                entity.HasOne(e => e.UserFrom)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserFromId)
+                    .IsRequired();
+
+                entity.HasOne(e => e.UserTo)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserToId)
+                    .IsRequired();
             });
         }
     }

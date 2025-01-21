@@ -470,6 +470,7 @@ public class MessageService : IMessageService
 
             var messageDto = new DeletedMessageResponceDTO
             {
+                ServerId = channel.ServerId,
                 ChannelId = message.TextChannelId,
                 MessageId = message.Id
             };
@@ -513,6 +514,7 @@ public class MessageService : IMessageService
 
             var messageDto = new DeletedMessageResponceDTO
             {
+                ServerId = channel.ServerId,
                 ChannelId = message.TextChannelId,
                 MessageId = message.Id
             };

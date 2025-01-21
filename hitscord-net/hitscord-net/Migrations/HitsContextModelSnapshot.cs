@@ -157,6 +157,42 @@ namespace hitscord_net.Migrations
                     b.UseTphMappingStrategy();
                 });
 
+            modelBuilder.Entity("hitscord_net.Models.DBModels.FriendshipApplicationDbModel", b =>
+                {
+                    b.Property<Guid?>("UserFromId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UserToId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserFromId", "UserToId");
+
+                    b.HasIndex("UserToId");
+
+                    b.ToTable("FriendshipApplication");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.FriendshipDbModel", b =>
+                {
+                    b.Property<Guid?>("UserFirstId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UserSecondId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserFirstId", "UserSecondId");
+
+                    b.HasIndex("UserSecondId");
+
+                    b.ToTable("Friendship");
+                });
+
             modelBuilder.Entity("hitscord_net.Models.DBModels.LogDbModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -483,6 +519,44 @@ namespace hitscord_net.Migrations
                         .IsRequired();
 
                     b.Navigation("Server");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.FriendshipApplicationDbModel", b =>
+                {
+                    b.HasOne("hitscord_net.Models.DBModels.UserDbModel", "UserFrom")
+                        .WithMany()
+                        .HasForeignKey("UserFromId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord_net.Models.DBModels.UserDbModel", "UserTo")
+                        .WithMany()
+                        .HasForeignKey("UserToId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserFrom");
+
+                    b.Navigation("UserTo");
+                });
+
+            modelBuilder.Entity("hitscord_net.Models.DBModels.FriendshipDbModel", b =>
+                {
+                    b.HasOne("hitscord_net.Models.DBModels.UserDbModel", "UserFirst")
+                        .WithMany()
+                        .HasForeignKey("UserFirstId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord_net.Models.DBModels.UserDbModel", "UserSecond")
+                        .WithMany()
+                        .HasForeignKey("UserSecondId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserFirst");
+
+                    b.Navigation("UserSecond");
                 });
 
             modelBuilder.Entity("hitscord_net.Models.DBModels.MessageDbModel", b =>

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "65ebS83t0X/poRMssM7RzTQ/6dzQy/K4HAdtoon+H9LSXK+GnqqmjzergHUBSMbLNrCG2CC2n0RzUK/quI3IXw==",
+  "dgSpecHash": "voR/WhTw93QSfv7g2z8NLfUaxh0i6xWnxBEtSexo0TZOyj+4IahQ/ymf38XZ6hS2zRbY6BZgGwFjJ0KYkpHNLg==",
   "success": true,
-  "projectFilePath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord-net\\hitscord-net\\hitscord-net.csproj",
+  "projectFilePath": "C:\\Users\\misti\\Desktop\\hitscord-net\\hitscord-net\\hitscord-net.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\misti\\.nuget\\packages\\authzed.net\\1.2.0\\authzed.net.1.2.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\bouncycastle.cryptography\\2.4.0\\bouncycastle.cryptography.2.4.0.nupkg.sha512",
