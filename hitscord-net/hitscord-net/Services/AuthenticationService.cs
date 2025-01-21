@@ -117,7 +117,12 @@ public class AuthenticationService : IAuthenticationService
                 throw new CustomException("User not subscriber of this server", "Check user rights for changing roles", "User", 401);
             }
             var server = await _hitsContext.Server.Include(s => s.RolesCanChangeRolesUsers).FirstOrDefaultAsync(s => s.Id == ServerId);
-            if (server == null || !server.RolesCanChangeRolesUsers.Contains(existingSubscription.Role))
+            if (server == null) 
+            {
+                throw new CustomException("Server not exist", "Check user rights for changing roles", "Server", 404);
+            }
+            var roleContains = server.RolesCanChangeRolesUsers.Contains(existingSubscription.Role);
+            if (!roleContains && server.CreatorId != UserId)
             {
                 throw new CustomException("User doesnt has rights to change roles", "Check user rights for changing roles", "User", 401);
             }
@@ -142,7 +147,12 @@ public class AuthenticationService : IAuthenticationService
                 throw new CustomException("User not subscriber of this server", "Check user rights for work with channels", "User", 401);
             }
             var server = await _hitsContext.Server.Include(s => s.RolesCanWorkWithChannels).FirstOrDefaultAsync(s => s.Id == ServerId);
-            if (server == null || !server.RolesCanWorkWithChannels.Contains(existingSubscription.Role))
+            if (server == null)
+            {
+                throw new CustomException("Server not exist", "Check user rights for work with channels", "Server", 404);
+            }
+            var roleContains = server.RolesCanWorkWithChannels.Contains(existingSubscription.Role);
+            if (!roleContains && server.CreatorId != UserId)
             {
                 throw new CustomException("User doesnt has rights to work with channels", "Check user rights for work with channels", "User", 401);
             }
@@ -167,7 +177,12 @@ public class AuthenticationService : IAuthenticationService
                 throw new CustomException("User not subscriber of this server", "Check user rights for delete users from server", "User", 401);
             }
             var server = await _hitsContext.Server.Include(s => s.RolesCanDeleteUsers).FirstOrDefaultAsync(s => s.Id == ServerId);
-            if (server == null || !server.RolesCanDeleteUsers.Contains(existingSubscription.Role))
+            if (server == null)
+            {
+                throw new CustomException("Server not exist", "Check user rights for delete users from server", "Server", 404);
+            }
+            var roleContains = server.RolesCanDeleteUsers.Contains(existingSubscription.Role);
+            if (!roleContains && server.CreatorId != UserId)
             {
                 throw new CustomException("User doesnt has rights to delete users from server", "Check user rights for delete users from server", "User", 401);
             }
@@ -201,11 +216,11 @@ public class AuthenticationService : IAuthenticationService
             {
                 throw new CustomException("User not subscriber of this server", "Check user rights for write in channel", "User", 401);
             }
-            if (!channel.RolesCanView.Contains(existingSubscription.Role))
+            if (!channel.RolesCanView.Contains(existingSubscription.Role) && server.CreatorId != UserId)
             {
                 throw new CustomException("Role of user cant see this channel", "Check user rights for write in channel", "User", 401);
             }
-            if (!channel.RolesCanWrite.Contains(existingSubscription.Role))
+            if (!channel.RolesCanWrite.Contains(existingSubscription.Role) && server.CreatorId != UserId)
             {
                 throw new CustomException("Role of user cant join to this channel", "Check user rights for write in channel", "User", 401);
             }
@@ -239,7 +254,7 @@ public class AuthenticationService : IAuthenticationService
             {
                 throw new CustomException("User not subscriber of this server", "Check user rights for write in channel", "User", 401);
             }
-            if (!channel.RolesCanView.Contains(existingSubscription.Role))
+            if (!channel.RolesCanView.Contains(existingSubscription.Role) && server.CreatorId != UserId)
             {
                 throw new CustomException("Role of user cant see this channel", "Check user rights for write in channel", "User", 401);
             }
