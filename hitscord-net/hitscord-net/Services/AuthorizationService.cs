@@ -6,6 +6,7 @@ using hitscord_net.Models.DTOModels.ResponseDTO;
 using hitscord_net.Models.InnerModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using NickBuhro.Translit;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
@@ -143,10 +144,10 @@ public class AuthorizationService : IAuthorizationService
     {
         try
         {
-	    if(!Regex.IsMatch(registrationData.Mail, _emailPattern))
-	    {
-	        throw new CustomException("Wrong mail format", "Account", "Mail", 400);
-	    }
+	        if(!Regex.IsMatch(registrationData.Mail, _emailPattern))
+	        {
+	            throw new CustomException("Wrong mail format", "Account", "Mail", 400);
+	        }
 
             if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == registrationData.Mail) != null)
             {
@@ -163,8 +164,9 @@ public class AuthorizationService : IAuthorizationService
                 Mail = registrationData.Mail,
                 PasswordHash = _passwordHasher.HashPassword(registrationData.Mail, registrationData.Password),
                 AccountName = registrationData.AccountName,
-                AccountTag = Regex.Replace(registrationData.AccountName, "[^a-zA-Z0-9]", "").ToLower()
+                AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(registrationData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower()
             };
+
             await _hitsContext.User.AddAsync(newUser);
             _hitsContext.SaveChanges();
 
