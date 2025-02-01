@@ -1,5 +1,6 @@
 using hitscord_net.Data.Contexts;
 using hitscord_net.IServices;
+using hitscord_net.OtherFunctions;
 using hitscord_net.OtherFunctions.WebSockets;
 using hitscord_net.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,6 +9,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.File("logs.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -100,6 +106,8 @@ builder.WebHost.ConfigureKestrel(options =>
     });
 });
 
+builder.Host.UseSerilog();
+
 
 var app = builder.Build();
 
@@ -113,6 +121,7 @@ app.UseCors("AllowSpecificOrigin");
 
 app.UseWebSockets();
 app.UseMiddleware<WebSocketMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
 
 app.MapGet("/", () => "WebSocket server is running!");
 

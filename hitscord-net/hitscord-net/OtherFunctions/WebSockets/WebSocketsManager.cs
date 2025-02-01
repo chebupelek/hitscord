@@ -7,10 +7,12 @@ namespace hitscord_net.OtherFunctions.WebSockets;
 public class WebSocketsManager
 {
     private readonly WebSocketConnectionStore _connectionStore;
+    private readonly ILogger<WebSocketMiddleware> _logger;
 
-    public WebSocketsManager(WebSocketConnectionStore connectionStore)
+    public WebSocketsManager(WebSocketConnectionStore connectionStore, ILogger<WebSocketMiddleware> logger)
     {
         _connectionStore = connectionStore;
+        _logger = logger;
     }
 
     public void AddConnection(Guid userId, WebSocket socket)
@@ -58,6 +60,7 @@ public class WebSocketsManager
         foreach (var userId in userIds)
         {
             var connection = _connectionStore.GetConnection(userId);
+            _logger.LogInformation("Received message from user {UserId}: {Message}", userId, wrapper);
             if (connection != null && connection.State == WebSocketState.Open)
             {
                 await connection.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
