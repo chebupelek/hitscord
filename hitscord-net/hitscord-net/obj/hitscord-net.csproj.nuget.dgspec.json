@@ -1,34 +1,25 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\misti\\Desktop\\hitscord-net\\hitscord-net\\hitscord-net.csproj": {}
+    "/var/www/myapp/hitscord-net/hitscord-net/hitscord-net.csproj": {}
   },
   "projects": {
-    "C:\\Users\\misti\\Desktop\\hitscord-net\\hitscord-net\\hitscord-net.csproj": {
+    "/var/www/myapp/hitscord-net/hitscord-net/hitscord-net.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\misti\\Desktop\\hitscord-net\\hitscord-net\\hitscord-net.csproj",
+        "projectUniqueName": "/var/www/myapp/hitscord-net/hitscord-net/hitscord-net.csproj",
         "projectName": "hitscord-net",
-        "projectPath": "C:\\Users\\misti\\Desktop\\hitscord-net\\hitscord-net\\hitscord-net.csproj",
-        "packagesPath": "C:\\Users\\misti\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\misti\\Desktop\\hitscord-net\\hitscord-net\\obj\\",
+        "projectPath": "/var/www/myapp/hitscord-net/hitscord-net/hitscord-net.csproj",
+        "packagesPath": "/root/.nuget/packages/",
+        "outputPath": "/var/www/myapp/hitscord-net/hitscord-net/obj/",
         "projectStyle": "PackageReference",
-        "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
-          "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet\\"
-        ],
         "configFilePaths": [
-          "C:\\Users\\misti\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
+          "/root/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -41,6 +32,11 @@
           "warnAsError": [
             "NU1605"
           ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
         }
       },
       "frameworks": {
@@ -123,7 +119,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.100/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/8.0.404/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

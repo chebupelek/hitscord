@@ -16,7 +16,8 @@ public class AuthorizationService : IAuthorizationService
 {
     private readonly HitsContext _hitsContext;
     private readonly PasswordHasher<string> _passwordHasher;
-    private readonly ITokenService _tokenService;
+    private readonly ITokenService _tokenService; 
+    private readonly string _emailPattern = @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$";
 
     public AuthorizationService(HitsContext hitsContext, ITokenService tokenService)
     {
@@ -142,6 +143,11 @@ public class AuthorizationService : IAuthorizationService
     {
         try
         {
+	    if(!Regex.IsMatch(registrationData.Mail, _emailPattern))
+	    {
+	        throw new CustomException("Wrong mail format", "Account", "Mail", 400);
+	    }
+
             if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == registrationData.Mail) != null)
             {
                 throw new CustomException("Account with this mail already exist", "Account", "Mail", 400);
@@ -201,6 +207,11 @@ public class AuthorizationService : IAuthorizationService
     {
         try
         {
+	    if (!Regex.IsMatch(loginData.Mail, _emailPattern))
+	    {
+	        throw new CustomException("Wrong mail format", "Login", "Mail", 400);
+	    }
+
             var userData = await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == loginData.Mail);
             if (userData == null)
             {

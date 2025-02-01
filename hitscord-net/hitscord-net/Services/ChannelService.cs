@@ -384,9 +384,10 @@ public class ChannelService : IChannelService
             {
                 Messages = await _hitsContext.Messages
                     .Where(m => m.TextChannelId == channel.Id)
-                    .OrderBy(m => m.CreatedAt)
-                    .Skip(fromStart)
-                    .Take(number)
+		    .OrderByDescending(m => m.CreatedAt)
+		    .Skip(fromStart)
+		    .Take(number)
+		    .OrderBy(m => m.CreatedAt)
                     .Select(m => new MessageResponceDTO
                     {
                         ServerId = channel.ServerId,

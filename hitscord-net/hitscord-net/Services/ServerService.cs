@@ -177,7 +177,7 @@ public class ServerService : IServerService
                 UserName = newSub.UserServerName,
                 Role = uncertainRole
             };
-            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == serverId).Select(us => us.UserId).ToListAsync();
+            var usersServer = await _hitsContext.UserServer.Where(us => us.ServerId == serverId && us.UserId != user.Id).Select(us => us.UserId).ToListAsync();
             if (usersServer != null && usersServer.Count() > 0)
             {
                 await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, usersServer, "New user on server");
