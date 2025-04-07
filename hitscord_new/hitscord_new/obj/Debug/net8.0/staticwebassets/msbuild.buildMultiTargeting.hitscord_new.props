@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\hitscord_new.props" />
+</Project>
