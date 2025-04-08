@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "CIRUS44vFztkIe6vNOXLGn1gcsSICJQSnmxgLpJpE1bepJmQJnJrF4TQNXB2zFtX/2ulfHIyLo1BEXMZVE8eyQ==",
+  "dgSpecHash": "SzKYm2XioGX5znxE7ZOaIIsE/LEt1Z7Oq89utdgh3KAWpKNMLpNnIVoczE/7+TJnCbZcVVXF6cFsRi7tAYGs0Q==",
   "success": true,
-  "projectFilePath": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\Message\\Message.csproj",
+  "projectFilePath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Message.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\misti\\.nuget\\packages\\authzed.net\\1.3.0\\authzed.net.1.3.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\azure.core\\1.6.0\\azure.core.1.6.0.nupkg.sha512",

@@ -2631,11 +2631,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj",
+      "projectUniqueName": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj",
       "projectName": "HitscordLibrary",
-      "projectPath": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj",
+      "projectPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj",
       "packagesPath": "C:\\Users\\misti\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\HitscordLibrary\\obj\\",
+      "outputPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\HitscordLibrary\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",

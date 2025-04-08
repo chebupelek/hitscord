@@ -109,11 +109,8 @@ app.UseMiddleware<WebSocketMiddleware>();
 
 app.MapGet("/", () => "WebSocket server is running!");
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseAuthentication();
 
