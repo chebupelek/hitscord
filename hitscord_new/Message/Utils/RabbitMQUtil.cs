@@ -14,7 +14,10 @@ public class RabbitMQUtil
     {
         _serviceProvider = serviceProvider;
 
-        _bus = RabbitHutch.CreateBus("host=localhost");
+        var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
+        var connectionString = $"host={rabbitHost}";
+
+        _bus = RabbitHutch.CreateBus(connectionString);
 
 
         _bus.Rpc.Respond<ChannelRequestRabbit, ResponseObject>(async request =>

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "GTvm0ZA1MGpaLmsRng2B4xeDEjHyQvL96lb428RWKFXqbDlIodZ3KxE2mbbesdRzvkxIvCoC4nV4a8sh6cIOgg==",
+  "dgSpecHash": "qdPvdyna2DKIjjBIFzG59dt44xIHWUTWa+F2FapUjdpOlkCXPm11ayoVDimqM45wW+XR6qeusRenDllqQTKBIQ==",
   "success": true,
-  "projectFilePath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj",
+  "projectFilePath": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\misti\\.nuget\\packages\\easynetq\\7.8.0\\easynetq.7.8.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",

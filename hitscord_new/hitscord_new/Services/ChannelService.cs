@@ -112,7 +112,8 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
+            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newChannelResponse, UserIds = alertedUsers, Message = "New channel"}, "SendNotification");
             }
@@ -151,7 +152,8 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
+            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannel, UserIds = alertedUsers, Message = "New user in voice channel" }, "SendNotification");
             }
@@ -185,7 +187,8 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
+            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannel, UserIds = alertedUsers, Message = "User remove from voice channel" }, "SendNotification");
             }
@@ -218,7 +221,8 @@ public class ChannelService : IChannelService
             ChannelId = channel.Id
         };
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
-        using (var bus = RabbitHutch.CreateBus("host=localhost"))
+        var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
+        using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
         {
             if (alertedUsers != null && alertedUsers.Count() > 0)
             {
@@ -257,7 +261,8 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
+            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = deletedChannelResponse, UserIds = alertedUsers, Message = "Channel deleted" }, "SendNotification");
             }
@@ -287,7 +292,8 @@ public class ChannelService : IChannelService
         var channel = await CheckTextChannelExistAsync(channelId);
         await _authenticationService.CheckUserRightsSeeChannel(channel.Id, user.Id);
 
-        using (var bus = RabbitHutch.CreateBus("host=localhost"))
+        var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
+        using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
         {
             var addingChannel = bus.Rpc.Request<ChannelRequestRabbit, ResponseObject>(new ChannelRequestRabbit { channelId = channelId, fromStart = fromStart, number = number, token = token}, x => x.WithQueueName("Get messages"));
 

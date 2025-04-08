@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "VUjXqc7QqVCjE/nABdxHQsOC6q5+Zv3nYKT2lfANTSO8vRaGS4OrP4QZHkYIRp6RCpGlUB3jJF40yZ/JO1GEqA==",
+  "dgSpecHash": "sT5/BWcpZGrqm8B3nt5CIlQRLJOMfzXJtdRcZP0V/ZBwWN0g4U5NRtxh3ZWIY/+LO61xMgSzJuhi6lEVYgn1MQ==",
   "success": true,
-  "projectFilePath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
+  "projectFilePath": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\misti\\.nuget\\packages\\authzed.net\\1.3.0\\authzed.net.1.3.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\azure.core\\1.6.0\\azure.core.1.6.0.nupkg.sha512",
@@ -75,6 +75,7 @@
     "C:\\Users\\misti\\.nuget\\packages\\microsoft.netcore.platforms\\3.1.4\\microsoft.netcore.platforms.3.1.4.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\microsoft.netcore.targets\\1.1.0\\microsoft.netcore.targets.1.1.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\microsoft.openapi\\1.4.3\\microsoft.openapi.1.4.3.nupkg.sha512",
+    "C:\\Users\\misti\\.nuget\\packages\\microsoft.visualstudio.azure.containers.tools.targets\\1.19.5\\microsoft.visualstudio.azure.containers.tools.targets.1.19.5.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\microsoft.win32.primitives\\4.3.0\\microsoft.win32.primitives.4.3.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\microsoft.win32.systemevents\\4.7.0\\microsoft.win32.systemevents.4.7.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\mono.texttemplating\\2.2.1\\mono.texttemplating.2.2.1.nupkg.sha512",

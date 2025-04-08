@@ -98,9 +98,6 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var orientDbService = scope.ServiceProvider.GetRequiredService<OrientDbService>();
-    await orientDbService.EnsureSchemaExistsAsync();
-
     var bus = app.Services.GetRequiredService<RabbitMQUtil>();
     bus = new RabbitMQUtil(app.Services);
 }
@@ -120,7 +117,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 
-app.UseHttpsRedirection();
 
 app.UseAuthorization();
 

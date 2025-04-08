@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <InvariantGlobalization>true</InvariantGlobalization>
     <UserSecretsId>aspnet-hitscord_new-5d6a6d8d-e902-47fc-b0ff-db4edc2d90bb</UserSecretsId>
+    <DockerDefaultTargetOS>Windows</DockerDefaultTargetOS>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,6 +28,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Identity.Web" Version="2.15.2" />
     <PackageReference Include="Microsoft.Identity.Web.DownstreamApi" Version="2.15.2" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.19.5" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="NickBuhro.Translit" Version="1.4.5" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />

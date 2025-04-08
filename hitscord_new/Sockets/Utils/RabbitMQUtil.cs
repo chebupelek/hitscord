@@ -16,7 +16,10 @@ public class RabbitMQUtil
     {
         _serviceProvider = serviceProvider;
 
-        _bus = RabbitHutch.CreateBus("host=localhost");
+        var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
+        var connectionString = $"host={rabbitHost}";
+
+        _bus = RabbitHutch.CreateBus(connectionString);
 
         _bus.PubSub.Subscribe<NotificationDTO>("SendNotification_Core", async request =>
         {
