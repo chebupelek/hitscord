@@ -5322,11 +5322,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\Message\\Message.csproj",
+      "projectUniqueName": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Message.csproj",
       "projectName": "Message",
-      "projectPath": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\Message\\Message.csproj",
+      "projectPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Message.csproj",
       "packagesPath": "C:\\Users\\misti\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\Message\\obj\\",
+      "outputPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
@@ -5350,8 +5350,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj": {
-              "projectPath": "C:\\Users\\misti\\Documents\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj"
+            "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj": {
+              "projectPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj"
             }
           }
         }
