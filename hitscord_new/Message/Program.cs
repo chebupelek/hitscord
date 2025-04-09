@@ -110,10 +110,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseCors("AllowSpecificOrigin");
 
 app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.RoutePrefix = "message/api";
-});
+app.UseSwaggerUI();
 
 app.UseAuthentication();
 
