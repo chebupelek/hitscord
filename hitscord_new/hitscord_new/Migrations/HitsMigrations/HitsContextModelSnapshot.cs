@@ -120,12 +120,7 @@ namespace hitscord_new.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("VoiceChannelDbModelId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("VoiceChannelDbModelId");
 
                     b.ToTable("User");
                 });
@@ -148,6 +143,24 @@ namespace hitscord_new.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("UserServer");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.UserVoiceChannelDbModel", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("MuteStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("VoiceChannelId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("VoiceChannelId");
+
+                    b.ToTable("UserVoiceChannel");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.TextChannelDbModel", b =>
@@ -189,13 +202,6 @@ namespace hitscord_new.Migrations
                     b.Navigation("Server");
                 });
 
-            modelBuilder.Entity("hitscord.Models.db.UserDbModel", b =>
-                {
-                    b.HasOne("hitscord.Models.db.VoiceChannelDbModel", null)
-                        .WithMany("Users")
-                        .HasForeignKey("VoiceChannelDbModelId");
-                });
-
             modelBuilder.Entity("hitscord.Models.db.UserServerDbModel", b =>
                 {
                     b.HasOne("hitscord.Models.db.RoleDbModel", "Role")
@@ -213,6 +219,25 @@ namespace hitscord_new.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.UserVoiceChannelDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.UserDbModel", "User")
+                        .WithOne()
+                        .HasForeignKey("hitscord.Models.db.UserVoiceChannelDbModel", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.VoiceChannelDbModel", "VoiceChannel")
+                        .WithMany("Users")
+                        .HasForeignKey("VoiceChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("VoiceChannel");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ServerDbModel", b =>

@@ -1,4 +1,4 @@
-﻿using hitscord.Models.other;
+﻿using HitscordLibrary.Models.other;
 
 namespace hitscord.Models.request;
 

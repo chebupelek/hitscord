@@ -4,8 +4,8 @@ public class VoiceChannelDbModel : ChannelDbModel
 {
     public VoiceChannelDbModel()
     {
-        Users = new List<UserDbModel>();
+        Users = new List<UserVoiceChannelDbModel>();
     }
 
-    public List<UserDbModel> Users { get; set; }
+    public List<UserVoiceChannelDbModel> Users { get; set; }
 }

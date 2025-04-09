@@ -124,20 +124,26 @@ public class ChannelService : IChannelService
         var user = await _authService.GetUserAsync(token);
         var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
         await _authenticationService.CheckUserRightsWriteInChannel(channel.Id, user.Id);
-        var userthischannel = ((VoiceChannelDbModel)channel).Users.FirstOrDefault(u => u.Id == user.Id);
+
+        var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.VoiceChannelId == chnnelId);
         if (userthischannel != null)
         {
             throw new CustomException("User is already on this channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится на этом канале", "Присоединение к голосовому каналу");
         }
-        var userchannel = await _hitsContext.Channel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c is VoiceChannelDbModel && ((VoiceChannelDbModel)c).Users.Contains(user));
-        if (userchannel != null)
+
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId ==  user.Id);
+        if (userVoiceChannel != null)
         {
-            ((VoiceChannelDbModel)userchannel).Users.Remove(user);
-            _hitsContext.Channel.Update(userchannel);
+            _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
             await _hitsContext.SaveChangesAsync();
         }
-            ((VoiceChannelDbModel)channel).Users.Add(user);
-        _hitsContext.Channel.Update(channel);
+        var newUserVoiceChannel = new UserVoiceChannelDbModel
+        {
+            VoiceChannelId = chnnelId,
+            UserId = user.Id,
+            MuteStatus = MuteStatusEnum.NotMuted
+        };
+        _hitsContext.UserVoiceChannel.Add(newUserVoiceChannel);
         await _hitsContext.SaveChangesAsync();
 
         var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
@@ -166,12 +172,12 @@ public class ChannelService : IChannelService
         var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
         var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
         await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
-        if (!((VoiceChannelDbModel)channel).Users.Contains(user))
+        var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.VoiceChannelId == chnnelId);
+        if (userthischannel == null)
         {
             throw new CustomException("User not on this channel", "Remove from voice channel", "Voice channel - User", 400, "Пользователь не находится в этом канале", "Выход с голосового канала");
         }
-            ((VoiceChannelDbModel)channel).Users.Remove(user);
-        _hitsContext.Channel.Update(channel);
+        _hitsContext.UserVoiceChannel.Remove(userthischannel);
         await _hitsContext.SaveChangesAsync();
 
         var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
@@ -202,12 +208,18 @@ public class ChannelService : IChannelService
         var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
         await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
         await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
-        if (!((VoiceChannelDbModel)channel).Users.Contains(removedUser))
+
+        if(user.Id == removedUser.Id)
+        {
+            throw new CustomException("User cant remove himself", "Remove user from voice channel", "Removed user id", 400, "Пользователь не может удалить сам себя", "Удаление пользователя из голосового канала");
+        }
+
+        var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == removedUser.Id && uvc.VoiceChannelId == chnnelId);
+        if (userthischannel == null)
         {
             throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400, "Пользователь не находится на этом канале", "Удаление пользователя из голосового канала");
         }
-            ((VoiceChannelDbModel)channel).Users.Remove(removedUser);
-        _hitsContext.Channel.Update(channel);
+        _hitsContext.UserVoiceChannel.Remove(userthischannel);
         await _hitsContext.SaveChangesAsync();
 
         var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
@@ -225,6 +237,111 @@ public class ChannelService : IChannelService
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannel, UserIds = alertedUsers, Message = "User removed from voice channel" }, "SendNotification");
             }
             bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannel, UserIds = new List<Guid> { removedUser.Id }, Message = "You removed from voice channel" }, "SendNotification");
+        }
+
+        return (true);
+    }
+
+    public async Task<bool> ChangeSelfMuteStatusAsync(string token)
+    {
+        var user = await _authService.GetUserAsync(token);
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+        if(userVoiceChannel == null) 
+        {
+            throw new CustomException("User not in voice channel", "Change self mute status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса в голосовом канале");
+        }
+        var channel = await CheckVoiceChannelExistAsync(userVoiceChannel.VoiceChannelId, true);
+        var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
+        await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+        if (userVoiceChannel.MuteStatus == MuteStatusEnum.Muted)
+        {
+            throw new CustomException("User cant unmute", "Change self mute status", "Voice channel - User", 401, "Пользователь не может размьютится", "Изменение статуса в голосовом канале");
+        }
+
+        if (userVoiceChannel.MuteStatus == MuteStatusEnum.SelfMuted)
+        {
+            userVoiceChannel.MuteStatus = MuteStatusEnum.NotMuted;
+        }
+        else
+        {
+            userVoiceChannel.MuteStatus = MuteStatusEnum.SelfMuted;
+        }
+
+        _hitsContext.UserVoiceChannel.Update(userVoiceChannel);
+        await _hitsContext.SaveChangesAsync();
+
+        var muteStatusResponse = new ChangeSelfMutedStatus
+        {
+            ServerId = channel.ServerId,
+            UserId = user.Id,
+            ChannelId = channel.Id,
+            MuteStatus = userVoiceChannel.MuteStatus
+        };
+        var alertedUsers = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
+        if (alertedUsers != null && alertedUsers.Count() > 0)
+        {
+
+            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = muteStatusResponse, UserIds = alertedUsers, Message = "User change his mute status" }, "SendNotification");
+            }
+        }
+
+        return (true);
+    }
+
+    public async Task<bool> ChangeUserMuteStatusAsync(string token, Guid UserId)
+    {
+        var user = await _authService.GetUserAsync(token);
+        var changedUser = await _authService.GetUserAsync(UserId);
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+        if (userVoiceChannel == null)
+        {
+            throw new CustomException("User not in voice channel", "Change user mute status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса другого пользователя в голосовом канале");
+        }
+        var channel = await CheckVoiceChannelExistAsync(userVoiceChannel.VoiceChannelId, true);
+        var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
+        await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+        await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
+
+        if (user.Id == changedUser.Id)
+        {
+            throw new CustomException("User cant change himself", "Change user mute status", "Changed user id", 400, "Пользователь не может замьютить сам себя эти методом", "Изменение статуса другого пользователя в голосовом канале");
+        }
+
+        var changedUserthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == changedUser.Id && uvc.VoiceChannelId == channel.Id);
+        if (changedUserthischannel == null)
+        {
+            throw new CustomException("Changed user not on this channel", "Change user mute status", "Voice channel - Removed user", 400, "Пользователь которому необходимо изменить статус мута не находится в голосовом канале канале", "Изменение статуса другого пользователя в голосовом канале");
+        }
+
+        if (changedUserthischannel.MuteStatus == MuteStatusEnum.SelfMuted || changedUserthischannel.MuteStatus == MuteStatusEnum.NotMuted)
+        {
+            changedUserthischannel.MuteStatus = MuteStatusEnum.Muted;
+        }
+        else
+        {
+            changedUserthischannel.MuteStatus = MuteStatusEnum.NotMuted;
+        }
+
+        _hitsContext.UserVoiceChannel.Update(changedUserthischannel);
+        await _hitsContext.SaveChangesAsync();
+
+        var muteStatusResponse = new ChangeSelfMutedStatus
+        {
+            ServerId = channel.ServerId,
+            UserId = changedUser.Id,
+            ChannelId = channel.Id,
+            MuteStatus = changedUserthischannel.MuteStatus
+        };
+        var alertedUsers = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
+        if (alertedUsers != null && alertedUsers.Count() > 0)
+        {
+
+            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = muteStatusResponse, UserIds = alertedUsers, Message = "User mute status is changed" }, "SendNotification");
+            }
         }
 
         return (true);
@@ -310,26 +427,26 @@ public class ChannelService : IChannelService
             case ChangeRoleTypeEnum.CanRead:
                 if (settingsData.Add == true)
                 {
-                    return (await AddRoleToCanReadSettingAsync(settingsData.ChannelId, token, settingsData.RoleId));
+                    return (await AddRoleToCanReadSettingAsync(settingsData.ChannelId, token, settingsData.RoleId, settingsData.Type, settingsData.Add));
                 }
                 else
                 {
-                    return (await RemoveRoleFromCanReadSettingAsync(settingsData.ChannelId, token, settingsData.RoleId));
+                    return (await RemoveRoleFromCanReadSettingAsync(settingsData.ChannelId, token, settingsData.RoleId, settingsData.Type, settingsData.Add));
                 }
             case ChangeRoleTypeEnum.CanWrite:
                 if (settingsData.Add == true)
                 {
-                    return (await AddRoleToCanWriteSettingAsync(settingsData.ChannelId, token, settingsData.RoleId));
+                    return (await AddRoleToCanWriteSettingAsync(settingsData.ChannelId, token, settingsData.RoleId, settingsData.Type, settingsData.Add));
                 }
                 else
                 {
-                    return (await RemoveRoleFromCanWriteSettingAsync(settingsData.ChannelId, token, settingsData.RoleId));
+                    return (await RemoveRoleFromCanWriteSettingAsync(settingsData.ChannelId, token, settingsData.RoleId, settingsData.Type, settingsData.Add));
                 }
         }
         return false;
     }
 
-    public async Task<bool> AddRoleToCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId)
+    public async Task<bool> AddRoleToCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add)
     {
         var user = await _authService.GetUserAsync(token);
         var channel = await CheckChannelExistAsync(chnnelId);
@@ -343,10 +460,29 @@ public class ChannelService : IChannelService
             throw new CustomException("This role already in this setting", "Add new role to Can write settings", "Role", 400, "Роль уже с таким доступом", "Добавление роли к Доступ на написание");
         }
         await _orientDbService.GrantRolePermissionToChannelAsync(roleId, channel.Id, "ChannelCanWrite");
+
+        var changedSettingsresponse = new ChannelRoleResponseSocket
+        {
+            ServerId = channel.ServerId,
+            ChannelId = channel.Id,
+            RoleId = roleId,
+            Add = add,
+            Type = type
+        };
+        var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
+        if (alertedUsers != null && alertedUsers.Count() > 0)
+        {
+
+            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
+            }
+        }
+
         return true;
     }
 
-    public async Task<bool> RemoveRoleFromCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId)
+    public async Task<bool> RemoveRoleFromCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add)
     {
         var user = await _authService.GetUserAsync(token);
         var channel = await CheckChannelExistAsync(chnnelId);
@@ -360,10 +496,29 @@ public class ChannelService : IChannelService
             throw new CustomException("This role isnt in this setting", "Remove role from Can write settings", "Role", 400, "Роль не с таким доступом", "Удаление роли из Доступ на написание");
         }
         await _orientDbService.RevokeRolePermissionFromChannelAsync(roleId, channel.Id, "ChannelCanWrite");
+
+        var changedSettingsresponse = new ChannelRoleResponseSocket
+        {
+            ServerId = channel.ServerId,
+            ChannelId = channel.Id,
+            RoleId = roleId,
+            Add = add,
+            Type = type
+        };
+        var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
+        if (alertedUsers != null && alertedUsers.Count() > 0)
+        {
+
+            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
+            }
+        }
+
         return true;
     }
 
-    public async Task<bool> AddRoleToCanReadSettingAsync(Guid chnnelId, string token, Guid roleId)
+    public async Task<bool> AddRoleToCanReadSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add)
     {
         var user = await _authService.GetUserAsync(token);
         var channel = await CheckChannelExistAsync(chnnelId);
@@ -377,10 +532,29 @@ public class ChannelService : IChannelService
             throw new CustomException("This role already in this setting", "Add new role to Can read settings", "Role", 400, "Роль уже с таким доступом", "Добавление роли к Доступ на чтение");
         }
         await _orientDbService.GrantRolePermissionToChannelAsync(roleId, channel.Id, "ChannelCanSee");
+
+        var changedSettingsresponse = new ChannelRoleResponseSocket
+        {
+            ServerId = channel.ServerId,
+            ChannelId = channel.Id,
+            RoleId = roleId,
+            Add = add,
+            Type = type
+        };
+        var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
+        if (alertedUsers != null && alertedUsers.Count() > 0)
+        {
+
+            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
+            }
+        }
+
         return true;
     }
 
-    public async Task<bool> RemoveRoleFromCanReadSettingAsync(Guid chnnelId, string token, Guid roleId)
+    public async Task<bool> RemoveRoleFromCanReadSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add)
     {
         var user = await _authService.GetUserAsync(token);
         var channel = await CheckChannelExistAsync(chnnelId);
@@ -394,6 +568,25 @@ public class ChannelService : IChannelService
             throw new CustomException("This role isnt in this setting", "Remove role from Can read settings", "Role", 400, "Роль не с таким доступом", "Удаление роли из Доступ на чтение");
         }
         await _orientDbService.RevokeRolePermissionFromChannelAsync(roleId, channel.Id, "ChannelCanSee");
+
+        var changedSettingsresponse = new ChannelRoleResponseSocket
+        {
+            ServerId = channel.ServerId,
+            ChannelId = channel.Id,
+            RoleId = roleId,
+            Add = add,
+            Type = type
+        };
+        var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
+        if (alertedUsers != null && alertedUsers.Count() > 0)
+        {
+
+            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
+            }
+        }
+
         return true;
     }
 }

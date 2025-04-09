@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 using HitscordLibrary.Models.other;
+using HitscordLibrary.Migrations;
+using Authzed.Api.V0;
 
 namespace hitscord.Controllers;
 
@@ -179,6 +181,48 @@ public class ChannelController : ControllerBase
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             await _channelService.RemoveUserFromVoiceChannelAsync(channelId.VoiceChannelId, jwtToken, channelId.UserID);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpPut]
+    [Route("voice/mute/self")]
+    public async Task<IActionResult> ChangeSelfMuteStatus()
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.ChangeSelfMuteStatusAsync(jwtToken);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [Authorize]
+    [HttpPut]
+    [Route("voice/mute/user")]
+    public async Task<IActionResult> ChangeUserMuteStatus([FromBody] UserIdResponseDTO User)
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.ChangeUserMuteStatusAsync(jwtToken, User.UserId);
             return Ok();
         }
         catch (CustomException ex)
