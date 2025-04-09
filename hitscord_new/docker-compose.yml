@@ -97,6 +97,22 @@ services:
     networks:
       - hitscord_network
 
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - hitscord
+      - message
+      - sockets
+    networks:
+      - hitscord_network
+
 volumes:
   pgdata:
   orientdb_data:
@@ -105,19 +121,3 @@ volumes:
 networks:
   hitscord_network:
     driver: bridge
-
-nginx:
-  image: nginx:latest
-  restart: unless-stopped
-  ports:
-    - "80:80"
-    - "443:443"
-  volumes:
-    - ./nginx/conf.d:/etc/nginx/conf.d
-    - /etc/letsencrypt:/etc/letsencrypt:ro
-  depends_on:
-    - hitscord
-    - message
-    - sockets
-  networks:
-    - hitscord_network
