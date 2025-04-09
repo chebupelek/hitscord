@@ -10,7 +10,7 @@ using HitscordLibrary.Models.other;
 namespace hitscord.Controllers;
 
 [ApiController]
-[Route("api/api/auth")]
+[Route("api/auth")]
 public class AuthorizationController : ControllerBase
 {
     private readonly IServices.IAuthorizationService _authService;
