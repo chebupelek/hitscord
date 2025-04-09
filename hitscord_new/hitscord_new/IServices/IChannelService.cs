@@ -14,13 +14,15 @@ public interface IChannelService
     Task<bool> JoinToVoiceChannelAsync(Guid chnnelId, string token);
     Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, string token);
     Task<bool> RemoveUserFromVoiceChannelAsync(Guid chnnelId, string token, Guid UserId);
+    Task<bool> ChangeSelfMuteStatusAsync(string token);
+    Task<bool> ChangeUserMuteStatusAsync(string token, Guid UserId);
     Task<bool> DeleteChannelAsync(Guid chnnelId, string token);
     Task<ChannelSettingsDTO> GetChannelSettingsAsync(Guid chnnelId, string token);
     Task<bool> ChangeChannelSettingsAsync(string token, ChannelRoleDTO settingsData);
-    Task<bool> AddRoleToCanReadSettingAsync(Guid chnnelId, string token, Guid roleId);
-    Task<bool> RemoveRoleFromCanReadSettingAsync(Guid chnnelId, string token, Guid roleId);
-    Task<bool> AddRoleToCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId);
-    Task<bool> RemoveRoleFromCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId);
+    Task<bool> AddRoleToCanReadSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add);
+    Task<bool> RemoveRoleFromCanReadSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add);
+    Task<bool> AddRoleToCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add);
+    Task<bool> RemoveRoleFromCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add);
     Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, string token, int number, int fromStart);
 
 }

@@ -1,4 +1,4 @@
-﻿namespace hitscord.Models.other;
+﻿namespace HitscordLibrary.Models.other;
 
 public enum ChangeRoleTypeEnum
 {

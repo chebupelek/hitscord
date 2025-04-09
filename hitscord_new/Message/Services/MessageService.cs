@@ -73,8 +73,7 @@ public class MessageService : IMessageService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Alert, you tagged by message" }, "SendNotification");
             }
@@ -126,8 +125,7 @@ public class MessageService : IMessageService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Updated message" }, "SendNotification");
             }
@@ -168,8 +166,7 @@ public class MessageService : IMessageService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Deleted message" }, "SendNotification");
             }

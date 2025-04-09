@@ -15,6 +15,7 @@ namespace hitscord.Contexts
         public DbSet<ChannelDbModel> Channel { get; set; }
         public DbSet<TextChannelDbModel> TextChannel { get; set; }
         public DbSet<VoiceChannelDbModel> VoiceChannel { get; set; }
+        public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -56,10 +57,19 @@ namespace hitscord.Contexts
                     .IsRequired();
             });
 
-            modelBuilder.Entity<VoiceChannelDbModel>(entity =>
+            modelBuilder.Entity<UserVoiceChannelDbModel>(entity =>
             {
-                entity.HasMany(e => e.Users)
-                    .WithOne();
+                entity.HasKey(uvc => uvc.UserId);
+
+                entity.HasOne(uvc => uvc.User)
+                    .WithOne()
+                    .HasForeignKey<UserVoiceChannelDbModel>(uvc => uvc.UserId)
+                    .IsRequired();
+
+                entity.HasOne(uvc => uvc.VoiceChannel)
+                    .WithMany(vc => vc.Users)
+                    .HasForeignKey(uvc => uvc.VoiceChannelId)
+                    .IsRequired();
             });
         }
     }

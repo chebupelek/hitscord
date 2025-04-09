@@ -48,5 +48,13 @@ public class WebSocketService : IWebSocketService
         {
             await _webSocketManager.BroadcastMessageAsync(requestUserVoiceChannelResponseDTO, userIds, message);
         }
+        if (notification is ChangeSelfMutedStatus requestChangeSelfMutedStatus)
+        {
+            await _webSocketManager.BroadcastMessageAsync(requestChangeSelfMutedStatus, userIds, message);
+        }
+        if (notification is ChannelRoleResponseSocket requestChannelRoleResponseSocket)
+        {
+            await _webSocketManager.BroadcastMessageAsync(requestChannelRoleResponseSocket, userIds, message);
+        }
     }
 }

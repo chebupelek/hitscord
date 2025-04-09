@@ -150,8 +150,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newSubscriberResponse, UserIds = alertedUsers, Message = "New user on server" }, "SendNotification");
             }
@@ -165,20 +164,18 @@ public class ServerService : IServerService
         await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
         var subRole = await _authenticationService.CheckUserNotCreatorAsync(server.Id, user.Id);
         var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == subRole.Id && us.UserId == user.Id);
-        var voiceChannel = await _hitsContext.Channel
-            .Include(c => ((VoiceChannelDbModel)c).Users)
-            .FirstOrDefaultAsync(c =>
-                c.ServerId == serverId &&
-                c is VoiceChannelDbModel &&
-                ((VoiceChannelDbModel)c).Users.Contains(user)
-            );
-        if (voiceChannel != null)
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel
+            .Include(us => us.VoiceChannel)
+            .FirstOrDefaultAsync(us =>
+                us.VoiceChannel.ServerId == server.Id
+                && us.UserId == user.Id);
+        if (userVoiceChannel != null)
         {
-            ((VoiceChannelDbModel)voiceChannel).Users.Remove(user);
+            _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
         }
         _hitsContext.UserServer.Remove(sub);
         await _hitsContext.SaveChangesAsync();
-        
+
         await _orientDbService.UnassignUserFromRoleAsync(user.Id, subRole.Id, server.Id);
 
         var newUnsubscriberResponse = new UnsubscribeResponseDTO
@@ -190,8 +187,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
             }
@@ -208,16 +204,14 @@ public class ServerService : IServerService
         var ownerSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == ownerSubRole.Id && us.UserId == owner.Id);
         var newCreatorSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == newCreatorSubRole.Id && us.UserId == newCreator.Id);
         var creatorRole = server.Roles.FirstOrDefault(s => s.Role == RoleEnum.Creator);
-        var voiceChannel = await _hitsContext.Channel
-            .Include(c => ((VoiceChannelDbModel)c).Users)
-            .FirstOrDefaultAsync(c =>
-                c.ServerId == serverId &&
-                c is VoiceChannelDbModel &&
-                ((VoiceChannelDbModel)c).Users.Contains(owner)
-            );
-        if (voiceChannel != null)
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel
+            .Include(us => us.VoiceChannel)
+            .FirstOrDefaultAsync(us =>
+                us.VoiceChannel.ServerId == server.Id
+                && us.UserId == owner.Id);
+        if (userVoiceChannel != null)
         {
-            ((VoiceChannelDbModel)voiceChannel).Users.Remove(owner);
+            _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
         }
         await _orientDbService.UnassignUserFromRoleAsync(owner.Id, ownerSubRole.Id, server.Id);
         _hitsContext.UserServer.Remove(ownerSub);
@@ -242,8 +236,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUserRole, UserIds = alertedUsers, Message = "Role changed" }, "SendNotification");
@@ -280,8 +273,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = serverDelete, UserIds = alertedUsers, Message = "Server deleted" }, "SendNotification");
             }
@@ -346,8 +338,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUserRole, UserIds = alertedUsers, Message = "Role changed" }, "SendNotification");
             }
@@ -373,7 +364,8 @@ public class ServerService : IServerService
                 CanJoin = channelCanWrite.Contains(vc.Id),
                 Users = vc.Users.Select(u => new VoiceChannelUserDTO
                 {
-                    UserId = u.Id
+                    UserId = u.UserId,
+                    MuteStatus = u.MuteStatus
                 })
                 .ToList()
             })
@@ -487,8 +479,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-            using (var bus = RabbitHutch.CreateBus($"host={rabbitHost}"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
             }

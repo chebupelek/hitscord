@@ -81,12 +81,14 @@ public class AuthorizationService : IAuthorizationService
             throw new CustomException("Account with this mail already exist", "Account", "Mail", 400, "Аккаунт с такой почтой уже существует", "Регистрация");
         }
 
+        var count = (await _hitsContext.User.CountAsync() + 1).ToString("D6");
+
         var newUser = new UserDbModel
         {
             Mail = registrationData.Mail,
             PasswordHash = _passwordHasher.HashPassword(registrationData.Mail, registrationData.Password),
             AccountName = registrationData.AccountName,
-            AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(registrationData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower()
+            AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(registrationData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + count
         };
 
         await _hitsContext.User.AddAsync(newUser);
