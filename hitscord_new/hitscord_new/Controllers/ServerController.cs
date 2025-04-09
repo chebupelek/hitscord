@@ -8,7 +8,7 @@ using HitscordLibrary.Models.other;
 namespace hitscord.Controllers;
 
 [ApiController]
-[Route("api/server")]
+[Route("api/api/server")]
 public class ServerController : ControllerBase
 {
     private readonly IServerService _serverService;
