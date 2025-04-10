@@ -20,7 +20,7 @@ public class RabbitMQUtil
         _logger = logger;
 
         var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-        var connectionString = $"host={rabbitHost}";
+        var connectionString = $"host=rabbitmq";
 
         _logger.LogInformation("Connecting to RabbitMQ at {RabbitMqHost}", rabbitHost);
         _bus = RabbitHutch.CreateBus(connectionString);
