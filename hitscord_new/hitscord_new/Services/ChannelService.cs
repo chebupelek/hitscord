@@ -450,7 +450,16 @@ public class ChannelService : IChannelService
         await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
         if (!await _orientDbService.RoleExistsOnServerAsync(roleId, channel.ServerId))
         {
-            throw new CustomException("Role doesnt exist", "Add new role to Can write settings", "Role", 400, "Роль не существует", "Добавление роли к Доступ на написание");
+            throw new CustomException("Role doesnt exist", "Add new role to Can write settings", "Role", 404, "Роль не существует", "Добавление роли к Доступ на написание");
+        }
+        var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id ==  roleId && r.ServerId == channel.ServerId);
+        if (role == null)
+        {
+            throw new CustomException("Role doesnt exist", "Add new role to Can write settings", "Role", 404, "Роль не существует", "Добавление роли к Доступ на написание");
+        }
+        if(role.Role == RoleEnum.Creator)
+        {
+            throw new CustomException("Cant change creator permissions", "Add new role to Can write settings", "Role", 400, "Нельзя изменять разрешения создателя", "Добавление роли к Доступ на написание");
         }
         if (await _orientDbService.IsRoleConnectedToChannelForWriteAsync(roleId, channel.Id))
         {
@@ -486,7 +495,16 @@ public class ChannelService : IChannelService
         await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
         if (!await _orientDbService.RoleExistsOnServerAsync(roleId, channel.ServerId))
         {
-            throw new CustomException("Role doesnt exist", "Remove role from Can write settings", "Role", 400, "Роль не существует", "Удаление роли из Доступ на написание");
+            throw new CustomException("Role doesnt exist", "Remove role from Can write settings", "Role", 404, "Роль не существует", "Удаление роли из Доступ на написание");
+        }
+        var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == channel.ServerId);
+        if (role == null)
+        {
+            throw new CustomException("Role doesnt exist", "Remove role from Can write settings", "Role", 404, "Роль не существует", "Удаление роли из Доступ на написание");
+        }
+        if (role.Role == RoleEnum.Creator)
+        {
+            throw new CustomException("Cant change creator permissions", "Remove role from Can write settings", "Role", 400, "Нельзя изменять разрешения создателя", "Удаление роли из Доступ на написание");
         }
         if (!await _orientDbService.IsRoleConnectedToChannelForWriteAsync(roleId, channel.Id))
         {
@@ -522,7 +540,16 @@ public class ChannelService : IChannelService
         await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
         if (!await _orientDbService.RoleExistsOnServerAsync(roleId, channel.ServerId))
         {
-            throw new CustomException("Role doesnt exist", "Add new role to Can read settings", "Role", 400, "Роль не существует", "Добавление роли к Доступ на чтение");
+            throw new CustomException("Role doesnt exist", "Add new role to Can read settings", "Role", 404, "Роль не существует", "Добавление роли к Доступ на чтение");
+        }
+        var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == channel.ServerId);
+        if (role == null)
+        {
+            throw new CustomException("Role doesnt exist", "Add new role to Can read settings", "Role", 404, "Роль не существует", "Добавление роли к Доступ на чтение");
+        }
+        if (role.Role == RoleEnum.Creator)
+        {
+            throw new CustomException("Cant change creator permissions", "Add new role to Can read settings", "Role", 400, "Нельзя изменять разрешения создателя", "Добавление роли к Доступ на чтение");
         }
         if (await _orientDbService.IsRoleConnectedToChannelForSeeAsync(roleId, channel.Id))
         {
@@ -558,7 +585,16 @@ public class ChannelService : IChannelService
         await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
         if (!await _orientDbService.RoleExistsOnServerAsync(roleId, channel.ServerId))
         {
-            throw new CustomException("Role doesnt exist", "Remove role from Can read settings", "Role", 400, "Роль не существует", "Удаление роли из Доступ на чтение");
+            throw new CustomException("Role doesnt exist", "Remove role from Can read settings", "Role", 404, "Роль не существует", "Удаление роли из Доступ на чтение");
+        }
+        var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == channel.ServerId);
+        if (role == null)
+        {
+            throw new CustomException("Role doesnt exist", "Remove role from Can read settings", "Role", 404, "Роль не существует", "Удаление роли из Доступ на чтение");
+        }
+        if (role.Role == RoleEnum.Creator)
+        {
+            throw new CustomException("Cant change creator permissions", "Remove role from Can read settings", "Role", 400, "Нельзя изменять разрешения создателя", "Удаление роли из Доступ на чтение");
         }
         if (!await _orientDbService.IsRoleConnectedToChannelForSeeAsync(roleId, channel.Id))
         {
