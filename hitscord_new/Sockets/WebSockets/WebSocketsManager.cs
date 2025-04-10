@@ -63,6 +63,7 @@ public class WebSocketsManager
             _logger.LogInformation("Received message from user {UserId}: {Message}", userId, wrapper);
             if (connection != null && connection.State == WebSocketState.Open)
             {
+                _logger.LogInformation("Connection state for user {UserId}: {State}", userId, connection.State);
                 await connection.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
             }
         }
