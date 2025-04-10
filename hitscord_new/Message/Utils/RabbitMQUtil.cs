@@ -15,7 +15,7 @@ public class RabbitMQUtil
         _serviceProvider = serviceProvider;
 
         var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
-        var connectionString = $"host={rabbitHost}";
+        var connectionString = $"host=rabbitmq";
 
         _bus = RabbitHutch.CreateBus(connectionString);
 
