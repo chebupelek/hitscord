@@ -22,47 +22,31 @@ public class WebSocketHandler
 
     public async Task HandleAsync(Guid userId, WebSocket socket)
     {
-        var buffer = new byte[1024 * 4];
+        _webSocketManager.AddConnection(userId, socket);
 
         try
         {
+            _logger.LogInformation("WebSocket connection established for user {UserId}", userId);
+            var buffer = new byte[1024 * 4];
             while (socket.State == WebSocketState.Open)
             {
                 var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    _logger.LogInformation("Клиент запросил закрытие соединения.");
-                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed by client", CancellationToken.None);
-                    break;
+                    _logger.LogInformation("WebSocket connection closed by user {UserId}", userId);
+                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed", CancellationToken.None);
                 }
-
-                // Здесь — логика обработки сообщения
-                var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                _logger.LogInformation("Получено сообщение от {userId}: {message}", userId, message);
+                else
+                {
+                    var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    await HandleMessageAsync(userId, json);
+                }
             }
-        }
-        catch (WebSocketException ex)
-        {
-            _logger.LogWarning("WebSocket разорван некорректно: {Message}", ex.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Необработанное исключение в WebSocket");
+            _logger.LogInformation("WebSocket connection ended for user {UserId}", userId);
         }
         finally
         {
-            if (socket.State != WebSocketState.Closed)
-            {
-                try
-                {
-                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-                }
-                catch { /* ignore */ }
-            }
-
-            socket.Dispose();
-            _logger.LogInformation("Соединение закрыто для {userId}", userId);
+            _webSocketManager.RemoveConnection(userId);
         }
     }
 
