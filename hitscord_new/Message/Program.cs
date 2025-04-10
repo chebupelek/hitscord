@@ -57,6 +57,8 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
 
+    c.AddServer(new OpenApiServer { Url = "/api" });
+
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme",
@@ -110,11 +112,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseCors("AllowSpecificOrigin");
 
 app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/api/swagger/v1/swagger.json", "Your API V1");
-    c.RoutePrefix = "api/swagger";
-});
+app.UseSwaggerUI();
 
 app.UseAuthentication();
 
