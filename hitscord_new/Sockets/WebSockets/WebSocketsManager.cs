@@ -60,11 +60,23 @@ public class WebSocketsManager
         foreach (var userId in userIds)
         {
             var connection = _connectionStore.GetConnection(userId);
-            _logger.LogInformation("Received message from user {UserId}: {Message}", userId, wrapper);
-            if (connection != null && connection.State == WebSocketState.Open)
+            if (connection == null)
+            {
+                _logger.LogWarning("Connection not found for user {UserId}", userId);
+            }
+            else
             {
                 _logger.LogInformation("Connection state for user {UserId}: {State}", userId, connection.State);
-                await connection.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+
+                if (connection.State != WebSocketState.Open)
+                {
+                    _logger.LogWarning("WebSocket is not open for user {UserId}. State: {State}", userId, connection.State);
+                }
+                else
+                {
+                    _logger.LogInformation("Sending message to user {UserId} with WebSocket state: {State}", userId, connection.State);
+                    await connection.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                }
             }
         }
     }
