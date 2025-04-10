@@ -28,14 +28,13 @@ public class RabbitMQUtil
         _bus.PubSub.Subscribe<NotificationDTO>("SendNotification", async request =>
         {
             _logger.LogInformation("Received message for SendNotification_Core. UserIds: {UserIds}, Message: {Message}",
-                        string.Join(", ", request.UserIds), request.Message);
+                string.Join(", ", request.UserIds), request.Message);
 
             using (var scope = _serviceProvider.CreateScope())
             {
                 var webSocketService = scope.ServiceProvider.GetRequiredService<IWebSocketService>();
                 await webSocketService.MakeAutentification(request.Notification, request.UserIds, request.Message);
             }
-
-        }, conf => conf.WithTopic("SendNotification"));
+        }, x => x.WithQueueName("SendNotification"));
     }
 }

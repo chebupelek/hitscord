@@ -113,7 +113,7 @@ public class ChannelService : IChannelService
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-            using (var bus = RabbitMqService.GetBus())
+            using (var bus = RabbitHutch.CreateBus("host=localhost"))
             {
                 _logger.LogInformation("отправляю сообщение");
                 bus.PubSub.Publish(new NotificationDTO { Notification = newChannelResponse, UserIds = alertedUsers, Message = "New channel"}, "SendNotification");
