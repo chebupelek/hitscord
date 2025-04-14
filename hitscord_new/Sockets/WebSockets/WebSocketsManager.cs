@@ -7,12 +7,10 @@ namespace Sockets.WebSockets;
 public class WebSocketsManager
 {
     private readonly WebSocketConnectionStore _connectionStore;
-    private readonly ILogger<WebSocketMiddleware> _logger;
 
-    public WebSocketsManager(WebSocketConnectionStore connectionStore, ILogger<WebSocketMiddleware> logger)
+    public WebSocketsManager(WebSocketConnectionStore connectionStore)
     {
         _connectionStore = connectionStore;
-        _logger = logger;
     }
 
     public void AddConnection(Guid userId, WebSocket socket)
@@ -60,21 +58,10 @@ public class WebSocketsManager
         foreach (var userId in userIds)
         {
             var connection = _connectionStore.GetConnection(userId);
-            if (connection == null)
+            if (connection != null)
             {
-                _logger.LogWarning("Connection not found for user {UserId}", userId);
-            }
-            else
-            {
-                _logger.LogInformation("Connection state for user {UserId}: {State}", userId, connection.State);
-
-                if (connection.State != WebSocketState.Open)
+                if (connection.State == WebSocketState.Open)
                 {
-                    _logger.LogWarning("WebSocket is not open for user {UserId}. State: {State}", userId, connection.State);
-                }
-                else
-                {
-                    _logger.LogInformation("Sending message to user {UserId} with WebSocket state: {State}", userId, connection.State);
                     await connection.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
                 }
             }

@@ -11,8 +11,6 @@ using EasyNetQ;
 using HitscordLibrary.Models.Rabbit;
 using HitscordLibrary.Models;
 using HitscordLibrary.SocketsModels;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using Grpc.Core;
 
 namespace hitscord.Services;
 
@@ -23,16 +21,14 @@ public class ChannelService : IChannelService
     private readonly IServerService _serverService;
     private readonly IAuthenticationService _authenticationService;
     private readonly OrientDbService _orientDbService;
-    private readonly ILogger<ChannelService> _logger;
 
-    public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IServerService serverService, IAuthenticationService authenticationService, OrientDbService orientDbService, ILogger<ChannelService> logger)
+    public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IServerService serverService, IAuthenticationService authenticationService, OrientDbService orientDbService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
         _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId)
@@ -115,7 +111,6 @@ public class ChannelService : IChannelService
         {
             using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
             {
-                _logger.LogInformation("отправляю сообщение");
                 bus.PubSub.Publish(new NotificationDTO { Notification = newChannelResponse, UserIds = alertedUsers, Message = "New channel"}, "SendNotification");
             }
         }

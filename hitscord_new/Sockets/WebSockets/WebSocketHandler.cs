@@ -12,12 +12,10 @@ namespace Sockets.WebSockets;
 public class WebSocketHandler
 {
     private readonly WebSocketsManager _webSocketManager;
-    private readonly ILogger<WebSocketMiddleware> _logger;
 
-    public WebSocketHandler(WebSocketsManager webSocketManager, ILogger<WebSocketMiddleware> logger)
+    public WebSocketHandler(WebSocketsManager webSocketManager)
     {
         _webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
-        _logger = logger;
     }
 
     public async Task HandleAsync(Guid userId, WebSocket socket)
@@ -26,14 +24,12 @@ public class WebSocketHandler
 
         try
         {
-            _logger.LogInformation("WebSocket connection established for user {UserId}", userId);
             var buffer = new byte[1024 * 4];
             while (socket.State == WebSocketState.Open)
             {
                 var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    _logger.LogInformation("WebSocket connection closed by user {UserId}", userId);
                     await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed", CancellationToken.None);
                 }
                 else
@@ -42,7 +38,6 @@ public class WebSocketHandler
                     await HandleMessageAsync(userId, json);
                 }
             }
-            _logger.LogInformation("WebSocket connection ended for user {UserId}", userId);
         }
         finally
         {
@@ -54,7 +49,6 @@ public class WebSocketHandler
     private async Task HandleMessageAsync(Guid userId, string json)
     {
         var messageBase = JsonSerializer.Deserialize<WebSocketMessageBase>(json);
-        _logger.LogInformation("Received message from user {UserId}: {Message}", userId, messageBase);
     }
 }
 
