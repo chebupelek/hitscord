@@ -150,7 +150,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newSubscriberResponse, UserIds = alertedUsers, Message = "New user on server" }, "SendNotification");
             }
@@ -187,7 +187,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
             }
@@ -236,7 +236,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUserRole, UserIds = alertedUsers, Message = "Role changed" }, "SendNotification");
@@ -273,7 +273,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = serverDelete, UserIds = alertedUsers, Message = "Server deleted" }, "SendNotification");
             }
@@ -338,7 +338,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUserRole, UserIds = alertedUsers, Message = "Role changed" }, "SendNotification");
             }
@@ -479,7 +479,7 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
             }

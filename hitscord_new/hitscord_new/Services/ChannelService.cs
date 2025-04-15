@@ -11,6 +11,8 @@ using EasyNetQ;
 using HitscordLibrary.Models.Rabbit;
 using HitscordLibrary.Models;
 using HitscordLibrary.SocketsModels;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using Grpc.Core;
 
 namespace hitscord.Services;
 
@@ -109,7 +111,7 @@ public class ChannelService : IChannelService
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newChannelResponse, UserIds = alertedUsers, Message = "New channel"}, "SendNotification");
             }
@@ -154,7 +156,7 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannel, UserIds = alertedUsers, Message = "New user in voice channel" }, "SendNotification");
             }
@@ -187,7 +189,7 @@ public class ChannelService : IChannelService
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannel, UserIds = alertedUsers, Message = "User remove from voice channel" }, "SendNotification");
             }
@@ -226,7 +228,7 @@ public class ChannelService : IChannelService
             ChannelId = channel.Id
         };
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
-        using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+        using (var bus = RabbitMqService.GetBus())
         {
             if (alertedUsers != null && alertedUsers.Count() > 0)
             {
@@ -369,7 +371,7 @@ public class ChannelService : IChannelService
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = deletedChannelResponse, UserIds = alertedUsers, Message = "Channel deleted" }, "SendNotification");
             }
@@ -399,7 +401,7 @@ public class ChannelService : IChannelService
         var channel = await CheckTextChannelExistAsync(channelId);
         await _authenticationService.CheckUserRightsSeeChannel(channel.Id, user.Id);
 
-        using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+        using (var bus = RabbitMqService.GetBus())
         {
             var addingChannel = bus.Rpc.Request<ChannelRequestRabbit, ResponseObject>(new ChannelRequestRabbit { channelId = channelId, fromStart = fromStart, number = number, token = token}, x => x.WithQueueName("Get messages"));
 
@@ -477,7 +479,7 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
             }
@@ -522,7 +524,7 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
             }
@@ -567,7 +569,7 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
             }
@@ -612,7 +614,7 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            using (var bus = RabbitMqService.GetBus())
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
             }

@@ -1,55 +1,48 @@
 ﻿using System.Net.WebSockets;
 
-namespace Sockets.WebSockets
+namespace Sockets.WebSockets;
+
+public class WebSocketConnectionStore
 {
-    public class WebSocketConnectionStore
+    private readonly Dictionary<Guid, WebSocket> _connections = new();
+
+    public void AddConnection(Guid userId, WebSocket socket)
     {
-        private readonly Dictionary<Guid, WebSocket> _connections = new();
-
-        public void AddConnection(Guid userId, WebSocket socket)
+        lock (_connections)
         {
-            lock (_connections)
+            if (!_connections.ContainsKey(userId))
             {
-                if (!_connections.ContainsKey(userId))
-                {
-                    _connections[userId] = socket;
-                }
+                _connections[userId] = socket;
             }
         }
+    }
 
-        public void RemoveConnection(Guid userId)
+    public void RemoveConnection(Guid userId)
+    {
+        lock (_connections)
         {
-            lock (_connections)
+            if (_connections.TryGetValue(userId, out var socket))
             {
-                if (_connections.TryGetValue(userId, out var socket))
-                {
-                    socket.Abort();
-                    _connections.Remove(userId);
-                }
+                socket.Abort();
+                _connections.Remove(userId);
             }
         }
+    }
 
-        public WebSocket? GetConnection(Guid userId)
+    public WebSocket? GetConnection(Guid userId)
+    {
+        lock (_connections)
         {
-            lock (_connections)
-            {
-                if (_connections.TryGetValue(userId, out var socket))
-                {
-                    return socket;
-                }
-                else
-                {
-                    return null;
-                }
-            }
+            _connections.TryGetValue(userId, out var socket);
+            return socket;
         }
+    }
 
-        public IEnumerable<Guid> GetAllUserIds()
+    public IEnumerable<Guid> GetAllUserIds()
+    {
+        lock (_connections)
         {
-            lock (_connections)
-            {
-                return _connections.Keys.ToList();
-            }
+            return _connections.Keys.ToList();
         }
     }
 }

@@ -100,8 +100,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var bus = app.Services.GetRequiredService<RabbitMQUtil>();
-    var logger = app.Services.GetRequiredService<ILogger<RabbitMQUtil>>();
-    bus = new RabbitMQUtil(app.Services, logger);
+    bus = new RabbitMQUtil(app.Services);
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

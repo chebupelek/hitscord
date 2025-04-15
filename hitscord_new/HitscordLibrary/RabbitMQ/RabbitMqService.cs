@@ -8,7 +8,7 @@ public static class RabbitMqService
     {
         if (_bus == null)
         {
-            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
+            var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "rabbitmq";
             _bus = RabbitHutch.CreateBus($"host={rabbitHost}");
         }
         return _bus;
