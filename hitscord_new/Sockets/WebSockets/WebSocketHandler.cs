@@ -58,7 +58,10 @@ public class WebSocketHandler
         var messageBase = System.Text.Json.JsonSerializer.Deserialize<WebSocketMessageBase>(json);
 
         _logger.LogInformation("Received WebSocket message: {Json}", json);
-        _logger.LogInformation("Parsed Type: {Type}", messageBase.Type);
+        _logger.LogInformation("Parsed Type: {type}", messageBase.Type);
+
+        var messageBaseJson = System.Text.Json.JsonSerializer.Serialize(messageBase);
+        _logger.LogInformation("Parsed WebSocket message: {MessageBaseJson}", messageBaseJson);
         switch (messageBase?.Type)
         {
             case "New message":
