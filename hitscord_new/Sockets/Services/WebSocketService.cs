@@ -16,13 +16,29 @@ public class WebSocketService : IWebSocketService
 
     public async Task MakeAutentification(NotificationObject notification, List<Guid> userIds, string message)
     {
-        if(notification is ChannelResponseSocket requestChannelResponseSocket)
+        if (notification is ChangeSelfMutedStatus requestChangeSelfMutedStatus)
+        {
+            await _webSocketManager.BroadcastMessageAsync(requestChangeSelfMutedStatus, userIds, message);
+        }
+        if (notification is ChangeStreamStatus requestChangeStreamStatus)
+        {
+            await _webSocketManager.BroadcastMessageAsync(requestChangeStreamStatus, userIds, message);
+        }
+        if (notification is ChannelResponseSocket requestChannelResponseSocket)
         {
             await _webSocketManager.BroadcastMessageAsync(requestChannelResponseSocket, userIds, message);
+        }
+        if (notification is ChannelRoleResponseSocket requestChannelRoleResponseSocket)
+        {
+            await _webSocketManager.BroadcastMessageAsync(requestChannelRoleResponseSocket, userIds, message);
         }
         if (notification is DeletedMessageResponceDTO requestDeletedMessageResponceDTO)
         {
             await _webSocketManager.BroadcastMessageAsync(requestDeletedMessageResponceDTO, userIds, message);
+        }
+        if (notification is ExceptionNotification requestExceptionNotification)
+        {
+            await _webSocketManager.BroadcastMessageAsync(requestExceptionNotification, userIds, message);
         }
         if (notification is MessageResponceSocket requestMessageResponceSocket)
         {
@@ -47,14 +63,6 @@ public class WebSocketService : IWebSocketService
         if (notification is UserVoiceChannelResponseDTO requestUserVoiceChannelResponseDTO)
         {
             await _webSocketManager.BroadcastMessageAsync(requestUserVoiceChannelResponseDTO, userIds, message);
-        }
-        if (notification is ChangeSelfMutedStatus requestChangeSelfMutedStatus)
-        {
-            await _webSocketManager.BroadcastMessageAsync(requestChangeSelfMutedStatus, userIds, message);
-        }
-        if (notification is ChannelRoleResponseSocket requestChannelRoleResponseSocket)
-        {
-            await _webSocketManager.BroadcastMessageAsync(requestChannelRoleResponseSocket, userIds, message);
         }
     }
 }
