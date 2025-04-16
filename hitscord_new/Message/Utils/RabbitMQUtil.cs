@@ -35,38 +35,32 @@ public class RabbitMQUtil
             }
         }, configure: x => x.WithQueueName("Get messages"));
 
-        _bus.PubSub.Subscribe<(CreateMessageDTO createData, string token)>("CreateMessage", async tuple =>
+        _bus.PubSub.Subscribe<CreateMessageSocketDTO>("CreateMessage", async request =>
         {
             using (var scope = _serviceProvider.CreateScope())
             {
-                var createData = tuple.createData;
-                var token = tuple.token;
                 var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
-                await messageService.CreateMessageWebsocketAsync(createData.ChannelId, token, createData.Text, createData.Roles, createData.UserIds, createData.ReplyToMessageId);
+                await messageService.CreateMessageWebsocketAsync(request.ChannelId, request.Token, request.Text, request.Roles, request.UserIds, request.ReplyToMessageId);
             }
 
         }, conf => conf.WithTopic("CreateMessage"));
 
-        _bus.PubSub.Subscribe<(UpdateMessageDTO updateData, string token)>("UpdateMessage", async tuple =>
+        _bus.PubSub.Subscribe<UpdateMessageSocketDTO>("UpdateMessage", async request =>
         {
             using (var scope = _serviceProvider.CreateScope())
             {
-                var updateData = tuple.updateData;
-                var token = tuple.token;
                 var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
-                await messageService.UpdateMessageWebsocketAsync(updateData.MessageId, token, updateData.Text, updateData.Roles, updateData.UserIds);
+                await messageService.UpdateMessageWebsocketAsync(request.MessageId, request.Token, request.Text, request.Roles, request.UserIds);
             }
 
         }, conf => conf.WithTopic("UpdateMessage"));
 
-        _bus.PubSub.Subscribe<(DeleteMessageDTO deleteData, string token)>("DeleteMessage", async tuple =>
+        _bus.PubSub.Subscribe<DeleteMessageSocketDTO>("DeleteMessage", async request =>
         {
             using (var scope = _serviceProvider.CreateScope())
             {
-                var deleteData = tuple.deleteData;
-                var token = tuple.token;
                 var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
-                await messageService.DeleteMessageWebsocketAsync(deleteData.messageId, token);
+                await messageService.DeleteMessageWebsocketAsync(request.messageId, request.Token);
             }
 
         }, conf => conf.WithTopic("DeleteMessage"));

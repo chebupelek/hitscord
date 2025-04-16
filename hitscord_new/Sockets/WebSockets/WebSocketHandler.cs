@@ -23,7 +23,7 @@ public class WebSocketHandler
         _logger = logger;
     }
 
-    public async Task HandleAsync(Guid userId, WebSocket socket, string token)
+    public async Task HandleAsync(Guid userId, WebSocket socket)
     {
         _webSocketManager.AddConnection(userId, socket);
 
@@ -42,7 +42,7 @@ public class WebSocketHandler
                 else
                 {
                     var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    await HandleMessageAsync(userId, json, token);
+                    await HandleMessageAsync(userId, json);
                 }
             }
             _logger.LogInformation("WebSocket connection ended for user {UserId}", userId);
@@ -53,7 +53,7 @@ public class WebSocketHandler
         }
     }
 
-    private async Task HandleMessageAsync(Guid userId, string json, string token)
+    private async Task HandleMessageAsync(Guid userId, string json)
     {
         var messageBase = System.Text.Json.JsonSerializer.Deserialize<WebSocketMessageBase>(json);
 
@@ -67,7 +67,7 @@ public class WebSocketHandler
                     var newMesssageData = newMessage.Content;
                     using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
                     {
-                        bus.PubSub.Publish((newMesssageData, token), "CreateMessage");
+                        bus.PubSub.Publish(newMesssageData, "CreateMessage");
                     }
                 }
                 break;
@@ -80,7 +80,7 @@ public class WebSocketHandler
                     var deleteMesssageData = deleteMessage.Content;
                     using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
                     {
-                        bus.PubSub.Publish((deleteMesssageData, token), "DeleteMessage");
+                        bus.PubSub.Publish(deleteMesssageData, "DeleteMessage");
                     }
                 }
                 break;
@@ -93,7 +93,7 @@ public class WebSocketHandler
                     var updateMessageData = updateMessage.Content;
                     using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
                     {
-                        bus.PubSub.Publish((updateMessageData, token), "UpdateMessage");
+                        bus.PubSub.Publish(updateMessageData, "UpdateMessage");
                     }
                 }
                 break;
@@ -112,15 +112,15 @@ public class WebSocketMessageBase
 
 public class NewMessageWebsocket : WebSocketMessageBase
 {
-    public CreateMessageDTO Content { get; set; } = default!;
+    public CreateMessageSocketDTO Content { get; set; } = default!;
 }
 
 public class UpdateMessageWebsocket : WebSocketMessageBase
 {
-    public UpdateMessageDTO Content { get; set; } = default!;
+    public UpdateMessageSocketDTO Content { get; set; } = default!;
 }
 
 public class DeleteMessageWebsocket : WebSocketMessageBase
 {
-    public DeleteMessageDTO Content { get; set; } = default!;
+    public DeleteMessageSocketDTO Content { get; set; } = default!;
 }
