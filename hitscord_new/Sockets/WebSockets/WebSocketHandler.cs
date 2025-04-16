@@ -61,7 +61,7 @@ public class WebSocketHandler
         {
             case "New message":
                 var newMessage = System.Text.Json.JsonSerializer.Deserialize<NewMessageWebsocket>(json);
-                Console.WriteLine($"User {userId} sent text: {newMessage?.Content}");
+                _logger.LogInformation("new message", newMessage);
                 if (newMessage != null)
                 {
                     var newMesssageData = newMessage.Content;
