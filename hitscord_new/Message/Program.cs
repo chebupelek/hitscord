@@ -100,8 +100,9 @@ using (var scope = app.Services.CreateScope())
     var messageContext = scope.ServiceProvider.GetRequiredService<MessageContext>();
     await messageContext.Database.MigrateAsync();
 
+    var logger = app.Services.GetRequiredService<ILogger<RabbitMQUtil>>();
     var bus = app.Services.GetRequiredService<RabbitMQUtil>();
-    bus = new RabbitMQUtil(app.Services);
+    bus = new RabbitMQUtil(app.Services, logger);
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

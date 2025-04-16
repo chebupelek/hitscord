@@ -5,6 +5,7 @@ using Message.IServices;
 using HitscordLibrary.SocketsModels;
 using HitscordLibrary.Models.Messages;
 using HitscordLibrary.Models.other;
+using Microsoft.Extensions.Logging;
 
 namespace Message.Utils;
 
@@ -12,10 +13,12 @@ public class RabbitMQUtil
 {
     private readonly IBus _bus;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<RabbitMQUtil> _logger;
 
-    public RabbitMQUtil(IServiceProvider serviceProvider)
+    public RabbitMQUtil(IServiceProvider serviceProvider, ILogger<RabbitMQUtil> logger)
     {
         _serviceProvider = serviceProvider;
+        _logger = logger;
 
         var rabbitHost = Environment.GetEnvironmentVariable("RabbitMq__Host") ?? "localhost";
         var connectionString = $"host=rabbitmq";
@@ -39,6 +42,13 @@ public class RabbitMQUtil
         {
             using (var scope = _serviceProvider.CreateScope())
             {
+                _logger.LogInformation("[CreateMessage] Received:");
+                _logger.LogInformation("  ChannelId: {ChannelId}", request.ChannelId);
+                _logger.LogInformation("  Text: {Text}", request.Text);
+                _logger.LogInformation("  Roles: {Roles}", request.Roles != null ? string.Join(", ", request.Roles) : "null");
+                _logger.LogInformation("  UserIds: {UserIds}", request.UserIds != null ? string.Join(", ", request.UserIds) : "null");
+                _logger.LogInformation("  ReplyToMessageId: {ReplyToMessageId}", request.ReplyToMessageId);
+                _logger.LogInformation("  Token: {Token}", request.Token);
                 var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
                 await messageService.CreateMessageWebsocketAsync(request.ChannelId, request.Token, request.Text, request.Roles, request.UserIds, request.ReplyToMessageId);
             }
