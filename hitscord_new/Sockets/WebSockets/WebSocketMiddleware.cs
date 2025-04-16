@@ -36,7 +36,7 @@ public class WebSocketMiddleware
                     var socket = await context.WebSockets.AcceptWebSocketAsync();
 
                     var webSocketHandler = scope.ServiceProvider.GetRequiredService<WebSocketHandler>();
-                    await webSocketHandler.HandleAsync(userId, socket);
+                    await webSocketHandler.HandleAsync(userId, socket, accessTokenQuery);
                     _logger.LogInformation("WebSocket session started for user {UserId}", userId);
                 }
                 catch (CustomException ex)

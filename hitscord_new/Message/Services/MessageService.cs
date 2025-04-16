@@ -7,6 +7,7 @@ using HitscordLibrary.SocketsModels;
 using Message.Contexts;
 using Message.IServices;
 using Message.Models.DB;
+using Message.Models.Response;
 using Message.OrientDb.Service;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualBasic;
@@ -75,7 +76,7 @@ public class MessageService : IMessageService
 
             using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
             {
-                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Alert, you tagged by message" }, "SendNotification");
+                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "New message" }, "SendNotification");
             }
         }
     }
@@ -247,6 +248,211 @@ public class MessageService : IMessageService
                 MessageFront = ex.Message,
                 ObjectFront = "Неожиданная ошибка"
             };
+        }
+    }
+
+
+
+
+
+    public async Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, List<Guid>? roles, List<Guid>? users, Guid? ReplyToMessageId)
+    {
+        try
+        {
+            var userId = await _tokenService.CheckAuth(token);
+            if (!await _orientService.ChannelExistsAsync(channelId))
+            {
+                throw new CustomExceptionUser("Channel not found", "Create message", "Channel id", 404, "Канал не найден", "Создание сообщения", userId);
+            }
+            if (!await _orientService.CanUserSeeAndWriteToChannelAsync(userId, channelId))
+            {
+                throw new CustomExceptionUser("User hasnt permissions", "Create message", "User Id", 401, "У пользователя нет прав", "Создание сообщения", userId);
+            }
+            var newMessage = new MessageDbModel
+            {
+                Text = text,
+                Roles = roles == null ? new List<Guid>() : roles,
+                UserIds = users == null ? new List<Guid>() : users,
+                UpdatedAt = null,
+                UserId = userId,
+                TextChannelId = channelId,
+                NestedChannelId = null,
+                ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null
+            };
+            _messageContext.Messages.Add(newMessage);
+            await _messageContext.SaveChangesAsync();
+
+            var serverId = await _orientService.GetServerIdByChannelIdAsync(channelId);
+            var messageDto = new MessageResponceSocket
+            {
+                ServerId = (Guid)serverId,
+                ChannelId = channelId,
+                Id = newMessage.Id,
+                Text = newMessage.Text,
+                AuthorId = userId,
+                CreatedAt = newMessage.CreatedAt,
+                ModifiedAt = newMessage.UpdatedAt,
+                NestedChannelId = newMessage.NestedChannelId,
+                ReplyToMessage = null
+            };
+            var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(channelId);
+            if (alertedUsers != null && alertedUsers.Count() > 0)
+            {
+                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                {
+                    bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "New message" }, "SendNotification");
+                }
+            }
+            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = new List<Guid> { messageDto.AuthorId}, Message = "Your message is sended" }, "SendNotification");
+            }
+        }
+        catch (CustomExceptionUser ex) 
+        {
+            var expetionNotification = new ExceptionNotification
+            {
+                Code = ex.Code,
+                Message = ex.MessageFront,
+                Object = ex.ObjectFront
+            };
+            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = expetionNotification, UserIds = new List<Guid> { ex.UserId }, Message = "ErrorWithMessage" }, "SendNotification");
+            }
+        }
+    }
+
+    public async Task UpdateMessageWebsocketAsync(Guid messageId, string token, string text, List<Guid>? roles, List<Guid>? users)
+    {
+        try
+        {
+            var userId = await _tokenService.CheckAuth(token);
+            var message = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
+            if (message == null)
+            {
+                throw new CustomExceptionUser("Message not found", "Update normal message", "Normal message", 404, "Сообщение не найдено", "Обновление сообщения", userId);
+            }
+            if (message.UserId != userId)
+            {
+                throw new CustomExceptionUser("User not creator of this message", "Update normal message", "User", 401, "Пользователь - не создатель сообщения", "Обновление сообщения", userId);
+            }
+            if (!await _orientService.ChannelExistsAsync(message.TextChannelId))
+            {
+                throw new CustomExceptionUser("Channel not found", "Create message", "Update normal message", 404, "Канал не найден", "Обновление сообщения", userId);
+            }
+            if (!await _orientService.CanUserSeeChannelAsync(userId, message.TextChannelId))
+            {
+                throw new CustomExceptionUser("User hasnt permissions", "Create message", "Update normal message", 404, "У пользователя нет прав", "Обновление сообщения", userId);
+            }
+
+            message.Text = text;
+            message.Roles = roles == null ? new List<Guid>() : roles;
+            message.UserIds = users == null ? new List<Guid>() : users;
+            message.UpdatedAt = DateTime.UtcNow;
+            _messageContext.Messages.Update(message);
+            await _messageContext.SaveChangesAsync();
+
+            var serverId = await _orientService.GetServerIdByChannelIdAsync(message.TextChannelId);
+            var messageDto = new MessageResponceSocket
+            {
+                ServerId = (Guid)serverId,
+                ChannelId = message.TextChannelId,
+                Id = message.Id,
+                Text = message.Text,
+                AuthorId = userId,
+                CreatedAt = message.CreatedAt,
+                ModifiedAt = message.UpdatedAt,
+                NestedChannelId = message.NestedChannelId,
+                ReplyToMessage = null
+            };
+            var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(message.TextChannelId);
+            if (alertedUsers != null && alertedUsers.Count() > 0)
+            {
+
+                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                {
+                    bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Updated message" }, "SendNotification");
+                }
+            }
+            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = new List<Guid> { messageDto.AuthorId }, Message = "Your message is updated" }, "SendNotification");
+            }
+        }
+        catch (CustomExceptionUser ex)
+        {
+            var expetionNotification = new ExceptionNotification
+            {
+                Code = ex.Code,
+                Message = ex.MessageFront,
+                Object = ex.ObjectFront
+            };
+            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = expetionNotification, UserIds = new List<Guid> { ex.UserId }, Message = "ErrorWithMessage" }, "SendNotification");
+            }
+        }
+    }
+
+    public async Task DeleteMessageWebsocketAsync(Guid messageId, string token)
+    {
+        try
+        {
+            var userId = await _tokenService.CheckAuth(token);
+            var message = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
+            if (message == null)
+            {
+                throw new CustomExceptionUser("Message not found", "Delete normal message", "Normal message", 404, "Сообщение не найдено", "Удаление сообщения", userId);
+            }
+            if (message.UserId != userId)
+            {
+                throw new CustomExceptionUser("User not creator of this message", "Delete normal message", "User", 401, "Пользователь - не создатель сообщения", "Удаление сообщения", userId);
+            }
+            if (!await _orientService.ChannelExistsAsync(message.TextChannelId))
+            {
+                throw new CustomExceptionUser("Channel not found", "Create message", "Delete normal message", 404, "Канал не найден", "Удаление сообщения", userId);
+            }
+            if (!await _orientService.CanUserSeeAndWriteToChannelAsync(userId, message.TextChannelId))
+            {
+                throw new CustomExceptionUser("User hasnt permissions", "Create message", "Delete normal message", 404, "У пользователя нет прав", "Удаление сообщения", userId);
+            }
+            _messageContext.Messages.Remove(message);
+            await _messageContext.SaveChangesAsync();
+
+            var serverId = await _orientService.GetServerIdByChannelIdAsync(message.TextChannelId);
+            var messageDto = new DeletedMessageResponceDTO
+            {
+                ServerId = (Guid)serverId,
+                ChannelId = message.TextChannelId,
+                MessageId = message.Id
+            };
+            var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(message.TextChannelId);
+            if (alertedUsers != null && alertedUsers.Count() > 0)
+            {
+
+                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                {
+                    bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Deleted message" }, "SendNotification");
+                }
+            }
+            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = new List<Guid> { userId }, Message = "Your message is deleted" }, "SendNotification");
+            }
+        }
+        catch (CustomExceptionUser ex)
+        {
+            var expetionNotification = new ExceptionNotification
+            {
+                Code = ex.Code,
+                Message = ex.MessageFront,
+                Object = ex.ObjectFront
+            };
+            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = expetionNotification, UserIds = new List<Guid> { ex.UserId }, Message = "ErrorWithMessage" }, "SendNotification");
+            }
         }
     }
 }

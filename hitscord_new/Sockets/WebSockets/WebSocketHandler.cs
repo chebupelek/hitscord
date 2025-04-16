@@ -1,5 +1,8 @@
 ﻿using Authzed.Api.V0;
+using EasyNetQ;
 using Grpc.Gateway.ProtocGenOpenapiv2.Options;
+using HitscordLibrary.Models.Messages;
+using HitscordLibrary.SocketsModels;
 using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Net.WebSockets;
@@ -20,7 +23,7 @@ public class WebSocketHandler
         _logger = logger;
     }
 
-    public async Task HandleAsync(Guid userId, WebSocket socket)
+    public async Task HandleAsync(Guid userId, WebSocket socket, string token)
     {
         _webSocketManager.AddConnection(userId, socket);
 
@@ -39,7 +42,7 @@ public class WebSocketHandler
                 else
                 {
                     var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    await HandleMessageAsync(userId, json);
+                    await HandleMessageAsync(userId, json, token);
                 }
             }
             _logger.LogInformation("WebSocket connection ended for user {UserId}", userId);
@@ -50,14 +53,74 @@ public class WebSocketHandler
         }
     }
 
-    private async Task HandleMessageAsync(Guid userId, string json)
+    private async Task HandleMessageAsync(Guid userId, string json, string token)
     {
-        var messageBase = JsonSerializer.Deserialize<WebSocketMessageBase>(json);
-        _logger.LogInformation("Received message from user {UserId}: {Message}", userId, messageBase);
+        var messageBase = System.Text.Json.JsonSerializer.Deserialize<WebSocketMessageBase>(json);
+
+        switch (messageBase?.Type)
+        {
+            case "New message":
+                var newMessage = System.Text.Json.JsonSerializer.Deserialize<NewMessageWebsocket>(json);
+                Console.WriteLine($"User {userId} sent text: {newMessage?.Content}");
+                if (newMessage != null)
+                {
+                    var newMesssageData = newMessage.Content;
+                    using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                    {
+                        bus.PubSub.Publish((newMesssageData, token), "CreateMessage");
+                    }
+                }
+                break;
+
+            case "Delete message":
+                var deleteMessage = System.Text.Json.JsonSerializer.Deserialize<DeleteMessageWebsocket>(json);
+                Console.WriteLine($"User {userId} sent text: {deleteMessage?.Content}");
+                if (deleteMessage != null)
+                {
+                    var deleteMesssageData = deleteMessage.Content;
+                    using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                    {
+                        bus.PubSub.Publish((deleteMesssageData, token), "DeleteMessage");
+                    }
+                }
+                break;
+
+            case "Update message":
+                var updateMessage = System.Text.Json.JsonSerializer.Deserialize<UpdateMessageWebsocket>(json);
+                Console.WriteLine($"User {userId} sent text: {updateMessage?.Content}");
+                if (updateMessage != null)
+                {
+                    var updateMessageData = updateMessage.Content;
+                    using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                    {
+                        bus.PubSub.Publish((updateMessageData, token), "UpdateMessage");
+                    }
+                }
+                break;
+
+            default:
+                Console.WriteLine("Unknown message type.");
+                break;
+        }
     }
 }
 
 public class WebSocketMessageBase
 {
     public string Type { get; set; } = default!;
+}
+
+public class NewMessageWebsocket : WebSocketMessageBase
+{
+    public CreateMessageDTO Content { get; set; } = default!;
+}
+
+public class UpdateMessageWebsocket : WebSocketMessageBase
+{
+    public UpdateMessageDTO Content { get; set; } = default!;
+}
+
+public class DeleteMessageWebsocket : WebSocketMessageBase
+{
+    public DeleteMessageDTO Content { get; set; } = default!;
 }

@@ -365,7 +365,8 @@ public class ServerService : IServerService
                 Users = vc.Users.Select(u => new VoiceChannelUserDTO
                 {
                     UserId = u.UserId,
-                    MuteStatus = u.MuteStatus
+                    MuteStatus = u.MuteStatus,
+                    IsStream = u.IsStream
                 })
                 .ToList()
             })

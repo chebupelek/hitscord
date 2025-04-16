@@ -1,6 +1,6 @@
-﻿using HitscordLibrary.Models.other;
+﻿using HitscordLibrary.Models.Messages;
+using HitscordLibrary.Models.other;
 using Message.IServices;
-using Message.Models.request;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

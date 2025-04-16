@@ -18,4 +18,5 @@ public class UserVoiceChannelDbModel
     public VoiceChannelDbModel VoiceChannel { get; set; }
 
     public required MuteStatusEnum MuteStatus { get; set; }
+    public required bool IsStream { get; set; }
 }

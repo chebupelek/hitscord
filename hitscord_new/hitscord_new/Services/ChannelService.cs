@@ -130,9 +130,24 @@ public class ChannelService : IChannelService
             throw new CustomException("User is already on this channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится на этом канале", "Присоединение к голосовому каналу");
         }
 
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
         if (userVoiceChannel != null)
         {
+            var serverUsers = await _orientDbService.GetUsersByServerIdAsync(userVoiceChannel.VoiceChannel.ServerId);
+            if (serverUsers != null && serverUsers.Count() > 0)
+            {
+                var userRemovedResponse = new UserVoiceChannelResponseDTO
+                {
+                    ServerId = userVoiceChannel.VoiceChannel.ServerId,
+                    isEnter = false,
+                    UserId = user.Id,
+                    ChannelId = userVoiceChannel.VoiceChannel.Id
+                };
+                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                {
+                    bus.PubSub.Publish(new NotificationDTO { Notification = userRemovedResponse, UserIds = serverUsers, Message = "User remove from voice channel" }, "SendNotification");
+                }
+            }
             _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
             await _hitsContext.SaveChangesAsync();
         }
@@ -140,7 +155,8 @@ public class ChannelService : IChannelService
         {
             VoiceChannelId = chnnelId,
             UserId = user.Id,
-            MuteStatus = MuteStatusEnum.NotMuted
+            MuteStatus = MuteStatusEnum.NotMuted,
+            IsStream = false
         };
         _hitsContext.UserVoiceChannel.Add(newUserVoiceChannel);
         await _hitsContext.SaveChangesAsync();
@@ -279,7 +295,7 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = muteStatusResponse, UserIds = alertedUsers, Message = "User change his mute status" }, "SendNotification");
             }
@@ -336,9 +352,46 @@ public class ChannelService : IChannelService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 
-            using (var bus = RabbitHutch.CreateBus("host=localhost"))
+            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = muteStatusResponse, UserIds = alertedUsers, Message = "User mute status is changed" }, "SendNotification");
+            }
+        }
+
+        return (true);
+    }
+
+    public async Task<bool> ChangeStreamStatusAsync(string token)
+    {
+        var user = await _authService.GetUserAsync(token);
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+        if (userVoiceChannel == null)
+        {
+            throw new CustomException("User not in voice channel", "Change stream status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса стрима");
+        }
+        var channel = await CheckVoiceChannelExistAsync(userVoiceChannel.VoiceChannelId, true);
+        var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
+        await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+
+        userVoiceChannel.IsStream = !userVoiceChannel.IsStream;
+
+        _hitsContext.UserVoiceChannel.Update(userVoiceChannel);
+        await _hitsContext.SaveChangesAsync();
+
+        var streamStatusResponse = new ChangeStreamStatus
+        {
+            ServerId = channel.ServerId,
+            UserId = user.Id,
+            ChannelId = channel.Id,
+            IsStream = userVoiceChannel.IsStream
+        };
+        var alertedUsers = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
+        if (alertedUsers != null && alertedUsers.Count() > 0)
+        {
+
+            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+            {
+                bus.PubSub.Publish(new NotificationDTO { Notification = streamStatusResponse, UserIds = alertedUsers, Message = "User change his stream status" }, "SendNotification");
             }
         }
 

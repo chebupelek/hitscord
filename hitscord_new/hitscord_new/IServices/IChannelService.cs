@@ -24,5 +24,5 @@ public interface IChannelService
     Task<bool> AddRoleToCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add);
     Task<bool> RemoveRoleFromCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add);
     Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, string token, int number, int fromStart);
-
+    Task<bool> ChangeStreamStatusAsync(string token);
 }

@@ -232,4 +232,25 @@ public class ChannelController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+    [Authorize]
+    [HttpPut]
+    [Route("voice/stream")]
+    public async Task<IActionResult> ChangeStreamStatus()
+    {
+        try
+        {
+            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            await _channelService.ChangeStreamStatusAsync(jwtToken);
+            return Ok();
+        }
+        catch (CustomException ex)
+        {
+            return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
 }
