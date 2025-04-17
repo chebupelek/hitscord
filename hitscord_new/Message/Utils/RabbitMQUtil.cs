@@ -70,7 +70,7 @@ public class RabbitMQUtil
             using (var scope = _serviceProvider.CreateScope())
             {
                 var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
-                await messageService.DeleteMessageWebsocketAsync(request.messageId, request.Token);
+                await messageService.DeleteMessageWebsocketAsync(request.MessageId, request.Token);
             }
 
         }, conf => conf.WithTopic("DeleteMessage"));
