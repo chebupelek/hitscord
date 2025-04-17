@@ -2,5 +2,5 @@
 public class DeleteMessageSocketDTO
 {
     public required string Token { get; set; }
-    public required Guid messageId { get; set; }
+    public required Guid MessageId { get; set; }
 }
