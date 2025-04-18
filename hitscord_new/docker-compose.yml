@@ -56,8 +56,8 @@ services:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
+      POSTGRES_USER: z984tRjZh5gbUm9
+      POSTGRES_PASSWORD: VYR89FXVsS3MuSbup9bQ
     ports:
       - "5432:5432"
     volumes:
@@ -69,7 +69,7 @@ services:
     image: orientdb:3.2.12
     restart: always
     environment:
-      ORIENTDB_ROOT_PASSWORD: root
+      ORIENTDB_ROOT_PASSWORD: 52XoRCFwqLQ8XsE
     ports:
       - "2480:2480"
       - "2424:2424"
