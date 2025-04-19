@@ -137,6 +137,7 @@ public class ChannelService : IChannelService
             var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
             if (userVoiceChannel != null)
             {
+                _hitsContext.Entry(userVoiceChannel).State = EntityState.Detached;
                 try
                 {
                     _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
