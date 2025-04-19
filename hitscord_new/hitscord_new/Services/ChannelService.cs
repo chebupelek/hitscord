@@ -132,6 +132,16 @@ public class ChannelService : IChannelService
             throw new CustomException("User is already on this channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится на этом канале", "Присоединение к голосовому каналу");
         }
         
+        var uvcCount = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.UserId == user.Id).CountAsync();
+        if (uvcCount > 0)
+        {
+            var uvcList = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.UserId == user.Id).ToListAsync();
+            if(uvcList.Count > 0 && uvcList != null) 
+            {
+                _hitsContext.UserVoiceChannel.RemoveRange(uvcList);
+                await _hitsContext.SaveChangesAsync();
+            }
+        }
 
         var newUserVoiceChannel = new UserVoiceChannelDbModel
         {
