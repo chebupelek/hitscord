@@ -133,28 +133,42 @@ public class ChannelService : IChannelService
         var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
         if (userVoiceChannel != null)
         {
-            /*
             var serverUsers = await _orientDbService.GetUsersByServerIdAsync(userVoiceChannel.VoiceChannel.ServerId);
-            if (serverUsers != null && serverUsers.Count() > 0)
+            try
             {
-                var userRemovedResponse = new UserVoiceChannelResponseDTO
+                _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
+                await _hitsContext.SaveChangesAsync();
+                if (serverUsers != null && serverUsers.Count() > 0)
                 {
-                    ServerId = userVoiceChannel.VoiceChannel.ServerId,
-                    isEnter = false,
-                    UserId = user.Id,
-                    ChannelId = userVoiceChannel.VoiceChannel.Id
-                };
-                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-                {
-                    bus.PubSub.Publish(new NotificationDTO { Notification = userRemovedResponse, UserIds = serverUsers, Message = "User remove from voice channel" }, "SendNotification");
+                    var userRemovedResponse = new UserVoiceChannelResponseDTO
+                    {
+                        ServerId = userVoiceChannel.VoiceChannel.ServerId,
+                        isEnter = false,
+                        UserId = user.Id,
+                        ChannelId = userVoiceChannel.VoiceChannel.Id
+                    };
+                    using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                    {
+                        bus.PubSub.Publish(new NotificationDTO { Notification = userRemovedResponse, UserIds = serverUsers, Message = "User remove from voice channel" }, "SendNotification");
+                    }
                 }
             }
-            _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
-            await _hitsContext.SaveChangesAsync();
-            */
-            if (userthischannel != null)
+            catch(Exception ex)
             {
-                throw new CustomException("User is already in voice channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится в голосовом канале канале", "Присоединение к голосовому каналу");
+                if (serverUsers != null && serverUsers.Count() > 0)
+                {
+                    var userRemovedResponse = new UserVoiceChannelResponseDTO
+                    {
+                        ServerId = userVoiceChannel.VoiceChannel.ServerId,
+                        isEnter = false,
+                        UserId = user.Id,
+                        ChannelId = userVoiceChannel.VoiceChannel.Id
+                    };
+                    using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                    {
+                        bus.PubSub.Publish(new NotificationDTO { Notification = userRemovedResponse, UserIds = serverUsers, Message = "User remove from voice channel" }, "SendNotification");
+                    }
+                }
             }
         }
         var newUserVoiceChannel = new UserVoiceChannelDbModel
