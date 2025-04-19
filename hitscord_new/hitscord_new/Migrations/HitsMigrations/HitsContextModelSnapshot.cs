@@ -150,19 +150,16 @@ namespace hitscord_new.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("VoiceChannelId")
-                        .HasColumnType("uuid");
-
                     b.Property<bool>("IsStream")
                         .HasColumnType("boolean");
 
                     b.Property<int>("MuteStatus")
                         .HasColumnType("integer");
 
-                    b.HasKey("UserId", "VoiceChannelId");
+                    b.Property<Guid>("VoiceChannelId")
+                        .HasColumnType("uuid");
 
-                    b.HasIndex("UserId")
-                        .IsUnique();
+                    b.HasKey("UserId");
 
                     b.HasIndex("VoiceChannelId");
 
