@@ -132,15 +132,49 @@ public class ChannelService : IChannelService
             throw new CustomException("User is already on this channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится на этом канале", "Присоединение к голосовому каналу");
         }
         
-        var uvcCount = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.UserId == user.Id).CountAsync();
-        if (uvcCount > 0)
+        try
         {
-            var uvcList = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.UserId == user.Id).ToListAsync();
-            if(uvcList.Count > 0 && uvcList != null) 
+            var uvcCount = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.UserId == user.Id).CountAsync();
+            if (uvcCount > 0)
             {
-                _hitsContext.UserVoiceChannel.RemoveRange(uvcList);
-                await _hitsContext.SaveChangesAsync();
+                var uvcList = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.UserId == user.Id).ToListAsync();
+                if (uvcList.Count > 0 && uvcList != null)
+                {
+                    _hitsContext.UserVoiceChannel.RemoveRange(uvcList);
+                    await _hitsContext.SaveChangesAsync();
+                }
             }
+        }
+        catch
+        {
+            var newUserVoiceChannel = new UserVoiceChannelDbModel
+            {
+                VoiceChannelId = chnnelId,
+                UserId = user.Id,
+                MuteStatus = MuteStatusEnum.NotMuted,
+                IsStream = false
+            };
+            _hitsContext.UserVoiceChannel.Add(newUserVoiceChannel);
+            await _hitsContext.SaveChangesAsync();
+
+            var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
+            {
+                ServerId = channel.ServerId,
+                isEnter = true,
+                UserId = user.Id,
+                ChannelId = channel.Id
+            };
+            var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
+            if (alertedUsers != null && alertedUsers.Count() > 0)
+            {
+
+                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                {
+                    bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannel, UserIds = alertedUsers, Message = "New user in voice channel" }, "SendNotification");
+                }
+            }
+
+            return (true);
         }
 
         var newUserVoiceChannel = new UserVoiceChannelDbModel
