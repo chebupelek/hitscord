@@ -131,55 +131,6 @@ public class ChannelService : IChannelService
         {
             throw new CustomException("User is already on this channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится на этом канале", "Присоединение к голосовому каналу");
         }
-
-        while(_hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefault(uvc => uvc.UserId == user.Id) != null)
-        {
-            await Task.Delay(5);
-        }
-        
-        
-        if (_hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefault(uvc => uvc.UserId == user.Id) != null)
-        {
-            var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
-            if (userVoiceChannel != null)
-            {
-                _hitsContext.Entry(userVoiceChannel).State = EntityState.Detached;
-                try
-                {
-                    _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
-                    _hitsContext.SaveChanges();
-                }
-                catch (DbUpdateConcurrencyException ex)
-                {
-                    _logger.LogError(ex, "Ошибка при удалении пользователя из канала: {Message}", ex.Message);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    _logger.LogWarning(ex, "Ошибка: данных нет для удаления: {Message}", ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Неизвестная ошибка при удалении пользователя: {Message}", ex.Message);
-                }
-
-                var serverUsers = await _orientDbService.GetUsersByServerIdAsync(userVoiceChannel.VoiceChannel.ServerId);
-                if (serverUsers != null && serverUsers.Count() > 0)
-                {
-                    var userRemovedResponse = new UserVoiceChannelResponseDTO
-                    {
-                        ServerId = userVoiceChannel.VoiceChannel.ServerId,
-                        isEnter = false,
-                        UserId = user.Id,
-                        ChannelId = userVoiceChannel.VoiceChannel.Id
-                    };
-
-                    using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-                    {
-                        bus.PubSub.Publish(new NotificationDTO { Notification = userRemovedResponse, UserIds = serverUsers, Message = "User removed from voice channel" }, "SendNotification");
-                    }
-                }
-            }
-        }
         
 
         var newUserVoiceChannel = new UserVoiceChannelDbModel
@@ -223,7 +174,12 @@ public class ChannelService : IChannelService
         {
             throw new CustomException("User not on this channel", "Remove from voice channel", "Voice channel - User", 400, "Пользователь не находится в этом канале", "Выход с голосового канала");
         }
+        /*
         _hitsContext.UserVoiceChannel.Remove(userthischannel);
+        _hitsContext.SaveChanges();*/
+
+        var uvcList = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.UserId == user.Id).ToListAsync();
+        _hitsContext.UserVoiceChannel.RemoveRange(uvcList);
         _hitsContext.SaveChanges();
 
         var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
@@ -263,9 +219,13 @@ public class ChannelService : IChannelService
         if (userthischannel == null)
         {
             throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400, "Пользователь не находится на этом канале", "Удаление пользователя из голосового канала");
-        }
+        }/*
         _hitsContext.UserVoiceChannel.Remove(userthischannel);
-        await _hitsContext.SaveChangesAsync();
+        await _hitsContext.SaveChangesAsync();*/
+
+        var uvcList = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.UserId == removedUser.Id).ToListAsync();
+        _hitsContext.UserVoiceChannel.RemoveRange(uvcList);
+        _hitsContext.SaveChanges();
 
         var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
         {

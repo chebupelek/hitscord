@@ -59,7 +59,7 @@ namespace hitscord.Contexts
 
             modelBuilder.Entity<UserVoiceChannelDbModel>(entity =>
             {
-                entity.HasKey(uvc => uvc.UserId);
+                entity.HasKey(uvc => new { uvc.UserId, uvc.VoiceChannelId });
 
                 entity.HasOne(uvc => uvc.User)
                     .WithOne()
