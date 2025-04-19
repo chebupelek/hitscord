@@ -199,7 +199,7 @@ public class ChannelService : IChannelService
             throw new CustomException("User not on this channel", "Remove from voice channel", "Voice channel - User", 400, "Пользователь не находится в этом канале", "Выход с голосового канала");
         }
         _hitsContext.UserVoiceChannel.Remove(userthischannel);
-        await _hitsContext.SaveChangesAsync();
+        _hitsContext.SaveChanges();
 
         var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
         {
