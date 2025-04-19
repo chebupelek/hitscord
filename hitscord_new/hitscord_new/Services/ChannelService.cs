@@ -132,8 +132,6 @@ public class ChannelService : IChannelService
         
         if (_hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefault(uvc => uvc.UserId == user.Id) != null)
         {
-            await Task.Delay(5);
-
             var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
             if (userVoiceChannel != null)
             {
