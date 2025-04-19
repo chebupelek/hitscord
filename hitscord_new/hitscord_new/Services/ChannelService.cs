@@ -147,30 +147,30 @@ public class ChannelService : IChannelService
         }
         catch
         {
-            var newUserVoiceChannel = new UserVoiceChannelDbModel
+            var newUserVoiceChannelCatch = new UserVoiceChannelDbModel
             {
                 VoiceChannelId = chnnelId,
                 UserId = user.Id,
                 MuteStatus = MuteStatusEnum.NotMuted,
                 IsStream = false
             };
-            _hitsContext.UserVoiceChannel.Add(newUserVoiceChannel);
+            _hitsContext.UserVoiceChannel.Add(newUserVoiceChannelCatch);
             await _hitsContext.SaveChangesAsync();
 
-            var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
+            var newUserInVoiceChannelCatch = new UserVoiceChannelResponseDTO
             {
                 ServerId = channel.ServerId,
                 isEnter = true,
                 UserId = user.Id,
                 ChannelId = channel.Id
             };
-            var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
-            if (alertedUsers != null && alertedUsers.Count() > 0)
+            var alertedUsersCatch = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
+            if (alertedUsersCatch != null && alertedUsersCatch.Count() > 0)
             {
 
                 using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
                 {
-                    bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannel, UserIds = alertedUsers, Message = "New user in voice channel" }, "SendNotification");
+                    bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannelCatch, UserIds = alertedUsersCatch, Message = "New user in voice channel" }, "SendNotification");
                 }
             }
 
