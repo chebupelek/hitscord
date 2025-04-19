@@ -133,6 +133,7 @@ public class ChannelService : IChannelService
         var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
         if (userVoiceChannel != null)
         {
+            /*
             var serverUsers = await _orientDbService.GetUsersByServerIdAsync(userVoiceChannel.VoiceChannel.ServerId);
             if (serverUsers != null && serverUsers.Count() > 0)
             {
@@ -150,6 +151,11 @@ public class ChannelService : IChannelService
             }
             _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
             await _hitsContext.SaveChangesAsync();
+            */
+            if (userthischannel != null)
+            {
+                throw new CustomException("User is already in voice channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится в голосовом канале канале", "Присоединение к голосовому каналу");
+            }
         }
         var newUserVoiceChannel = new UserVoiceChannelDbModel
         {
