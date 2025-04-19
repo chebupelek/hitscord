@@ -137,7 +137,7 @@ public class ChannelService : IChannelService
             try
             {
                 _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
-                await _hitsContext.SaveChangesAsync();
+                _hitsContext.SaveChanges();
                 if (serverUsers != null && serverUsers.Count() > 0)
                 {
                     var userRemovedResponse = new UserVoiceChannelResponseDTO
