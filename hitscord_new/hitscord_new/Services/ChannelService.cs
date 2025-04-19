@@ -129,45 +129,51 @@ public class ChannelService : IChannelService
         {
             throw new CustomException("User is already on this channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится на этом канале", "Присоединение к голосовому каналу");
         }
-
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
-        if (userVoiceChannel != null)
+        
+        if (_hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefault(uvc => uvc.UserId == user.Id) != null)
         {
-            var serverUsers = await _orientDbService.GetUsersByServerIdAsync(userVoiceChannel.VoiceChannel.ServerId);
-            try
-            {
-                _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
-                _hitsContext.SaveChanges();
-            }
-            catch (DbUpdateConcurrencyException ex)
-            {
-                Console.WriteLine($"Ошибка при удалении пользователя: {ex.Message}");
-            }
-            catch (InvalidOperationException ex)
-            {
-                Console.WriteLine($"Ошибка: данных нет для удаления: {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Неизвестная ошибка: {ex.Message}");
-            }
+            await Task.Delay(5);
 
-            if (serverUsers != null && serverUsers.Count() > 0)
+            var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+            if (userVoiceChannel != null)
             {
-                var userRemovedResponse = new UserVoiceChannelResponseDTO
+                try
                 {
-                    ServerId = userVoiceChannel.VoiceChannel.ServerId,
-                    isEnter = false,
-                    UserId = user.Id,
-                    ChannelId = userVoiceChannel.VoiceChannel.Id
-                };
+                    _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
+                    _hitsContext.SaveChanges();
+                }
+                catch (DbUpdateConcurrencyException ex)
+                {
+                    Console.WriteLine($"Ошибка при удалении пользователя: {ex.Message}");
+                }
+                catch (InvalidOperationException ex)
+                {
+                    Console.WriteLine($"Ошибка: данных нет для удаления: {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Неизвестная ошибка: {ex.Message}");
+                }
 
-                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                var serverUsers = await _orientDbService.GetUsersByServerIdAsync(userVoiceChannel.VoiceChannel.ServerId);
+                if (serverUsers != null && serverUsers.Count() > 0)
                 {
-                    bus.PubSub.Publish(new NotificationDTO { Notification = userRemovedResponse, UserIds = serverUsers, Message = "User removed from voice channel" }, "SendNotification");
+                    var userRemovedResponse = new UserVoiceChannelResponseDTO
+                    {
+                        ServerId = userVoiceChannel.VoiceChannel.ServerId,
+                        isEnter = false,
+                        UserId = user.Id,
+                        ChannelId = userVoiceChannel.VoiceChannel.Id
+                    };
+
+                    using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+                    {
+                        bus.PubSub.Publish(new NotificationDTO { Notification = userRemovedResponse, UserIds = serverUsers, Message = "User removed from voice channel" }, "SendNotification");
+                    }
                 }
             }
         }
+
         var newUserVoiceChannel = new UserVoiceChannelDbModel
         {
             VoiceChannelId = chnnelId,
