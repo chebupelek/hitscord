@@ -145,7 +145,7 @@ public class ChannelService : IChannelService
                 }
             }
         }
-        catch
+        catch(Exception ex)
         {
             var newUserVoiceChannelCatch = new UserVoiceChannelDbModel
             {
