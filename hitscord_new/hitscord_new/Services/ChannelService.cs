@@ -23,14 +23,16 @@ public class ChannelService : IChannelService
     private readonly IServerService _serverService;
     private readonly IAuthenticationService _authenticationService;
     private readonly OrientDbService _orientDbService;
+    private readonly ILogger<ChannelService> _logger;
 
-    public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IServerService serverService, IAuthenticationService authenticationService, OrientDbService orientDbService)
+    public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IServerService serverService, IAuthenticationService authenticationService, OrientDbService orientDbService, ILogger<ChannelService> logger)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
         _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
+        _logger = logger;
     }
 
     public async Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId)
@@ -143,15 +145,15 @@ public class ChannelService : IChannelService
                 }
                 catch (DbUpdateConcurrencyException ex)
                 {
-                    Console.WriteLine($"Ошибка при удалении пользователя: {ex.Message}");
+                    _logger.LogError(ex, "Ошибка при удалении пользователя из канала: {Message}", ex.Message);
                 }
                 catch (InvalidOperationException ex)
                 {
-                    Console.WriteLine($"Ошибка: данных нет для удаления: {ex.Message}");
+                    _logger.LogWarning(ex, "Ошибка: данных нет для удаления: {Message}", ex.Message);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Неизвестная ошибка: {ex.Message}");
+                    _logger.LogError(ex, "Неизвестная ошибка при удалении пользователя: {Message}", ex.Message);
                 }
 
                 var serverUsers = await _orientDbService.GetUsersByServerIdAsync(userVoiceChannel.VoiceChannel.ServerId);
