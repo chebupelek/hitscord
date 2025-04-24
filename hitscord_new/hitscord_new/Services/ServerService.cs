@@ -394,7 +394,7 @@ public class ServerService : IServerService
                       (us, u) => new ServerUserDTO
                       {
                           UserId = u.Id,
-                          UserName = u.AccountName,
+                          UserName = us.UserServerName,
                           UserTag = u.AccountTag,
                           RoleName = us.Role.Name
                       })
