@@ -92,7 +92,6 @@ services:
     depends_on:
       - hitscord
       - message
-      - sockets
     networks:
       - hitscord_network
 
