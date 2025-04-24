@@ -321,12 +321,20 @@ public class ServerService : IServerService
             throw new CustomException("User cant change role of creator", "Change user role", "User", 400, "Пользователь не может менять роль создателя сервера", "Изменение роли пользователя");
         }
         var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == serverId);
-        var userServ = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSubRoleId);
-        userServ.RoleId = role.Id;
-        _hitsContext.UserServer.Update(userServ);
-        await _hitsContext.SaveChangesAsync();
 
-        await _orientDbService.UnassignUserFromRoleAsync(userId, userRoleId, serverId);
+        var userServ = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSubRoleId);
+        var newUserServ = new UserServerDbModel
+        {
+            UserId = userId,
+            RoleId = role.Id,
+            UserServerName = userServ.UserServerName
+        };
+		_hitsContext.UserServer.Remove(userServ);
+        await _hitsContext.SaveChangesAsync();
+		_hitsContext.UserServer.Add(newUserServ);
+		await _hitsContext.SaveChangesAsync();
+
+		await _orientDbService.UnassignUserFromRoleAsync(userId, userRoleId, serverId);
         await _orientDbService.AssignUserToRoleAsync(userId, role.Id, serverId);
 
         var newUserRole = new NewUserRoleResponseDTO
