@@ -11,6 +11,8 @@ using System;
 using HitscordLibrary.Contexts;
 using HitscordLibrary.Models.db;
 using HitscordLibrary.Models.other;
+using System.Security.Claims;
+using hitscord.OrientDb.Service;
 
 namespace hitscord.Services;
 
@@ -19,13 +21,15 @@ public class TokenService: ITokenService
     private readonly IConfiguration _configuration;
     private readonly TokenContext _tokenContext;
     private readonly HitsContext _hitsContext;
+	private readonly OrientDbService _orientService;
 
-    public TokenService(TokenContext tokenContext, HitsContext hitsContext, IConfiguration configuration)
+	public TokenService(TokenContext tokenContext, HitsContext hitsContext, IConfiguration configuration, OrientDbService orientService)
     {
         _tokenContext = tokenContext ?? throw new ArgumentNullException(nameof(tokenContext));
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _configuration = configuration;
-    }
+		_orientService = orientService ?? throw new ArgumentNullException(nameof(orientService));
+	}
 
     public TokensDTO CreateTokens(UserDbModel user)
     {
@@ -149,5 +153,30 @@ public class TokenService: ITokenService
         }
         _tokenContext.SaveChanges();
     }
+
+	public async Task<Guid> CheckAuth(string token)
+	{
+		if (!await IsTokenValidAsync(token))
+		{
+			throw new CustomException("Access token not found", "CheckAuth", "Access token", 401, "Сессия не найдена", "Проверка авторизации");
+		}
+		if (IsTokenExpired(token))
+		{
+			throw new CustomException("Access token expired", "CheckAuth", "Access token", 401, "Сессия окончена", "Проверка авторизации");
+		}
+		var tokenHandler = new JwtSecurityTokenHandler();
+		var jsonToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
+		var userId = jsonToken?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
+		if (userId == null)
+		{
+			throw new CustomException("UserId not found", "Profile", "Access token", 404, "Не найден подобный Id пользователя", "Проверка авторизации");
+		}
+		Guid userIdGuid = Guid.Parse(userId);
+		if (!await _orientService.DoesUserExistAsync(userIdGuid))
+		{
+			throw new CustomException("User not found", "Profile", "User", 404, "Пользователь не найден", "Проверка авторизации");
+		}
+		return userIdGuid;
+	}
 }
 

@@ -9,6 +9,8 @@ using Message.IServices;
 using Message.Models.DB;
 using Message.Models.Response;
 using Message.OrientDb.Service;
+using Message.WebSockets;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualBasic;
 using System.Data;
@@ -23,14 +25,16 @@ public class MessageService : IMessageService
     private readonly MessageContext _messageContext;
     private readonly ITokenService _tokenService;
     private readonly OrientDbService _orientService;
+	private readonly WebSocketsManager _webSocketManager;
 
 
-    public MessageService(MessageContext messageContext, ITokenService tokenService, OrientDbService orientService)
+	public MessageService(MessageContext messageContext, ITokenService tokenService, OrientDbService orientService, WebSocketsManager webSocketManager)
     {
         _messageContext = messageContext ?? throw new ArgumentNullException(nameof(messageContext));
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
         _orientService = orientService ?? throw new ArgumentNullException(nameof(orientService));
-    }
+		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+	}
 
     public async Task CreateMessageAsync(Guid channelId, string token, string text, List<Guid>? roles, List<Guid>? users, Guid? ReplyToMessageId)
     {
@@ -298,14 +302,7 @@ public class MessageService : IMessageService
             var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(channelId);
             if (alertedUsers != null && alertedUsers.Count() > 0)
             {
-                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-                {
-                    bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "New message" }, "SendNotification");
-                }
-            }
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = new List<Guid> { messageDto.AuthorId}, Message = "Your message is sended" }, "SendNotification");
+				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "New message");
             }
         }
         catch (CustomExceptionUser ex) 
@@ -316,10 +313,7 @@ public class MessageService : IMessageService
                 Message = ex.MessageFront,
                 Object = ex.ObjectFront
             };
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = expetionNotification, UserIds = new List<Guid> { ex.UserId }, Message = "ErrorWithMessage" }, "SendNotification");
-            }
+			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
         }
     }
 
@@ -369,15 +363,7 @@ public class MessageService : IMessageService
             var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(message.TextChannelId);
             if (alertedUsers != null && alertedUsers.Count() > 0)
             {
-
-                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-                {
-                    bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Updated message" }, "SendNotification");
-                }
-            }
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = new List<Guid> { messageDto.AuthorId }, Message = "Your message is updated" }, "SendNotification");
+				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Updated message");
             }
         }
         catch (CustomExceptionUser ex)
@@ -388,10 +374,7 @@ public class MessageService : IMessageService
                 Message = ex.MessageFront,
                 Object = ex.ObjectFront
             };
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = expetionNotification, UserIds = new List<Guid> { ex.UserId }, Message = "ErrorWithMessage" }, "SendNotification");
-            }
+			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
         }
     }
 
@@ -430,15 +413,7 @@ public class MessageService : IMessageService
             var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(message.TextChannelId);
             if (alertedUsers != null && alertedUsers.Count() > 0)
             {
-
-                using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-                {
-                    bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Deleted message" }, "SendNotification");
-                }
-            }
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = new List<Guid> { userId }, Message = "Your message is deleted" }, "SendNotification");
+				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Deleted message");
             }
         }
         catch (CustomExceptionUser ex)
@@ -449,10 +424,7 @@ public class MessageService : IMessageService
                 Message = ex.MessageFront,
                 Object = ex.ObjectFront
             };
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = expetionNotification, UserIds = new List<Guid> { ex.UserId }, Message = "ErrorWithMessage" }, "SendNotification");
-            }
+			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
         }
     }
 }

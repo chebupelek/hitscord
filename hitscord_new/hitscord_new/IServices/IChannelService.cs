@@ -19,6 +19,7 @@ public interface IChannelService
     Task<bool> DeleteChannelAsync(Guid chnnelId, string token);
     Task<ChannelSettingsDTO> GetChannelSettingsAsync(Guid chnnelId, string token);
     Task<bool> ChangeChannelSettingsAsync(string token, ChannelRoleDTO settingsData);
+    Task ChnageChannnelNameAsync(string jwtToken, Guid channelId, string name);
     Task<bool> AddRoleToCanReadSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add);
     Task<bool> RemoveRoleFromCanReadSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add);
     Task<bool> AddRoleToCanWriteSettingAsync(Guid chnnelId, string token, Guid roleId, ChangeRoleTypeEnum type, bool add);

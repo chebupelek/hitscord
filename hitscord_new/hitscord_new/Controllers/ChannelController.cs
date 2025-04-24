@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 using HitscordLibrary.Models.other;
+using hitscord.Services;
 
 namespace hitscord.Controllers;
 
@@ -128,7 +129,29 @@ public class ChannelController : ControllerBase
         }
     }
 
-    [Authorize]
+	[Authorize]
+	[HttpPut]
+	[Route("name/change")]
+	public async Task<IActionResult> ChangeChannelName([FromBody] ChangeNameDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			data.Validation();
+			await _channelService.ChnageChannnelNameAsync(jwtToken, data.Id, data.Name);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
     [HttpPost]
     [Route("voice/join")]
     public async Task<IActionResult> JoinToVoiceChannel([FromBody] VoiceChannelIdDTO channelId)

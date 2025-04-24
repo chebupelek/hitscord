@@ -14,4 +14,5 @@ public interface ITokenService
     Task<bool> CheckRefreshToken(string token);
     Task<TokensDTO> UpdateTokens(string refreshToken);
     Task BanningTokensAsync();
+    Task<Guid> CheckAuth(string token);
 }

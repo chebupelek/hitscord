@@ -4,6 +4,7 @@ using Message.IServices;
 using Message.OrientDb.Service;
 using Message.Services;
 using Message.Utils;
+using Message.WebSockets;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -34,6 +35,10 @@ builder.Services.AddSingleton<RabbitMQUtil>();
 
 builder.Services.Configure<OrientDbConfig>(builder.Configuration.GetSection("OrientDb"));
 builder.Services.AddSingleton<OrientDbService>();
+
+builder.Services.AddSingleton<WebSocketConnectionStore>();
+builder.Services.AddScoped<WebSocketsManager>();
+builder.Services.AddScoped<WebSocketHandler>();
 
 builder.Services.AddAuthentication(opt => {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -111,6 +116,11 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 
 app.UseCors("AllowSpecificOrigin");
+
+app.UseWebSockets();
+app.UseMiddleware<WebSocketMiddleware>();
+
+app.MapGet("/", () => "WebSocket server is running!");
 
 app.UseSwagger();
 app.UseSwaggerUI();

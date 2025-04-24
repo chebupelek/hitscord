@@ -97,7 +97,19 @@ public class OrientDbService
         }
     }
 
-    public async Task AddUserAsync(Guid userId)
+	public async Task<bool> DoesUserExistAsync(Guid userId)
+	{
+		string query = $@"
+            SELECT COUNT(*) 
+            FROM User 
+            WHERE id = '{userId}'";
+
+		string result = await ExecuteCommandAsync(query);
+
+		return !result.Contains("\"value\":0");
+	}
+
+	public async Task AddUserAsync(Guid userId)
     {
         string query = $"INSERT INTO User SET id = '{userId}'";
         await ExecuteCommandAsync(query);

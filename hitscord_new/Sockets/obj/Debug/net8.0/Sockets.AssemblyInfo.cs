@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Sockets")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+439a707c62e809d32edae247880512a57870aa8c")]
 [assembly: System.Reflection.AssemblyProductAttribute("Sockets")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Sockets")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

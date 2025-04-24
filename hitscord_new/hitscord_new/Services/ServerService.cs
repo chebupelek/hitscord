@@ -1,18 +1,17 @@
-﻿using Authzed.Api.V0;
-using Grpc.Core;
+﻿using EasyNetQ;
+using Grpc.Net.Client.Balancer;
 using hitscord.Contexts;
 using hitscord.IServices;
 using hitscord.Models.db;
-using hitscord.Models.response;
 using hitscord.Models.other;
+using hitscord.Models.request;
+using hitscord.Models.response;
+using hitscord.OrientDb.Service;
+using hitscord.WebSockets;
+using HitscordLibrary.Models.other;
+using HitscordLibrary.SocketsModels;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
-using hitscord.OrientDb.Service;
-using HitscordLibrary.Models.other;
-using EasyNetQ;
-using HitscordLibrary.SocketsModels;
-using System.Threading.Channels;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace hitscord.Services;
 
@@ -22,14 +21,16 @@ public class ServerService : IServerService
     private readonly IAuthorizationService _authorizationService;
     private readonly IServices.IAuthenticationService _authenticationService;
     private readonly OrientDbService _orientDbService;
+	private readonly WebSocketsManager _webSocketManager;
 
-    public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService)
+	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
         _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
-    }
+		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+	}
 
     public async Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels)
     {
@@ -150,11 +151,7 @@ public class ServerService : IServerService
         alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = newSubscriberResponse, UserIds = alertedUsers, Message = "New user on server" }, "SendNotification");
-            }
+			await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
         }
     }
 
@@ -187,8 +184,8 @@ public class ServerService : IServerService
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
             {
                 bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
             }
@@ -235,13 +232,9 @@ public class ServerService : IServerService
         };
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
-
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
-                bus.PubSub.Publish(new NotificationDTO { Notification = newUserRole, UserIds = alertedUsers, Message = "Role changed" }, "SendNotification");
-            }
+		{
+			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+			await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role changed");
         }
     }
 
@@ -273,11 +266,7 @@ public class ServerService : IServerService
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = serverDelete, UserIds = alertedUsers, Message = "Server deleted" }, "SendNotification");
-            }
+			await _webSocketManager.BroadcastMessageAsync(serverDelete, alertedUsers, "Server deleted");
         }
     }
 
@@ -346,11 +335,7 @@ public class ServerService : IServerService
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = newUserRole, UserIds = alertedUsers, Message = "Role changed" }, "SendNotification");
-            }
+			await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role changed");
         }
     }
 
@@ -488,12 +473,8 @@ public class ServerService : IServerService
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
-            }
-        }
+			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+		}
     }
 
     public async Task<RolesListDTO> GetServerRolesAsync(string token, Guid serverId)
@@ -516,4 +497,53 @@ public class ServerService : IServerService
 
         return list;
     }
+
+	public async Task ChangeServerNameAsync(Guid serverId, string token, string name)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckUserCreatorAsync(server.Id, owner.Id);
+		server.Name = name;
+		_hitsContext.Server.Update(server);
+		await _hitsContext.SaveChangesAsync();
+
+        var changeServerName = new ChangeNameDTO
+        {
+            Id = serverId,
+            Name = name
+        };
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(changeServerName, alertedUsers, "New server name");
+		}
+	}
+
+	public async Task ChangeUserNameAsync(Guid serverId, string token, string name)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckSubscriptionExistAsync(server.Id, owner.Id);
+        var userServer = await _hitsContext.UserServer.Include(uvc => uvc.Role).FirstOrDefaultAsync(_uvc => _uvc.UserId == owner.Id && _uvc.Role.ServerId == serverId);
+        if (userServer == null)
+        {
+			throw new CustomException("User not subscriber of this server", "Change user name", "User", 400, "Пользователь не является подписчикаом", "Изменение имени на сервере");
+		}
+        userServer.UserServerName = name;
+		_hitsContext.UserServer.Update(userServer);
+		await _hitsContext.SaveChangesAsync();
+
+
+		var changeServerName = new ChangeNameOnServerDTO
+		{
+			ServerId = serverId,
+            UserId = owner.Id,
+			Name = name
+		};
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(changeServerName, alertedUsers, "New users name on server");
+		}
+	}
 }

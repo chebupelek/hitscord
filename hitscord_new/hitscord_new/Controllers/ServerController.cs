@@ -236,4 +236,48 @@ public class ServerController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+	[Authorize]
+	[HttpPut]
+	[Route("name/user/change")]
+	public async Task<IActionResult> ChangeUserName([FromBody] ChangeNameDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			data.Validation();
+			await _serverService.ChangeUserNameAsync(data.Id, jwtToken, data.Name);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("name/server/change")]
+	public async Task<IActionResult> ChangeServerName([FromBody] ChangeNameDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			data.Validation();
+			await _serverService.ChangeServerNameAsync(data.Id, jwtToken, data.Name);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }

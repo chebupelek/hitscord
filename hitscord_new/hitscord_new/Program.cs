@@ -12,6 +12,7 @@ using System.Text;
 using HitscordLibrary.Models.other;
 using hitscord.Utils;
 using Microsoft.AspNetCore.HttpOverrides;
+using hitscord.WebSockets;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,10 @@ builder.Services.AddSingleton<RabbitMQUtil>();
 
 builder.Services.Configure<OrientDbConfig>(builder.Configuration.GetSection("OrientDb"));
 builder.Services.AddSingleton<OrientDbService>();
+
+builder.Services.AddSingleton<WebSocketConnectionStore>();
+builder.Services.AddScoped<WebSocketsManager>();
+builder.Services.AddScoped<WebSocketHandler>();
 
 builder.Services.AddAuthentication(opt => {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -119,6 +124,11 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 
 app.UseCors("AllowSpecificOrigin");
+
+app.UseWebSockets();
+app.UseMiddleware<WebSocketMiddleware>();
+
+app.MapGet("/", () => "WebSocket server is running!");
 
 app.UseSwagger();
 app.UseSwaggerUI();
