@@ -179,7 +179,7 @@ public class ChannelService : IChannelService
         var user = await _authService.GetUserAsync(token);
         var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
         var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
-        await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+        //await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
         var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.VoiceChannelId == chnnelId);
         if (userthischannel == null)
         {
