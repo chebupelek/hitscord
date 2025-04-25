@@ -461,21 +461,22 @@ public class ServerService : IServerService
             throw new CustomException("User cant delete creator of server", "Change user role", "User", 400, "Нельзя удалить создателя сервера", "Удаление пользователя с сервера");
         }
         var userServer = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSub.Id);
+        /*
         var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == userId && uvc.VoiceChannel.ServerId == serverId);
-		var newRemovedUserResponse = new RemovedUserDTO
-		{
-			ServerId = serverId,
-            IsNeedRemoveFromVC = userVoiceChannel != null
-		};
 		if (userVoiceChannel != null)
         {
             _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
 			await _hitsContext.SaveChangesAsync();
 		}
+        */
         _hitsContext.UserServer.Remove(userServer);
         await _hitsContext.SaveChangesAsync();
         await _orientDbService.UnassignUserFromRoleAsync(userId, userSub.Id, serverId);
 
+		var newRemovedUserResponse = new RemovedUserDTO
+		{
+			ServerId = serverId
+		};
 		await _webSocketManager.BroadcastMessageAsync(newRemovedUserResponse, new List<Guid> { userId }, "You removed from server");
 		
         var newUnsubscriberResponse = new UnsubscribeResponseDTO

@@ -653,4 +653,20 @@ public class ChannelService : IChannelService
 			await _webSocketManager.BroadcastMessageAsync(changeChannelName, alertedUsers, "Change channel name");
 		}
 	}
+
+	public async Task<UserVoiceChannelCheck?> CheckVoiceChannelAsync(string token)
+	{
+		var user = await _authService.GetUserAsync(token);
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+        if (userVoiceChannel == null)
+        {
+            return null;
+        }
+        var uvcCheck = new UserVoiceChannelCheck
+        {
+            ServerId = userVoiceChannel.VoiceChannel.ServerId,
+            VoiceChannelId = userVoiceChannel.VoiceChannel.Id,
+        };
+        return uvcCheck;
+	}
 }

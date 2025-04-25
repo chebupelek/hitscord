@@ -193,7 +193,28 @@ public class ChannelController : ControllerBase
         }
     }
 
-    [Authorize]
+	[Authorize]
+	[HttpGet]
+	[Route("voice/check")]
+	public async Task<IActionResult> CheckVoiceChannel()
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var answer = await _channelService.CheckVoiceChannelAsync(jwtToken);
+			return Ok(answer);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
     [HttpDelete]
     [Route("voice/remove/other")]
     public async Task<IActionResult> RemoveUserFromVoiceChannel([FromBody] RemoveUserDTO channelId)
