@@ -48,7 +48,7 @@
               "RelativeDocumentMoniker": "hitscord_new\\Models\\request\\UserRegistrationDTO.cs",
               "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Models\\request\\UserRegistrationDTO.cs",
               "RelativeToolTip": "hitscord_new\\Models\\request\\UserRegistrationDTO.cs",
-              "ViewState": "AgIAAAkAAAAAAAAAAAAowCkAAABFAAAAAAAAAA==",
+              "ViewState": "AgIAAAkAAAAAAAAAAAA5wCAAAABAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-04-25T03:27:51.892Z",
               "EditorCaption": ""
@@ -63,8 +63,7 @@
               "RelativeToolTip": "hitscord_new\\Services\\AuthorizationService.cs",
               "ViewState": "AgIAABQAAAAAAAAAAAAQwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-04-25T03:27:43.886Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-04-25T03:27:43.886Z"
             },
             {
               "$type": "Document",
@@ -76,8 +75,7 @@
               "RelativeToolTip": "Message\\WebSockets\\WebSocketHandler.cs",
               "ViewState": "AgIAADkAAAAAAAAAAAAowAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-04-24T22:18:51.133Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-04-24T22:18:51.133Z"
             },
             {
               "$type": "Document",
@@ -89,8 +87,7 @@
               "RelativeToolTip": "hitscord_new\\Services\\ServerService.cs",
               "ViewState": "AgIAAFMBAAAAAAAAAAAAAIkBAAAyAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-04-24T22:00:16.221Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-04-24T22:00:16.221Z"
             },
             {
               "$type": "Document",
@@ -102,8 +99,7 @@
               "RelativeToolTip": "hitscord_new\\Controllers\\ServerController.cs",
               "ViewState": "AgIAAOkAAAAAAAAAAAAmwP8AAAAWAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-04-24T20:40:14.921Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-04-24T20:40:14.921Z"
             },
             {
               "$type": "Document",

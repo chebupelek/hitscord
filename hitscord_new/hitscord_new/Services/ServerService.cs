@@ -465,6 +465,12 @@ public class ServerService : IServerService
         await _hitsContext.SaveChangesAsync();
         await _orientDbService.UnassignUserFromRoleAsync(userId, userSub.Id, serverId);
 
+		var newRemovedUserResponse = new ServerDeleteDTO
+		{
+			ServerId = serverId,
+		};
+		await _webSocketManager.BroadcastMessageAsync(newRemovedUserResponse, new List<Guid> { userId }, "You removed from server");
+		
         var newUnsubscriberResponse = new UnsubscribeResponseDTO
         {
             ServerId = serverId,
@@ -473,8 +479,8 @@ public class ServerService : IServerService
         var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
-		}
+            await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+        }
     }
 
     public async Task<RolesListDTO> GetServerRolesAsync(string token, Guid serverId)
