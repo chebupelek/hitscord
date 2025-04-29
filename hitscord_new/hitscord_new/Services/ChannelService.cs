@@ -147,7 +147,8 @@ public class ChannelService : IChannelService
 			}
             _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
             await _hitsContext.SaveChangesAsync();
-        }
+			_hitsContext.Entry(userthischannel).State = EntityState.Detached;
+		}
         var newUserVoiceChannel = new UserVoiceChannelDbModel
         {
             VoiceChannelId = chnnelId,
@@ -187,8 +188,9 @@ public class ChannelService : IChannelService
         }
         _hitsContext.UserVoiceChannel.Remove(userthischannel);
         await _hitsContext.SaveChangesAsync();
+		_hitsContext.Entry(userthischannel).State = EntityState.Detached;
 
-        var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
+		var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
         {
             ServerId = channel.ServerId,
             isEnter = false,
