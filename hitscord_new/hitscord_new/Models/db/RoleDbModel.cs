@@ -27,4 +27,8 @@ public class RoleDbModel
 
     [ForeignKey(nameof(ServerId))]
     public ServerDbModel Server { get; set; }
+
+    public required string Color { get; set; }
+
+    public required string RoleTag { get; set; }
 }

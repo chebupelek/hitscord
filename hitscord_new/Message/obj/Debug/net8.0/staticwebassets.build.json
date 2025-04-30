@@ -1,11 +1,12 @@
 {
   "Version": 1,
-  "Hash": "O76fjLLOK05ou8Fq5NkzQPEzWqoDNbM2KYnhRJf9xiI=",
+  "Hash": "xC+wg89bB9muxYjwFCxQnLMCeSoMI+MXEGzmA0Q65eo=",
   "Source": "Message",
   "BasePath": "_content/Message",
   "Mode": "Default",
   "ManifestType": "Build",
   "ReferencedProjectsConfiguration": [],
   "DiscoveryPatterns": [],
-  "Assets": []
+  "Assets": [],
+  "Endpoints": []
 }

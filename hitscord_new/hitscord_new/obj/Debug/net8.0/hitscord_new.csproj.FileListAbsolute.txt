@@ -279,7 +279,6 @@ C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.Drawing.Common.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.IO.Pipelines.dll
-C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.Net.Http.Json.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.Security.Cryptography.ProtectedData.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.Text.Encodings.Web.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.Text.Json.dll
@@ -363,9 +362,13 @@ C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\staticwebassets\msbuild.buildTransitive.hitscord_new.props
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\staticwebassets.pack.json
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\scopedcss\bundle\hitscord_new.styles.css
-C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\hitscord_new.csproj.CopyComplete
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\hitscord_new.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\refint\hitscord_new.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\hitscord_new.pdb
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\hitscord_new.genruntimeconfig.cache
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\ref\hitscord_new.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\hitscord_new.staticwebassets.endpoints.json
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\staticwebassets.build.endpoints.json
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\staticwebassets\msbuild.hitscord_new.Microsoft.AspNetCore.StaticWebAssetEndpoints.props
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\hitscord.6F1605EB.Up2Date

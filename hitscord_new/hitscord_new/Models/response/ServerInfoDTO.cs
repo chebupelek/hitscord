@@ -9,6 +9,7 @@ public class ServerInfoDTO
     public required List<RolesItemDTO> Roles { get; set; }
     public required Guid UserRoleId { get; set; }
     public required string UserRole { get; set; }
+    public required string UserServerName { get; set; }
     public required bool IsCreator { get; set; }
     public required bool CanChangeRole { get; set; }
     public required bool CanDeleteUsers { get; set; }

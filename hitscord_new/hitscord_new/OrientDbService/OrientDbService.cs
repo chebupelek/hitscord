@@ -498,7 +498,9 @@ public class OrientDbService
                 {
                     Id = Guid.Parse((string)r.roleId),
                     ServerId = Guid.Parse((string)r.serverId),
-                    Name = (string)r.roleName
+                    Name = (string)r.roleName,
+                    Tag = (string)r.roleTag,
+                    Color = (string)r.roleColor,
                 });
             }
         }
@@ -526,7 +528,9 @@ public class OrientDbService
                 {
                     Id = Guid.Parse((string)r.roleId),
                     ServerId = Guid.Parse((string)r.serverId),
-                    Name = (string)r.roleName
+                    Name = (string)r.roleName,
+                    Tag = (string)r.roleTag,
+                    Color = (string)r.roleColor
                 });
             }
         }

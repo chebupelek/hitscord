@@ -11,7 +11,9 @@ using hitscord.WebSockets;
 using HitscordLibrary.Models.other;
 using HitscordLibrary.SocketsModels;
 using Microsoft.EntityFrameworkCore;
+using NickBuhro.Translit;
 using System.Data;
+using System.Text.RegularExpressions;
 
 namespace hitscord.Services;
 
@@ -57,14 +59,16 @@ public class ServerService : IServerService
         return server;
     }
 
-    private async Task<RoleDbModel> CreateRoleAsync(Guid serverId, RoleEnum role, string roleName)
+    private async Task<RoleDbModel> CreateRoleAsync(Guid serverId, RoleEnum role, string roleName, string color)
     {
         var newRole = new RoleDbModel()
         {
             Name = roleName,
             Role = role,
-            ServerId = serverId
-        };
+            ServerId = serverId,
+            Color = color,
+            RoleTag = Regex.Replace(Transliteration.CyrillicToLatin(roleName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower()
+		};
         await _hitsContext.Role.AddAsync(newRole);
         await _hitsContext.SaveChangesAsync();
         return newRole;
@@ -81,11 +85,11 @@ public class ServerService : IServerService
         await _hitsContext.Server.AddAsync(newServer);
         await _hitsContext.SaveChangesAsync();
 
-        var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Создатель");
-        var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Админ");
-        var teacherRole = await CreateRoleAsync(newServer.Id, RoleEnum.Teacher, "Учитель");
-        var studentRole = await CreateRoleAsync(newServer.Id, RoleEnum.Student, "Студент");
-        var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Неопределенная");
+        var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Создатель", "#FF0000");
+        var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Админ", "#00FF00");
+        var teacherRole = await CreateRoleAsync(newServer.Id, RoleEnum.Teacher, "Учитель", "#00FFFF");
+        var studentRole = await CreateRoleAsync(newServer.Id, RoleEnum.Student, "Студент", 	"#FF00FF");
+        var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Неопределенная", "#FFFF00");
         newServer.Roles = new List<RoleDbModel> { creatorRole, adminRole, teacherRole, studentRole, uncertainRole };
         _hitsContext.Server.Update(newServer);
         await _hitsContext.SaveChangesAsync();
@@ -114,12 +118,12 @@ public class ServerService : IServerService
         await _hitsContext.Channel.AddAsync(newVoiceChannel);
         await _hitsContext.SaveChangesAsync();
 
-        newServer.Channels.Add(newTextChannel);
+		await _orientDbService.CreateServerAsync(newServer.Id, user.Id, new List<Guid> { newTextChannel.Id, newVoiceChannel.Id }, new List<RoleDbModel> { creatorRole, adminRole, teacherRole, studentRole, uncertainRole });
+
+		newServer.Channels.Add(newTextChannel);
         newServer.Channels.Add(newVoiceChannel);
         _hitsContext.Server.Update(newServer);
         await _hitsContext.SaveChangesAsync();
-
-        await _orientDbService.CreateServerAsync(newServer.Id ,user.Id, new List<Guid> {newTextChannel.Id, newVoiceChannel.Id}, new List<RoleDbModel> { creatorRole, adminRole, teacherRole, studentRole, uncertainRole });
     }
 
     public async Task SubscribeAsync(Guid serverId, string token, string? userName)
@@ -376,12 +380,15 @@ public class ServerService : IServerService
                 {
                     Id = r.Id,
                     Name = r.Name,
-                    ServerId = r.ServerId
+                    ServerId = r.ServerId,
+                    Tag = r.RoleTag,
+                    Color = r.Color
                 })
                 .ToListAsync(),
             UserRoleId = sub.Id,
             UserRole = sub.Name,
-            IsCreator = sub.Role == RoleEnum.Creator,
+			UserServerName = (await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.RoleId == sub.Id))?.UserServerName ?? user.AccountName,
+			IsCreator = sub.Role == RoleEnum.Creator,
             CanChangeRole = result.Contains("ServerCanChangeRole"),
             CanDeleteUsers = result.Contains("ServerCanDeleteUsers"),
             CanWorkWithChannels = result.Contains("ServerCanWorkChannels"),
@@ -506,7 +513,9 @@ public class ServerService : IServerService
                 {
                     Id = r.Id,
                     ServerId = server.Id,
-                    Name = r.Name
+                    Name = r.Name,
+                    Tag = r.RoleTag,
+                    Color = r.Color
                 })
                 .ToList()
         };

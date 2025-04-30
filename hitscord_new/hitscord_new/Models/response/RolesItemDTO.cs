@@ -5,4 +5,6 @@ public class RolesItemDTO
     public required Guid Id { get; set; }
     public required Guid ServerId { get; set; }
     public required string Name { get; set; }
+    public required string Tag { get; set; }
+    public required string Color { get; set; }
 }
