@@ -8,6 +8,7 @@ using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.OrientDb.Service;
 using hitscord.WebSockets;
+using hitscord_new.Models.other;
 using HitscordLibrary.Models.other;
 using HitscordLibrary.SocketsModels;
 using Microsoft.EntityFrameworkCore;
@@ -118,13 +119,19 @@ public class ServerService : IServerService
         await _hitsContext.Channel.AddAsync(newVoiceChannel);
         await _hitsContext.SaveChangesAsync();
 
-		await _orientDbService.CreateServerAsync(newServer.Id, user.Id, new List<Guid> { newTextChannel.Id, newVoiceChannel.Id }, new List<RoleDbModel> { creatorRole, adminRole, teacherRole, studentRole, uncertainRole });
-
 		newServer.Channels.Add(newTextChannel);
         newServer.Channels.Add(newVoiceChannel);
         _hitsContext.Server.Update(newServer);
         await _hitsContext.SaveChangesAsync();
-    }
+
+        var addList = new List<AddChannelOrientDto>()
+        {
+            new AddChannelOrientDto() {ChannelId = newTextChannel.Id, ChannelType = ChannelTypeEnum.Text },
+			new AddChannelOrientDto() {ChannelId = newVoiceChannel.Id, ChannelType = ChannelTypeEnum.Voice }
+		};
+
+		await _orientDbService.CreateServerAsync(newServer.Id, user.Id, addList, new List<RoleDbModel> { creatorRole, adminRole, teacherRole, studentRole, uncertainRole });
+	}
 
     public async Task SubscribeAsync(Guid serverId, string token, string? userName)
     {

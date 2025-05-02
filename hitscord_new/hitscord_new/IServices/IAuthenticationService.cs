@@ -11,6 +11,7 @@ public interface IAuthenticationService
     Task CheckUserRightsChangeRoles(Guid ServerId, Guid UserId);
     Task CheckUserRightsWorkWithChannels(Guid ServerId, Guid UserId);
     Task CheckUserRightsDeleteUsers(Guid ServerId, Guid UserId);
-    Task CheckUserRightsWriteInChannel(Guid channelId, Guid UserId);
+    Task CheckUserRightsMute(Guid ServerId, Guid UserId);
+	Task CheckUserRightsWriteInChannel(Guid channelId, Guid UserId);
     Task CheckUserRightsSeeChannel(Guid channelId, Guid UserId);
 }

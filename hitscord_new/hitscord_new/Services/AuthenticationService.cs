@@ -95,7 +95,22 @@ public class AuthenticationService : IAuthenticationService
         }
     }
 
-    public async Task CheckUserRightsDeleteUsers(Guid ServerId, Guid UserId)
+	public async Task CheckUserRightsMute(Guid ServerId, Guid UserId)
+	{
+		await CheckSubscriptionExistAsync(ServerId, UserId);
+		string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(UserId, ServerId);
+		var server = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == ServerId);
+		if (server == null)
+		{
+			throw new CustomException("Server not exist", "Check user rights for work with channels", "Server", 404, "Сервер не найден", "Проверка на возможность работать с каналами");
+		}
+		if (!result.Contains("CanMute"))
+		{
+			throw new CustomException("User doesnt has rights to mute", "Check user rights for mute", "User", 401, "Пользователь не может мутить на этом сервере", "Проверка на возможность мутить");
+		}
+	}
+
+	public async Task CheckUserRightsDeleteUsers(Guid ServerId, Guid UserId)
     {
         await CheckSubscriptionExistAsync(ServerId, UserId);
         string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(UserId, ServerId);

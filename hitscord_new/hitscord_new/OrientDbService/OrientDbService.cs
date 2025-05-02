@@ -1,13 +1,17 @@
 ﻿using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
+using Grpc.Gateway.ProtocGenOpenapiv2.Options;
 using hitscord.Models.db;
 using hitscord.Models.other;
 using hitscord.Models.response;
+using hitscord_new.Models.other;
 using HitscordLibrary.Models.other;
+using Microsoft.AspNetCore.SignalR.Protocol;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using static Authzed.Api.V1.CheckDebugTrace.Types;
 
 namespace hitscord.OrientDb.Service;
 
@@ -58,44 +62,91 @@ public class OrientDbService
         }*/
     }
 
-    public async Task CreateSchemaAsync()
-    {
-        string[] queries =
-        {
-            "CREATE CLASS User EXTENDS V",
-            "CREATE PROPERTY User.id STRING",
-            "CREATE INDEX User.id UNIQUE",
+	public async Task CreateSchemaAsync()
+	{
+		string[] queries =
+		{
+        // User
+        "CREATE CLASS User EXTENDS V",
+		"CREATE PROPERTY User.id STRING",
+		"CREATE PROPERTY User.tag STRING",
+		"CREATE PROPERTY User.canMessage BOOLEAN",
+		"CREATE PROPERTY User.canNotification BOOLEAN",
+		"CREATE INDEX User.id UNIQUE",
 
-            "CREATE CLASS Server EXTENDS V",
-            "CREATE PROPERTY Server.id STRING",
-            "CREATE INDEX Server.id UNIQUE",
+        // Server
+        "CREATE CLASS Server EXTENDS V",
+		"CREATE PROPERTY Server.id STRING",
+		"CREATE INDEX Server.id UNIQUE",
 
-            "CREATE CLASS Channel EXTENDS V",
-            "CREATE PROPERTY Channel.id STRING",
-            "CREATE PROPERTY Channel.server STRING",
-            "CREATE INDEX Channel.id UNIQUE",
+        // Channel (base)
+        "CREATE CLASS Channel EXTENDS V",
+		"CREATE PROPERTY Channel.id STRING",
+		"CREATE PROPERTY Channel.server STRING",
+		"CREATE INDEX Channel.id UNIQUE",
 
-            "CREATE CLASS Role EXTENDS V",
-            "CREATE PROPERTY Role.id STRING",
-            "CREATE PROPERTY Role.name STRING",
-            "CREATE PROPERTY Role.server STRING",
-            "CREATE INDEX Role.id UNIQUE",
+        // VoiceChannel
+        "CREATE CLASS VoiceChannel EXTENDS Channel",
 
-            "CREATE CLASS BelongsTo EXTENDS E",
-            "CREATE CLASS ContainsChannel EXTENDS E",
-            "CREATE CLASS ContainsRole EXTENDS E",
-            "CREATE CLASS ChannelCanSee EXTENDS E",
-            "CREATE CLASS ChannelCanWrite EXTENDS E",
-            "CREATE CLASS ServerCanChangeRole EXTENDS E",
-            "CREATE CLASS ServerCanWorkChannels EXTENDS E",
-            "CREATE CLASS ServerCanDeleteUsers EXTENDS E"
-        };
+        // TextChannel
+        "CREATE CLASS TextChannel EXTENDS Channel",
 
-        foreach (var query in queries)
-        {
-            await ExecuteCommandAsync(query);
-        }
-    }
+        // SubChannel (nested text channel)
+        "CREATE CLASS SubChannel EXTENDS Channel",
+
+        // Role
+        "CREATE CLASS Role EXTENDS V",
+		"CREATE PROPERTY Role.id STRING",
+		"CREATE PROPERTY Role.name STRING",
+		"CREATE PROPERTY Role.server STRING",
+		"CREATE PROPERTY Role.tag STRING",
+		"CREATE INDEX Role.id UNIQUE",
+
+        // Chat
+        "CREATE CLASS Chat EXTENDS V",
+		"CREATE PROPERTY Chat.id STRING",
+		"CREATE INDEX Chat.id UNIQUE",
+
+        // Edges
+        "CREATE CLASS BelongsTo EXTENDS E",            // Role -> User
+        "CREATE PROPERTY BelongsTo.isNotificated BOOLEAN",
+
+		"CREATE CLASS ContainsChannel EXTENDS E",      // Channel -> Server
+
+		"CREATE CLASS ContainsRole EXTENDS E",         // Role -> Server
+
+		"CREATE CLASS ChannelCanSee EXTENDS E",        // Role -> Channel
+
+		"CREATE CLASS ChannelCanWrite EXTENDS E",      // Role -> Channel
+
+		"CREATE CLASS ServerCanChangeRole EXTENDS E",  // Role -> Server
+
+		"CREATE CLASS ServerCanWorkChannels EXTENDS E",// Role -> Server
+
+		"CREATE CLASS ServerCanDeleteUsers EXTENDS E", // Role -> Server
+
+		"CREATE CLASS CanMute EXTENDS E",              // Role -> Server
+
+        "CREATE CLASS ContainsSubChannel EXTENDS E",   // Channel -> SubChannel
+
+        "CREATE CLASS CanJoin EXTENDS E",              // Role -> SubChannel
+
+        "CREATE CLASS Creator EXTENDS E",              // User -> SubChannel
+
+        "CREATE CLASS Tag EXTENDS E",                  // TextChannel -> Role (tagging)
+
+        "CREATE CLASS Friendship EXTENDS E",           // User -> User (mutual or directed)
+
+        "CREATE CLASS Join EXTENDS E",                 // User -> Chat
+        "CREATE PROPERTY Join.isNotificated BOOLEAN",
+	};
+
+		foreach (var query in queries)
+		{
+			await ExecuteCommandAsync(query);
+		}
+	}
+
 
 	public async Task<bool> DoesUserExistAsync(Guid userId)
 	{
@@ -109,10 +160,15 @@ public class OrientDbService
 		return !result.Contains("\"value\":0");
 	}
 
-	public async Task AddUserAsync(Guid userId)
+	public async Task AddUserAsync(Guid userId, string Tag, bool canMessage = true, bool canNotification = true)
     {
-        string query = $"INSERT INTO User SET id = '{userId}'";
-        await ExecuteCommandAsync(query);
+		string query = $@"
+            INSERT INTO User SET 
+                id = '{userId}', 
+                tag = '{Tag}', 
+                canMessage = {canMessage.ToString().ToLower()}, 
+                canNotification = {canNotification.ToString().ToLower()}";
+		await ExecuteCommandAsync(query);
     }
 
     public async Task AddServerAsync(Guid serverId)
@@ -139,14 +195,14 @@ public class OrientDbService
         await ExecuteCommandAsync(deleteServerQuery);
     }
 
-    public async Task AddChannelAsync(Guid channelId, Guid serverId)
+    public async Task AddChannelAsync(Guid channelId, Guid serverId, string channelType)
     {
-        string query = $"INSERT INTO Channel SET id = '{channelId}', server = '{serverId}'";
-        await ExecuteCommandAsync(query);
+		string createChannelQuery = $"INSERT INTO {channelType} SET id = '{channelId}', server = '{serverId}'";
+		await ExecuteCommandAsync(createChannelQuery);
 
-        string linkQuery = $"CREATE EDGE ContainsChannel FROM (SELECT FROM Server WHERE id = '{serverId}') TO (SELECT FROM Channel WHERE id = '{channelId}')";
-        await ExecuteCommandAsync(linkQuery);
-    }
+		string linkQuery = $"CREATE EDGE ContainsChannel FROM (SELECT FROM Server WHERE id = '{serverId}') TO (SELECT FROM {channelType} WHERE id = '{channelId}')";
+		await ExecuteCommandAsync(linkQuery);
+	}
 
     public async Task DeleteChannelAsync(Guid channelId)
     {
@@ -160,40 +216,57 @@ public class OrientDbService
         await ExecuteCommandAsync(deleteChannelQuery);
     }
 
-    public async Task CreateServerAsync(Guid serverId, Guid userId, List<Guid> channelsId, List<RoleDbModel> roles)
+    public async Task CreateServerAsync(Guid serverId, Guid userId, List<AddChannelOrientDto> channelsId, List<RoleDbModel> roles)
     {
         await AddServerAsync(serverId);
 
         foreach (var channelId in channelsId) 
         {
-            await AddChannelAsync(channelId, serverId);
+            switch (channelId.ChannelType)
+            {
+                case ChannelTypeEnum.Text:
+					await AddChannelAsync(channelId.ChannelId, serverId, "TextChannel");
+                    break;
+				case ChannelTypeEnum.Voice:
+					await AddChannelAsync(channelId.ChannelId, serverId, "VoiceChannel");
+					break;
+			}
         }
 
         foreach(var role in roles) 
         {
-            await AddRoleAsync(role.Id, role.Name, serverId);
+            await AddRoleAsync(role.Id, role.Name, serverId, role.RoleTag, role.Color);
             if(role.Role == RoleEnum.Admin || role.Role == RoleEnum.Creator)
             {
                 await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanChangeRole");
                 await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanWorkChannels");
                 await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanDeleteUsers");
+				await GrantRolePermissionToServerAsync(role.Id, serverId, "CanMute");
 
-                if(role.Role == RoleEnum.Creator)
+				if (role.Role == RoleEnum.Creator)
                 {
                     await AssignUserToRoleAsync(userId, role.Id, serverId);
                 }
             }
 
-            await GrantRolePermissionToChannelAsync(role.Id, channelsId[0], "ChannelCanSee");
-            await GrantRolePermissionToChannelAsync(role.Id, channelsId[0], "ChannelCanWrite");
-            await GrantRolePermissionToChannelAsync(role.Id, channelsId[1], "ChannelCanSee");
-            await GrantRolePermissionToChannelAsync(role.Id, channelsId[1], "ChannelCanWrite");
+            await GrantRolePermissionToChannelAsync(role.Id, channelsId[0].ChannelId, "ChannelCanSee");
+            await GrantRolePermissionToChannelAsync(role.Id, channelsId[0].ChannelId, "ChannelCanWrite");
+            await GrantRolePermissionToChannelAsync(role.Id, channelsId[1].ChannelId, "ChannelCanSee");
+            await GrantRolePermissionToChannelAsync(role.Id, channelsId[1].ChannelId, "ChannelCanWrite");
         }
     }
 
-    public async Task CreateChannel(Guid serverId, Guid channelId)
+    public async Task CreateNormalChannel(Guid serverId, Guid channelId, ChannelTypeEnum channelType)
     {
-        await AddChannelAsync(channelId, serverId);
+		switch (channelType)
+		{
+			case ChannelTypeEnum.Text:
+				await AddChannelAsync(channelId, serverId, "TextChannel");
+				break;
+			case ChannelTypeEnum.Voice:
+				await AddChannelAsync(channelId, serverId, "VoiceChannel");
+				break;
+		}
 
         string jsonResponse = await GetServerRolesAsync(serverId);
 
@@ -217,9 +290,9 @@ public class OrientDbService
         }
     }
 
-    public async Task AddRoleAsync(Guid roleId, string roleName, Guid serverId)
-    {
-        string query = $"INSERT INTO Role SET id = '{roleId}', name = '{roleName}', server = '{serverId}'";
+    public async Task AddRoleAsync(Guid roleId, string roleName, Guid serverId, string tag, string color)
+	{
+        string query = $"INSERT INTO Role SET id = '{roleId}', name = '{roleName}', server = '{serverId}', tag = '{tag}', color = '{color}'";
         await ExecuteCommandAsync(query);
 
         string linkQuery = $"CREATE EDGE ContainsRole FROM (SELECT FROM Server WHERE id = '{serverId}') TO (SELECT FROM Role WHERE id = '{roleId}')";
@@ -233,7 +306,7 @@ public class OrientDbService
 
         if (checkResult.Contains("\"COUNT(*)\": 0"))
         {
-            string query = $"CREATE EDGE BelongsTo FROM (SELECT FROM User WHERE id = '{userId}') TO (SELECT FROM Role WHERE id = '{roleId}')";
+            string query = $"CREATE EDGE BelongsTo FROM (SELECT FROM User WHERE id = '{userId}') TO (SELECT FROM Role WHERE id = '{roleId}') SET isNotificated = true";
             await ExecuteCommandAsync(query);
         }
     }
@@ -278,7 +351,33 @@ public class OrientDbService
         }
     }
 
-    public async Task GrantRolePermissionToServerAsync(Guid roleId, Guid serverId, string permissionType)
+	public async Task MakeRoleTaggedOnServer(Guid roleId, Guid channelId)
+	{
+		string checkQuery = $"SELECT FROM Role WHERE id = '{roleId}' AND server IN (SELECT server FROM TextChannel WHERE id = '{channelId}')";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string query = $"CREATE EDGE Tag FROM (SELECT FROM Role WHERE id = '{roleId}') TO (SELECT FROM TextChannel WHERE id = '{channelId}')";
+			await ExecuteCommandAsync(query);
+		}
+	}
+
+	public async Task UnmakeRoleTaggedOnServer(Guid roleId, Guid channelId)
+	{
+		string checkQuery = $@"
+        SELECT FROM Tag WHERE out IN (SELECT @rid FROM Role WHERE id = '{roleId}') AND in IN (SELECT @rid FROM TextChannel WHERE id = '{channelId}')";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string deleteEdgeQuery = $@"DELETE EDGE Tag WHERE out IN (SELECT @rid FROM Role WHERE id = '{roleId}') AND in IN (SELECT @rid FROM TextChannel WHERE id = '{channelId}')";
+
+			await ExecuteCommandAsync(deleteEdgeQuery);
+		}
+	}
+
+	public async Task GrantRolePermissionToServerAsync(Guid roleId, Guid serverId, string permissionType)
     {
         string checkQuery = $@"
         SELECT FROM {permissionType} WHERE out IN (SELECT @rid FROM Role WHERE id = '{roleId}') AND in IN (SELECT @rid FROM Server WHERE id = '{serverId}')";
@@ -481,7 +580,7 @@ public class OrientDbService
     public async Task<List<RolesItemDTO>> GetRolesThatCanSeeChannelAsync(Guid channelId)
     {
         string query = $@"
-            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName 
+            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor 
             FROM ChannelCanSee 
             WHERE in IN (SELECT @rid FROM Channel WHERE id = '{channelId}')";
 
@@ -511,7 +610,7 @@ public class OrientDbService
     public async Task<List<RolesItemDTO>> GetRolesThatCanWriteChannelAsync(Guid channelId)
     {
         string query = $@"
-            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName 
+            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor
             FROM ChannelCanWrite 
             WHERE in IN (SELECT @rid FROM Channel WHERE id = '{channelId}')";
 
@@ -538,7 +637,37 @@ public class OrientDbService
         return roles;
     }
 
-    public async Task<bool> RoleExistsOnServerAsync(Guid roleId, Guid serverId)
+	public async Task<List<RolesItemDTO>> GetTaggedRolesOnTextChannel(Guid channelId)
+	{
+		string query = $@"
+            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor 
+            FROM Tag 
+            WHERE in IN (SELECT @rid FROM TextChannel WHERE id = '{channelId}')";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+
+		List<RolesItemDTO> roles = new List<RolesItemDTO>();
+
+		if (parsedResult?.result != null)
+		{
+			foreach (var r in parsedResult.result)
+			{
+				roles.Add(new RolesItemDTO
+				{
+					Id = Guid.Parse((string)r.roleId),
+					ServerId = Guid.Parse((string)r.serverId),
+					Name = (string)r.roleName,
+					Tag = (string)r.roleTag,
+					Color = (string)r.roleColor
+				});
+			}
+		}
+
+		return roles;
+	}
+
+	public async Task<bool> RoleExistsOnServerAsync(Guid roleId, Guid serverId)
     {
         string query = $@"
         SELECT COUNT(*) 
@@ -612,4 +741,110 @@ public class OrientDbService
 
         return 0;
     }
+
+	public async Task UpdateUserCanMessageAsync(Guid userId, bool canMessage)
+	{
+		string checkQuery = $"SELECT COUNT(*) FROM User WHERE id = '{userId}'";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"COUNT(*)\": 0"))
+		{
+			string updateQuery = $"UPDATE User SET canMessage = {canMessage} WHERE id = '{userId}'";
+			await ExecuteCommandAsync(updateQuery);
+		}
+	}
+
+	public async Task UpdateUserCanNotificationAsync(Guid userId, bool canNotification)
+	{
+		string checkQuery = $"SELECT COUNT(*) FROM User WHERE id = '{userId}'";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"COUNT(*)\": 0"))
+		{
+			string updateQuery = $"UPDATE User SET canNotification = {canNotification} WHERE id = '{userId}'";
+			await ExecuteCommandAsync(updateQuery);
+		}
+	}
+
+	public async Task UpdateBelongsToNotificationAsync(Guid userId, Guid roleId, bool isNotificated)
+	{
+		string checkQuery = $@"
+        SELECT COUNT(*) 
+        FROM BelongsTo 
+        WHERE out IN (SELECT @rid FROM User WHERE id = '{userId}') 
+        AND in IN (SELECT @rid FROM Role WHERE id = '{roleId}')";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"COUNT(*)\": 0"))
+		{
+			string updateQuery = $@"
+            UPDATE BelongsTo 
+            SET isNotificated = {isNotificated} 
+            WHERE out IN (SELECT @rid FROM User WHERE id = '{userId}') 
+            AND in IN (SELECT @rid FROM Role WHERE id = '{roleId}')";
+			await ExecuteCommandAsync(updateQuery);
+		}
+	}
+
+	public async Task UpdateJoinNotificationAsync(Guid userId, Guid chatId, bool isNotificated)
+	{
+		string checkQuery = $@"
+        SELECT COUNT(*) 
+        FROM Join 
+        WHERE out IN (SELECT @rid FROM User WHERE id = '{userId}') 
+        AND in IN (SELECT @rid FROM Chat WHERE id = '{chatId}')";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"COUNT(*)\": 0"))
+		{
+			string updateQuery = $@"
+            UPDATE Join 
+            SET isNotificated = {isNotificated} 
+            WHERE out IN (SELECT @rid FROM User WHERE id = '{userId}') 
+            AND in IN (SELECT @rid FROM Chat WHERE id = '{chatId}')";
+			await ExecuteCommandAsync(updateQuery);
+		}
+	}
+
+	public async Task GrantCanJoinPermissionToRole(Guid roleId, Guid subChannelId)
+	{
+		string checkQuery = $@"
+        SELECT FROM CanJoin WHERE out IN (SELECT @rid FROM Role WHERE id = '{roleId}') AND in IN (SELECT @rid FROM SubChannel WHERE id = '{}')";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (checkResult.Contains("\"result\":[]"))
+		{
+			string query = $@"
+            CREATE EDGE CanJoin FROM (SELECT FROM Role WHERE id = '{roleId}') TO (SELECT FROM SubChannel WHERE id = '{subChannelId}')";
+			await ExecuteCommandAsync(query);
+		}
+	}
+
+	public async Task RevokeCanJoinPermissionFromRoleAsync(Guid roleId, Guid subChannelId)
+	{
+		string checkQuery = $@"
+        SELECT FROM CanJoin WHERE out IN (SELECT @rid FROM Role WHERE id = '{roleId}') AND in IN (SELECT @rid FROM SubChannel WHERE id = '{subChannelId}')";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string deleteEdgeQuery = $@"
+            DELETE EDGE WHERE out IN (SELECT @rid FROM Role WHERE id = '{roleId}') AND in IN (SELECT @rid FROM SubChannel WHERE id = '{subChannelId}')";
+			await ExecuteCommandAsync(deleteEdgeQuery);
+		}
+	}
+
+	public async Task CreateSubChannel(Guid serverId, Guid textChannelId, Guid subChannelId, Guid CreatorId)
+	{
+		await AddChannelAsync(subChannelId, serverId, "SubChannel");
+		string query = $@"CREATE EDGE ContainsSubChannel FROM (SELECT FROM TextChannel WHERE id = 'textChannelId') TO (SELECT FROM SubChannel WHERE id = '{subChannelId}')";
+		await ExecuteCommandAsync(query);
+
+		var roles = await GetRolesThatCanWriteChannelAsync(textChannelId);
+        foreach (var role in roles)
+        {
+            await GrantCanJoinPermissionToRole(role.Id, subChannelId);
+		}
+		query = $@"CREATE EDGE Creator FROM (SELECT FROM User WHERE id = 'CreatorId') TO (SELECT FROM SubChannel WHERE id = '{subChannelId}')";
+	}
 }

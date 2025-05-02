@@ -34,4 +34,7 @@ public class UserDbModel
     public required string AccountTag { get; set; }
 
     public DateTime AccountCreateDate { get; set; }
+
+    public required bool CanMessage { get; set; }
+    public required bool CanNotification { get; set; }
 }

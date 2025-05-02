@@ -74,7 +74,7 @@ public class WebSocketHandler
                 if (newMessage != null)
                 {
                     var newMesssageData = newMessage.Content;
-                    await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.Roles, newMesssageData.UserIds, newMesssageData.ReplyToMessageId);
+                    await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.ReplyToMessageId);
 				}
 				break;
 			case "Delete message":
@@ -92,7 +92,7 @@ public class WebSocketHandler
                 if (updateMessage != null)
                 {
                     var updateMessageData = updateMessage.Content;
-					await _messageService.UpdateMessageWebsocketAsync(updateMessageData.MessageId, updateMessageData.Token, updateMessageData.Text, updateMessageData.Roles, updateMessageData.UserIds);
+					await _messageService.UpdateMessageWebsocketAsync(updateMessageData.MessageId, updateMessageData.Token, updateMessageData.Text);
 				}
                 break;
 

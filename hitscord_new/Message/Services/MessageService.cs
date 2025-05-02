@@ -36,7 +36,7 @@ public class MessageService : IMessageService
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 	}
 
-    public async Task CreateMessageAsync(Guid channelId, string token, string text, List<Guid>? roles, List<Guid>? users, Guid? ReplyToMessageId)
+    public async Task CreateMessageAsync(Guid channelId, string token, string text, Guid? ReplyToMessageId)
     {
         var userId = await _tokenService.CheckAuth(token);
         if (!await _orientService.ChannelExistsAsync(channelId))
@@ -50,8 +50,6 @@ public class MessageService : IMessageService
         var newMessage = new MessageDbModel
         {
             Text = text,
-            Roles = roles == null ? new List<Guid>() : roles,
-            UserIds = users == null ? new List<Guid>() : users,
             UpdatedAt = null,
             UserId = userId,
             TextChannelId = channelId,
@@ -85,7 +83,7 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task UpdateMessageAsync(Guid messageId, string token, string text, List<Guid>? roles, List<Guid>? users)
+    public async Task UpdateMessageAsync(Guid messageId, string token, string text)
     {
         var userId = await _tokenService.CheckAuth(token);
         var message = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
@@ -107,8 +105,6 @@ public class MessageService : IMessageService
         }
 
         message.Text = text;
-        message.Roles = roles == null ? new List<Guid>() : roles;
-        message.UserIds = users == null ? new List<Guid>() : users;
         message.UpdatedAt = DateTime.UtcNow;
         _messageContext.Messages.Update(message);
         await _messageContext.SaveChangesAsync();
@@ -259,7 +255,7 @@ public class MessageService : IMessageService
 
 
 
-    public async Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, List<Guid>? roles, List<Guid>? users, Guid? ReplyToMessageId)
+    public async Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, Guid? ReplyToMessageId)
     {
         try
         {
@@ -272,11 +268,22 @@ public class MessageService : IMessageService
             {
                 throw new CustomExceptionUser("User hasnt permissions", "Create message", "User Id", 401, "У пользователя нет прав", "Создание сообщения", userId);
             }
+			MessageDbModel? replyedMessage;
+            if (ReplyToMessageId != null)
+            {
+                replyedMessage = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == ReplyToMessageId && m.TextChannelId == channelId);
+                if (replyedMessage == null)
+                {
+                    throw new CustomExceptionUser("Replyed message not found", "Create message", "ReplyToMessageId", 404, "Сообщение на которое написан ответ не найдено", "Создание сообщения", userId);
+                }
+            }
+            else
+            {
+                replyedMessage = null;
+			}
             var newMessage = new MessageDbModel
             {
                 Text = text,
-                Roles = roles == null ? new List<Guid>() : roles,
-                UserIds = users == null ? new List<Guid>() : users,
                 UpdatedAt = null,
                 UserId = userId,
                 TextChannelId = channelId,
@@ -287,6 +294,27 @@ public class MessageService : IMessageService
             await _messageContext.SaveChangesAsync();
 
             var serverId = await _orientService.GetServerIdByChannelIdAsync(channelId);
+            MessageResponceSocket? replyedMessageDto;
+            if (replyedMessage == null)
+            {
+                replyedMessageDto = null;
+			}
+            else
+            {
+				replyedMessageDto = new MessageResponceSocket
+				{
+				    ServerId = (Guid)serverId,
+					ChannelId = channelId,
+					Id = replyedMessage.Id,
+					Text = replyedMessage.Text,
+					AuthorId = replyedMessage.UserId,
+					CreatedAt = replyedMessage.CreatedAt,
+					ModifiedAt = replyedMessage.UpdatedAt,
+					NestedChannelId = replyedMessage.NestedChannelId,
+					ReplyToMessage = null
+				};
+			}
+
             var messageDto = new MessageResponceSocket
             {
                 ServerId = (Guid)serverId,
@@ -297,8 +325,8 @@ public class MessageService : IMessageService
                 CreatedAt = newMessage.CreatedAt,
                 ModifiedAt = newMessage.UpdatedAt,
                 NestedChannelId = newMessage.NestedChannelId,
-                ReplyToMessage = null
-            };
+                ReplyToMessage = replyedMessageDto
+			};
             var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(channelId);
             if (alertedUsers != null && alertedUsers.Count() > 0)
             {
@@ -317,7 +345,7 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task UpdateMessageWebsocketAsync(Guid messageId, string token, string text, List<Guid>? roles, List<Guid>? users)
+    public async Task UpdateMessageWebsocketAsync(Guid messageId, string token, string text)
     {
         try
         {
@@ -341,8 +369,6 @@ public class MessageService : IMessageService
             }
 
             message.Text = text;
-            message.Roles = roles == null ? new List<Guid>() : roles;
-            message.UserIds = users == null ? new List<Guid>() : users;
             message.UpdatedAt = DateTime.UtcNow;
             _messageContext.Messages.Update(message);
             await _messageContext.SaveChangesAsync();

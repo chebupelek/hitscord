@@ -9,6 +9,8 @@ public class ProfileDTO
     public string Tag { get; set; }
     public string Mail { get; set; }
     public DateOnly AccontCreateDate { get; set; }
+    public bool CanMessage { get; set; }
+    public bool CanNotification { get; set; }
     public ProfileDTO(UserDbModel user)
     {
         Id = user.Id;
@@ -16,5 +18,7 @@ public class ProfileDTO
         Tag = user.AccountTag;
         Mail = user.Mail;
         AccontCreateDate = DateOnly.FromDateTime((DateTime)user.AccountCreateDate);
+        CanMessage = user.CanMessage;
+        CanNotification = user.CanNotification;
     }
 }

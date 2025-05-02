@@ -7,9 +7,6 @@ public class CreateMessageSocketDTO
     public required string Token { get; set; }
     public required Guid ChannelId { get; set; }
     public required string Text { get; set; }
-
-    public List<Guid>? Roles { get; set; }
-    public List<Guid>? UserIds { get; set; }
     public required bool NestedChannel { get; set; }
     public Guid? ReplyToMessageId { get; set; }
 

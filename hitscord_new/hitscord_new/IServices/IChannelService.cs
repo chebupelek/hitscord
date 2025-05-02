@@ -9,7 +9,7 @@ namespace hitscord.IServices;
 public interface IChannelService
 {
     Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId);
-    Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId);
+    Task<TextChannelDbModel> CheckTextChannelExistAsync(Guid channelId);
     Task CreateChannelAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType);
     Task<bool> JoinToVoiceChannelAsync(Guid chnnelId, string token);
     Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, string token);

@@ -5,5 +5,5 @@ public enum ChannelTypeEnum
 {
     Text,
     Voice,
-    Announcement
+    Sub
 }

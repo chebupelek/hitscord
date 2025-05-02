@@ -14,6 +14,8 @@ using HitscordLibrary.SocketsModels;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using Grpc.Core;
 using hitscord.WebSockets;
+using System.Runtime.ConstrainedExecution;
+using Grpc.Net.Client.Balancer;
 
 namespace hitscord.Services;
 
@@ -46,10 +48,10 @@ public class ChannelService : IChannelService
         return channel;
     }
 
-    public async Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId)
+    public async Task<TextChannelDbModel> CheckTextChannelExistAsync(Guid channelId)
     {
-        var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is TextChannelDbModel);
-        if (channel == null)
+		var channel = await _hitsContext.Channel.OfType<TextChannelDbModel>().FirstOrDefaultAsync(c => c.Id == channelId);
+		if (channel == null)
         {
             throw new CustomException("Text channel not found", "Check text channel for existing", "Text channel", 404, "Текстовый канал не найден", "Проверка наличия текстового канала");
         }
@@ -101,7 +103,7 @@ public class ChannelService : IChannelService
         _hitsContext.Server.Update(server);
         await _hitsContext.SaveChangesAsync();
 
-        await _orientDbService.CreateChannel(server.Id, newChannel.Id);
+        await _orientDbService.CreateNormalChannel(server.Id, newChannel.Id, channelType);
 
         var newChannelResponse = new ChannelResponseSocket
         {
@@ -390,19 +392,22 @@ public class ChannelService : IChannelService
 
         await _orientDbService.DeleteChannelAsync(chnnelId);
 
-        var deletedChannelResponse = new ChannelResponseSocket
+        if (channel is TextChannelDbModel && ((TextChannelDbModel)channel).IsMessage != true)
         {
-            Create = false,
-            ServerId = channel.ServerId,
-            ChannelId = channel.Id,
-            ChannelName = channel.Name,
-            ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Announcement)
-        };
-        var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
-        if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
-			await _webSocketManager.BroadcastMessageAsync(deletedChannelResponse, alertedUsers, "Channel deleted");
-        }
+			var deletedChannelResponse = new ChannelResponseSocket
+			{
+				Create = false,
+				ServerId = channel.ServerId,
+				ChannelId = channel.Id,
+				ChannelName = channel.Name,
+				ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Sub)
+			};
+			var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(deletedChannelResponse, alertedUsers, "Channel deleted");
+			}
+		}
 
         return true;
     }
@@ -671,4 +676,27 @@ public class ChannelService : IChannelService
         };
         return uvcCheck;
 	}
+
+    public async Task<Guid> CreateSubChannelAsync(string token, Guid textChannelId, string Text)
+    {
+        var user = await _authService.GetUserAsync(token);
+        var channel = await CheckTextChannelExistAsync(textChannelId);
+        if (channel.IsMessage == true)
+        {
+			throw new CustomException("Cant change creator permissions", "Remove role from Can read settings", "Role", 400, "Нельзя изменять разрешения создателя", "Удаление роли из Доступ на чтение");
+		}
+        var newSubChannel = new TextChannelDbModel
+        {
+            Id = Guid.NewGuid(),
+            Name = Text,
+            ServerId = channel.ServerId,
+            IsMessage = true
+        };
+        await _hitsContext.Channel.AddAsync(newSubChannel);
+        await _hitsContext.SaveChangesAsync();
+
+        await _orientDbService.CreateSubChannel(channel.ServerId, channel.Id, newSubChannel.Id, user.Id);
+
+		return newSubChannel.Id;
+    }
 }

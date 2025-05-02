@@ -150,4 +150,48 @@ public class AuthorizationController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+	[Authorize]
+	[HttpPut]
+	[Route("allow/messages")]
+	public async Task<IActionResult> AllowMessages()
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _authService.ChangeCanMessageAsync(jwtToken);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("allow/notifications")]
+	public async Task<IActionResult> AllowNotifications()
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _authService.ChangeCanNotification(jwtToken);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }
