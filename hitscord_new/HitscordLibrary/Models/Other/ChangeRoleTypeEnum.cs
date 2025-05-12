@@ -2,6 +2,10 @@
 
 public enum ChangeRoleTypeEnum
 {
-    CanRead,
-    CanWrite
+	CanSee,
+	CanJoin,
+	CanWrite,
+	CanWriteSub,
+	CanUse,
+	Notificated
 }

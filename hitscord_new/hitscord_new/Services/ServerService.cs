@@ -67,7 +67,7 @@ public class ServerService : IServerService
             Role = role,
             ServerId = serverId,
             Color = color,
-            RoleTag = Regex.Replace(Transliteration.CyrillicToLatin(roleName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower()
+            Tag = Regex.Replace(Transliteration.CyrillicToLatin(roleName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower()
 		};
         await _hitsContext.Role.AddAsync(newRole);
         await _hitsContext.SaveChangesAsync();
@@ -98,7 +98,8 @@ public class ServerService : IServerService
         {
             UserId = user.Id,
             RoleId = creatorRole.Id,
-            UserServerName = user.AccountName
+            UserServerName = user.AccountName,
+            IsBanned = false,
         };
         await _hitsContext.UserServer.AddAsync(newSub);
         await _hitsContext.SaveChangesAsync();
@@ -118,7 +119,7 @@ public class ServerService : IServerService
         await _hitsContext.Channel.AddAsync(newVoiceChannel);
         await _hitsContext.SaveChangesAsync();
 
-		await _orientDbService.CreateServerAsync(newServer.Id, user.Id, new List<Guid> { newTextChannel.Id, newVoiceChannel.Id }, new List<RoleDbModel> { creatorRole, adminRole, teacherRole, studentRole, uncertainRole });
+		await _orientDbService.CreateServerAsync(newServer.Id, user.Id, newTextChannel.Id, newVoiceChannel.Id, new List<RoleDbModel> { creatorRole, adminRole, teacherRole, studentRole, uncertainRole });
 
 		newServer.Channels.Add(newTextChannel);
         newServer.Channels.Add(newVoiceChannel);
@@ -126,123 +127,137 @@ public class ServerService : IServerService
         await _hitsContext.SaveChangesAsync();
     }
 
-    public async Task SubscribeAsync(Guid serverId, string token, string? userName)
-    {
-        var user = await _authorizationService.GetUserAsync(token);
-        var server = await CheckServerExistAsync(serverId, true);
-        await _authenticationService.CheckSubscriptionNotExistAsync(server.Id, user.Id);
-        var newSub = new UserServerDbModel
-        {
-            UserId = user.Id,
-            RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
-            UserServerName = userName != null ? userName : user.AccountName
-        };
-        await _hitsContext.UserServer.AddAsync(newSub);
-        await _hitsContext.SaveChangesAsync();
-
-        await _orientDbService.AssignUserToRoleAsync(user.Id, server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain).Id, server.Id);
-
-        var newSubscriberResponse = new NewSubscribeResponseDTO
-        {
-            ServerId = serverId,
-            UserId = user.Id,
-            UserName = newSub.UserServerName,
-            RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
-            RoleName = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Name,
-            UserTag = user.AccountTag
-        };
-        var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
-        alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
-        if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
-			await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
-        }
-    }
-
-    public async Task UnsubscribeAsync(Guid serverId, string token)
-    {
-        var user = await _authorizationService.GetUserAsync(token);
-        var server = await CheckServerExistAsync(serverId, false);
-        await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
-        var subRole = await _authenticationService.CheckUserNotCreatorAsync(server.Id, user.Id);
-        var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == subRole.Id && us.UserId == user.Id);
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel
-            .Include(us => us.VoiceChannel)
-            .FirstOrDefaultAsync(us =>
-                us.VoiceChannel.ServerId == server.Id
-                && us.UserId == user.Id);
-        if (userVoiceChannel != null)
-        {
-            _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
-        }
-        _hitsContext.UserServer.Remove(sub);
-        await _hitsContext.SaveChangesAsync();
-
-        await _orientDbService.UnassignUserFromRoleAsync(user.Id, subRole.Id, server.Id);
-
-        var newUnsubscriberResponse = new UnsubscribeResponseDTO
-        {
-            ServerId = serverId,
-            UserId = user.Id,
-        };
-        var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
-        if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
-			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
-            }
-        }
-    }
-
-    public async Task UnsubscribeForCreatorAsync(Guid serverId, string token, Guid newCreatorId)
-    {
-        var owner = await _authorizationService.GetUserAsync(token);
-        var server = await CheckServerExistAsync(serverId, false);
-        var newCreator = await _authorizationService.GetUserAsync(newCreatorId);
-        var ownerSubRole = await _authenticationService.CheckUserCreatorAsync(server.Id, owner.Id);
-        var newCreatorSubRole = await _authenticationService.CheckSubscriptionExistAsync(server.Id, newCreator.Id);
-        var ownerSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == ownerSubRole.Id && us.UserId == owner.Id);
-        var newCreatorSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == newCreatorSubRole.Id && us.UserId == newCreator.Id);
-        var creatorRole = server.Roles.FirstOrDefault(s => s.Role == RoleEnum.Creator);
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel
-            .Include(us => us.VoiceChannel)
-            .FirstOrDefaultAsync(us =>
-                us.VoiceChannel.ServerId == server.Id
-                && us.UserId == owner.Id);
-        if (userVoiceChannel != null)
-        {
-            _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
-        }
-        await _orientDbService.UnassignUserFromRoleAsync(owner.Id, ownerSubRole.Id, server.Id);
-        _hitsContext.UserServer.Remove(ownerSub);
-        await _orientDbService.UnassignUserFromRoleAsync(newCreator.Id, newCreatorSubRole.Id, server.Id);
-        await _orientDbService.AssignUserToRoleAsync(newCreator.Id, creatorRole.Id, server.Id);
-        newCreatorSub.RoleId = creatorRole.Id;
-        _hitsContext.UserServer.Update(newCreatorSub);
-        await _hitsContext.SaveChangesAsync();
-
-        var newUnsubscriberResponse = new UnsubscribeResponseDTO
-        {
-            ServerId = serverId,
-            UserId = owner.Id,
-        };
-        var newUserRole = new NewUserRoleResponseDTO
-        {
-            ServerId = serverId,
-            UserId = newCreatorSub.UserId,
-            RoleId = creatorRole.Id,
-        };
-        var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
-        if (alertedUsers != null && alertedUsers.Count() > 0)
+	public async Task SubscribeAsync(Guid serverId, string token, string? userName)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, true);
+		await _authenticationService.CheckSubscriptionNotExistAsync(server.Id, user.Id);
+		var existedSub = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.UserId == user.Id && us.Role.ServerId == serverId);
+		if (existedSub != null && existedSub.IsBanned == true)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
-			await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role changed");
-        }
-    }
+			throw new CustomException("User banned in this server", "Subscribe", "User", 401, "Пользователь забанен на этом сервере", "Подписка");
+		}
+		var newSub = new UserServerDbModel
+		{
+			UserId = user.Id,
+			RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
+			UserServerName = userName != null ? userName : user.AccountName,
+			IsBanned = false
+		};
+		await _hitsContext.UserServer.AddAsync(newSub);
+		await _hitsContext.SaveChangesAsync();
 
-    public async Task DeleteServerAsync(Guid serverId, string token)
+		await _orientDbService.AssignUserToRoleAsync(user.Id, server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain).Id);
+
+		var newSubscriberResponse = new NewSubscribeResponseDTO
+		{
+			ServerId = serverId,
+			UserId = user.Id,
+			UserName = newSub.UserServerName,
+			RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
+			RoleName = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Name,
+			UserTag = user.AccountTag
+		};
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
+		alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+
+			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+			{
+				bus.PubSub.Publish(new NotificationDTO { Notification = newSubscriberResponse, UserIds = alertedUsers, Message = "New user on server" }, "SendNotification");
+			}
+		}
+	}
+
+	public async Task UnsubscribeAsync(Guid serverId, string token)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+		var subRole = await _authenticationService.CheckUserNotCreatorAsync(server.Id, user.Id);
+		var sub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == subRole.Id && us.UserId == user.Id);
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel
+			.Include(us => us.VoiceChannel)
+			.FirstOrDefaultAsync(us =>
+				us.VoiceChannel.ServerId == server.Id
+				&& us.UserId == user.Id);
+		if (userVoiceChannel != null)
+		{
+			_hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
+		}
+		_hitsContext.UserServer.Remove(sub);
+		await _hitsContext.SaveChangesAsync();
+
+		await _orientDbService.UnassignUserFromRoleAsync(user.Id, subRole.Id);
+
+		var newUnsubscriberResponse = new UnsubscribeResponseDTO
+		{
+			ServerId = serverId,
+			UserId = user.Id,
+		};
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+
+			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+			{
+				bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
+			}
+		}
+	}
+
+	public async Task UnsubscribeForCreatorAsync(Guid serverId, string token, Guid newCreatorId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		var newCreator = await _authorizationService.GetUserAsync(newCreatorId);
+		var ownerSubRole = await _authenticationService.CheckUserCreatorAsync(server.Id, owner.Id);
+		var newCreatorSubRole = await _authenticationService.CheckSubscriptionExistAsync(server.Id, newCreator.Id);
+		var ownerSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == ownerSubRole.Id && us.UserId == owner.Id);
+		var newCreatorSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == newCreatorSubRole.Id && us.UserId == newCreator.Id);
+		var creatorRole = server.Roles.FirstOrDefault(s => s.Role == RoleEnum.Creator);
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel
+			.Include(us => us.VoiceChannel)
+			.FirstOrDefaultAsync(us =>
+				us.VoiceChannel.ServerId == server.Id
+				&& us.UserId == owner.Id);
+		if (userVoiceChannel != null)
+		{
+			_hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
+		}
+		await _orientDbService.UnassignUserFromRoleAsync(owner.Id, ownerSubRole.Id);
+		_hitsContext.UserServer.Remove(ownerSub);
+		await _orientDbService.UnassignUserFromRoleAsync(newCreator.Id, newCreatorSubRole.Id);
+		await _orientDbService.AssignUserToRoleAsync(newCreator.Id, creatorRole.Id);
+		newCreatorSub.RoleId = creatorRole.Id;
+		_hitsContext.UserServer.Update(newCreatorSub);
+		await _hitsContext.SaveChangesAsync();
+
+		var newUnsubscriberResponse = new UnsubscribeResponseDTO
+		{
+			ServerId = serverId,
+			UserId = owner.Id,
+		};
+		var newUserRole = new NewUserRoleResponseDTO
+		{
+			ServerId = serverId,
+			UserId = newCreatorSub.UserId,
+			RoleId = creatorRole.Id,
+		};
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+
+			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+			{
+				bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
+				bus.PubSub.Publish(new NotificationDTO { Notification = newUserRole, UserIds = alertedUsers, Message = "Role changed" }, "SendNotification");
+			}
+		}
+	}
+
+	public async Task DeleteServerAsync(Guid serverId, string token)
     {
         var owner = await _authorizationService.GetUserAsync(token);
         var server = await CheckServerExistAsync(serverId, true);
@@ -320,15 +335,16 @@ public class ServerService : IServerService
         {
             UserId = userId,
             RoleId = role.Id,
-            UserServerName = userServ.UserServerName
+            UserServerName = userServ.UserServerName,
+            IsBanned = userServ.IsBanned
         };
 		_hitsContext.UserServer.Remove(userServ);
         await _hitsContext.SaveChangesAsync();
 		_hitsContext.UserServer.Add(newUserServ);
 		await _hitsContext.SaveChangesAsync();
 
-		await _orientDbService.UnassignUserFromRoleAsync(userId, userRoleId, serverId);
-        await _orientDbService.AssignUserToRoleAsync(userId, role.Id, serverId);
+		await _orientDbService.UnassignUserFromRoleAsync(userId, userRoleId);
+        await _orientDbService.AssignUserToRoleAsync(userId, role.Id);
 
         var newUserRole = new NewUserRoleResponseDTO
         {
@@ -343,164 +359,150 @@ public class ServerService : IServerService
         }
     }
 
-    public async Task<ServerInfoDTO> GetServerInfoAsync(string token, Guid serverId)
-    {
-        var user = await _authorizationService.GetUserAsync(token);
-        var server = await GetServerFullModelAsync(serverId);
-        var sub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
-        string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(user.Id, serverId);
-        var channelCanSee = await _orientDbService.GetVisibleChannelsAsync(user.Id, serverId);
-        var channelCanWrite = await _orientDbService.GetWritableChannelsAsync(user.Id, serverId);
+	public async Task<ServerInfoDTO> GetServerInfoAsync(string token, Guid serverId)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+		var server = await GetServerFullModelAsync(serverId);
+		var sub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+		string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(user.Id, serverId);
 
-        var voiceChannelResponses = await _hitsContext.VoiceChannel
-            .Include(vc => vc.Users)
-            .Where(vc => vc.ServerId == server.Id)
-            .Select(vc => new VoiceChannelResponseDTO
-            {
-                ChannelName = vc.Name,
-                ChannelId = vc.Id,
-                CanJoin = channelCanWrite.Contains(vc.Id),
-                Users = vc.Users.Select(u => new VoiceChannelUserDTO
-                {
-                    UserId = u.UserId,
-                    MuteStatus = u.MuteStatus,
-                    IsStream = u.IsStream
-                })
-                .ToList()
-            })
-            .ToListAsync();
+		var channelCanSee = await _orientDbService.GetVisibleChannelsAsync(user.Id, serverId);
+		var channelCanWrite = await _orientDbService.GetWritableChannelsAsync(user.Id, serverId);
+		var channelCanWriteSub = await _orientDbService.GetWritableSubChannelsAsync(user.Id, serverId);
+		var channelCanNotificate = await _orientDbService.GetNotificatedChannelsAsync(user.Id, serverId);
+		var channelCanJoin = await _orientDbService.GetJoinableChannelsAsync(user.Id, serverId);
 
-        var info = new ServerInfoDTO
-        {
-            ServerId = serverId,
-            ServerName = server.Name,
-            Roles = await _hitsContext.Role
-                .Where(r => r.ServerId == server.Id)
-                .Select(r => new RolesItemDTO
-                {
-                    Id = r.Id,
-                    Name = r.Name,
-                    ServerId = r.ServerId,
-                    Tag = r.RoleTag,
-                    Color = r.Color
-                })
-                .ToListAsync(),
-            UserRoleId = sub.Id,
-            UserRole = sub.Name,
-			UserServerName = (await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.RoleId == sub.Id))?.UserServerName ?? user.AccountName,
-			IsCreator = sub.Role == RoleEnum.Creator,
-            CanChangeRole = result.Contains("ServerCanChangeRole"),
-            CanDeleteUsers = result.Contains("ServerCanDeleteUsers"),
-            CanWorkWithChannels = result.Contains("ServerCanWorkChannels"),
-            Users = await _hitsContext.UserServer
-                .Include(us => us.Role)
-                .Where(us => us.Role.ServerId == serverId)
-                .Join(_hitsContext.User,
-                      us => us.UserId,
-                      u => u.Id,
-                      (us, u) => new ServerUserDTO
-                      {
-                          UserId = u.Id,
-                          UserName = us.UserServerName,
-                          UserTag = u.AccountTag,
-                          RoleName = us.Role.Name
-                      })
-                .ToListAsync(),
-            Channels = new ChannelListDTO
-            {
-                TextChannels = server.Channels
-                .Where(c =>
-                    (
-                        channelCanSee.Contains(c.Id)
-                    ) &&
-                    c is TextChannelDbModel &&
-                    ((TextChannelDbModel)c).IsMessage == false)
-                .Select(c => new TextChannelResponseDTO
-                {
-                    ChannelName = c.Name,
-                    ChannelId = c.Id,
-                    CanWrite = channelCanWrite.Contains(c.Id)
-                })
-                .ToList(),
-                /*
-                VoiceChannels = server.Channels
-                .Where(c =>
-                    (
-                        channelCanSee.Contains(c.Id)
-                    ) &&
-                    c is VoiceChannelDbModel)
-                .Select(c => new VoiceChannelResponseDTO
-                {
-                    ChannelName = c.Name,
-                    ChannelId = c.Id,
-                    CanJoin = channelCanWrite.Contains(c.Id),
-                    Users = ((VoiceChannelDbModel)c).Users
-                        .Select(u => new VoiceChannelUserDTO
-                        {
-                            UserId = u.Id,
-                            UserName = u.AccountName
-                        })
-                        .ToList()
-                })
-                .ToList()
-                */
+		var voiceChannelResponses = await _hitsContext.VoiceChannel
+			.Include(vc => vc.Users)
+			.Where(vc => vc.ServerId == server.Id && channelCanSee.Contains(vc.Id))
+			.Select(vc => new VoiceChannelResponseDTO
+			{
+				ChannelName = vc.Name,
+				ChannelId = vc.Id,
+				CanJoin = channelCanJoin.Contains(vc.Id),
+				Users = vc.Users.Select(u => new VoiceChannelUserDTO
+				{
+					UserId = u.UserId,
+					MuteStatus = u.MuteStatus,
+					IsStream = u.IsStream
+				})
+				.ToList()
+			})
+			.ToListAsync();
 
-                VoiceChannels = voiceChannelResponses
-            }
-        };
-
-        return info;
-    }
-
-    public async Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId)
-    {
-        var owner = await _authorizationService.GetUserAsync(token);
-        var server = await CheckServerExistAsync(serverId, false);
-        await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
-        await _authorizationService.GetUserAsync(userId);
-        var userSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, userId);
-        if (userId == owner.Id)
-        {
-            throw new CustomException("User cant delete himself", "Change user role", "User", 400, "Пользователь не может удалить сам себя", "Удаление пользователя с сервера");
-        }
-        if (userSub.Role == RoleEnum.Creator)
-        {
-            throw new CustomException("User cant delete creator of server", "Change user role", "User", 400, "Нельзя удалить создателя сервера", "Удаление пользователя с сервера");
-        }
-        var userServer = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSub.Id);
-        
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == userId && uvc.VoiceChannel.ServerId == serverId);
-		var newRemovedUserResponse = new RemovedUserDTO
+		var info = new ServerInfoDTO
 		{
 			ServerId = serverId,
-			IsNeedRemoveFromVC = userVoiceChannel != null
+			ServerName = server.Name,
+			Roles = await _hitsContext.Role
+				.Where(r => r.ServerId == server.Id)
+				.Select(r => new RolesItemDTO
+				{
+					Id = r.Id,
+					Name = r.Name,
+					ServerId = r.ServerId,
+					Tag = r.Tag,
+					Color = r.Color
+				})
+				.ToListAsync(),
+			UserRoleId = sub.Id,
+			UserRole = sub.Name,
+			IsCreator = sub.Role == RoleEnum.Creator,
+			CanChangeRole = result.Contains("ServerCanChangeRole"),
+			CanDeleteUsers = result.Contains("ServerCanDeleteUsers"),
+			CanWorkWithChannels = result.Contains("ServerCanWorkChannels"),
+			CanMuteOthers = result.Contains("ServerCanMuteOther"),
+			Users = await _hitsContext.UserServer
+				.Include(us => us.Role)
+				.Where(us => us.Role.ServerId == serverId)
+				.Join(_hitsContext.User,
+					  us => us.UserId,
+					  u => u.Id,
+					  (us, u) => new ServerUserDTO
+					  {
+						  UserId = u.Id,
+						  UserName = u.AccountName,
+						  UserTag = u.AccountTag,
+						  RoleName = us.Role.Name,
+						  Mail = u.Mail
+					  })
+				.ToListAsync(),
+			Channels = new ChannelListDTO
+			{
+				TextChannels = server.Channels
+				.Where(c =>
+					(
+						channelCanSee.Contains(c.Id)
+					) &&
+					c is TextChannelDbModel &&
+					((TextChannelDbModel)c).IsMessage == false)
+				.Select(c => new TextChannelResponseDTO
+				{
+					ChannelName = c.Name,
+					ChannelId = c.Id,
+					CanWrite = channelCanWrite.Contains(c.Id),
+					CanWriteSub = channelCanWriteSub.Contains(c.Id),
+				})
+				.ToList(),
+				NotificationChannels = server.Channels
+				.Where(c =>
+					(
+						channelCanSee.Contains(c.Id)
+					) &&
+					c is NotificationChannelDbModel)
+				.Select(c => new NotificationChannelResponseDTO
+				{
+					ChannelName = c.Name,
+					ChannelId = c.Id,
+					CanWrite = channelCanWrite.Contains(c.Id),
+					IsNotificated = channelCanNotificate.Contains(c.Id),
+				})
+				.ToList(),
+				VoiceChannels = voiceChannelResponses
+			}
 		};
-		/*
-		if (userVoiceChannel != null)
-        {
-            _hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
-			await _hitsContext.SaveChangesAsync();
+
+		return info;
+	}
+
+	public async Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
+		await _authorizationService.GetUserAsync(userId);
+		var userSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, userId);
+		if (userId == owner.Id)
+		{
+			throw new CustomException("User cant delete himself", "Change user role", "User", 400, "Пользователь не может удалить сам себя", "Удаление пользователя с сервера");
 		}
-        */
-		_hitsContext.UserServer.Remove(userServer);
-        await _hitsContext.SaveChangesAsync();
-        await _orientDbService.UnassignUserFromRoleAsync(userId, userSub.Id, serverId);
+		if (userSub.Role == RoleEnum.Creator)
+		{
+			throw new CustomException("User cant delete creator of server", "Change user role", "User", 400, "Нельзя удалить создателя сервера", "Удаление пользователя с сервера");
+		}
+		var userServer = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSub.Id);
+		userServer.IsBanned = true;
+		_hitsContext.UserServer.Update(userServer);
+		await _hitsContext.SaveChangesAsync();
+		await _orientDbService.UnassignUserFromRoleAsync(userId, userSub.Id);
 
-		await _webSocketManager.BroadcastMessageAsync(newRemovedUserResponse, new List<Guid> { userId }, "You removed from server");
-		
-        var newUnsubscriberResponse = new UnsubscribeResponseDTO
-        {
-            ServerId = serverId,
-            UserId = userId,
-        };
-        var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
-        if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
-            await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
-        }
-    }
+		var newUnsubscriberResponse = new UnsubscribeResponseDTO
+		{
+			ServerId = serverId,
+			UserId = userId,
+		};
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
 
-    public async Task<RolesListDTO> GetServerRolesAsync(string token, Guid serverId)
+			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+			{
+				bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
+			}
+		}
+	}
+
+	public async Task<RolesListDTO> GetServerRolesAsync(string token, Guid serverId)
     {
         var user = await _authorizationService.GetUserAsync(token);
         var server = await CheckServerExistAsync(serverId, true);
@@ -514,7 +516,7 @@ public class ServerService : IServerService
                     Id = r.Id,
                     ServerId = server.Id,
                     Name = r.Name,
-                    Tag = r.RoleTag,
+                    Tag = r.Tag,
                     Color = r.Color
                 })
                 .ToList()

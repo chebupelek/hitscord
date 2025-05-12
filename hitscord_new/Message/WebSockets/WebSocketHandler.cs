@@ -74,7 +74,7 @@ public class WebSocketHandler
                 if (newMessage != null)
                 {
                     var newMesssageData = newMessage.Content;
-                    await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.Roles, newMesssageData.UserIds, newMesssageData.ReplyToMessageId);
+                    await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.Roles, newMesssageData.UserIds, newMesssageData.ReplyToMessageId, newMesssageData.NestedChannel);
 				}
 				break;
 			case "Delete message":

@@ -15,7 +15,8 @@ namespace hitscord.Contexts
         public DbSet<ChannelDbModel> Channel { get; set; }
         public DbSet<TextChannelDbModel> TextChannel { get; set; }
         public DbSet<VoiceChannelDbModel> VoiceChannel { get; set; }
-        public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
+		public DbSet<NotificationChannelDbModel> NotificationChannel { get; set; }
+		public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -49,9 +50,10 @@ namespace hitscord.Contexts
             {
                 entity.HasDiscriminator<string>("ChannelType")
                     .HasValue<TextChannelDbModel>("Text")
-                    .HasValue<VoiceChannelDbModel>("Voice");
+                    .HasValue<VoiceChannelDbModel>("Voice")
+                    .HasValue<NotificationChannelDbModel>("Notification");
 
-                entity.HasOne(c => c.Server)
+				entity.HasOne(c => c.Server)
                     .WithMany(s => s.Channels)
                     .HasForeignKey(c => c.ServerId)
                     .IsRequired();

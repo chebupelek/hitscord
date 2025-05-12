@@ -19,7 +19,7 @@ public class RoleDbModel
     [MaxLength(100)]
     public required string Name { get; set; }
 
-    [Required]
+	[Required]
     public required RoleEnum Role { get; set; }
 
     [Required]
@@ -30,5 +30,5 @@ public class RoleDbModel
 
     public required string Color { get; set; }
 
-    public required string RoleTag { get; set; }
+    public required string Tag { get; set; }
 }

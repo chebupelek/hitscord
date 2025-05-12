@@ -11,7 +11,7 @@ public interface IMessageService
     Task<ResponseObject> GetChannelMessagesAsync(ChannelRequestRabbit request);
 
 
-    Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, List<Guid>? roles, List<Guid>? users, Guid? ReplyToMessageId);
+    Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, List<Guid>? roles, List<Guid>? users, Guid? ReplyToMessageId, bool NestedChannel);
     Task UpdateMessageWebsocketAsync(Guid messageId, string token, string text, List<Guid>? roles, List<Guid>? users);
     Task DeleteMessageWebsocketAsync(Guid messageId, string token);
 }
