@@ -144,6 +144,7 @@ public class ServerService : IServerService
 			UserServerName = userName != null ? userName : user.AccountName,
 			IsBanned = false
 		};
+
 		await _hitsContext.UserServer.AddAsync(newSub);
 		await _hitsContext.SaveChangesAsync();
 
