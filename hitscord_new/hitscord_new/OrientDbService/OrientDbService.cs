@@ -388,31 +388,7 @@ public class OrientDbService
 
 	public async Task AssignUserToRoleAsync(Guid userId, Guid roleId)
 	{
-		string userCheckQuery = $"SELECT FROM User WHERE id = '{userId}'";
-		string userCheckResult = await ExecuteCommandAsync(userCheckQuery);
-
-		if (!userCheckResult.Contains("\"id\":"))
-		{
-			throw new CustomException($"User with ID '{userId}' does not exist.", "AssignUserToRoleAsync", "userId", 404, "Пользователь с ID '{roleId}' не существует.", "Подписка пользователя на роль");
-		}
-
-		string roleCheckQuery = $"SELECT FROM Role WHERE id = '{roleId}'";
-		string roleCheckResult = await ExecuteCommandAsync(roleCheckQuery);
-
-		if (!roleCheckResult.Contains("\"id\":"))
-		{
-			throw new CustomException($"Role with ID '{roleId}' does not exist.", "AssignUserToRoleAsync", "roleId", 404, "Роль с ID '{roleId}' не существует.", "Подписка пользователя на роль");
-		}
-
-		string checkQuery = $@"
-            SELECT FROM Subscription 
-            WHERE user = '{userId}' AND role = '{roleId}'
-        ";
-		string checkResult = await ExecuteCommandAsync(checkQuery);
-
-		if (!checkResult.Contains("\"user\":"))
-		{
-			string createSubscription = $@"
+		string createSubscription = $@"
                 INSERT INTO Subscription SET user = '{userId}', role = '{roleId}';
 
                 CREATE EDGE BelongsToSub 
@@ -423,8 +399,7 @@ public class OrientDbService
                     FROM (SELECT FROM Subscription WHERE user = '{userId}' AND role = '{roleId}') 
                     TO (SELECT FROM Role WHERE id = '{roleId}');
             ";
-			await ExecuteCommandAsync(createSubscription);
-		}
+		await ExecuteCommandAsync(createSubscription);
 	}
 
 
