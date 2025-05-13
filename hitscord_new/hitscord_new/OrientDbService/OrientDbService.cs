@@ -691,7 +691,7 @@ public class OrientDbService
 	public async Task<List<Guid>> GetSubscribedServerIdsListAsync(Guid userId)
 	{
 		string query = $@"
-            SELECT DISTINCT role.server AS serverId 
+            SELECT DISTINCT server AS serverId 
             FROM Role 
             WHERE @rid IN (
                 SELECT in 
