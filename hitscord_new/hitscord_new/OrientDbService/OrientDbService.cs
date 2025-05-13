@@ -388,19 +388,21 @@ public class OrientDbService
 
 	public async Task AssignUserToRoleAsync(Guid userId, Guid roleId)
 	{
-		string createSubscription = $@"
-			BEGIN
-				INSERT INTO Subscription SET user = '{userId}', role = '{roleId}';
+		string insertSubscription = $@"
+		INSERT INTO Subscription SET user = '{userId}', role = '{roleId}'";
+		await ExecuteCommandAsync(insertSubscription);
 
-				CREATE EDGE BelongsToSub 
-					FROM (SELECT FROM User WHERE id = '{userId}') 
-					TO (SELECT FROM Subscription WHERE user = '{userId}' AND role = '{roleId}');
+		string createBelongsToSub = $@"
+		CREATE EDGE BelongsToSub 
+		FROM (SELECT FROM User WHERE id = '{userId}') 
+		TO (SELECT FROM Subscription WHERE user = '{userId}' AND role = '{roleId}')";
+		await ExecuteCommandAsync(createBelongsToSub);
 
-				CREATE EDGE BelongsToRole 
-					FROM (SELECT FROM Subscription WHERE user = '{userId}' AND role = '{roleId}') 
-					TO (SELECT FROM Role WHERE id = '{roleId}');
-			COMMIT";
-		await ExecuteCommandAsync(createSubscription);
+		string createBelongsToRole = $@"
+		CREATE EDGE BelongsToRole 
+		FROM (SELECT FROM Subscription WHERE user = '{userId}' AND role = '{roleId}') 
+		TO (SELECT FROM Role WHERE id = '{roleId}')";
+		await ExecuteCommandAsync(createBelongsToRole);
 	}
 
 
