@@ -1308,4 +1308,93 @@ public class OrientDbService
 
 		return !result.Contains("\"value\":0");
 	}
+
+
+
+	public async Task<bool> AreUsersFriendsAsync(Guid userIdFirst, Guid userIdSecond)
+	{
+		string query = $@"
+		SELECT FROM Friendship
+		WHERE (out IN (SELECT @rid FROM User WHERE id = '{userIdFirst}') 
+		AND in IN (SELECT @rid FROM User WHERE id = '{userIdSecond}'))
+		OR (out IN (SELECT @rid FROM User WHERE id = '{userIdSecond}')
+		AND in IN (SELECT @rid FROM User WHERE id = '{userIdFirst}'))";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsed = JsonConvert.DeserializeObject<dynamic>(result);
+		var resArray = parsed?.result as JArray;
+
+		return resArray != null && resArray.Any();
+	}
+
+	public async Task CreateFriendshipAsync(Guid userIdFirst, Guid userIdSecond)
+	{
+		string query = $@"
+		CREATE EDGE Friendship 
+		FROM (SELECT @rid FROM User WHERE id = '{userIdFirst}') 
+		TO (SELECT @rid FROM User WHERE id = '{userIdSecond}')";
+
+		await ExecuteCommandAsync(query);
+	}
+
+	public async Task<bool> GetFriendshipApplicationSettingAsync(Guid userId)
+	{
+		string query = $@"
+		SELECT friendshipApplication 
+		FROM User 
+		WHERE id = '{userId}'";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsed = JsonConvert.DeserializeObject<dynamic>(result);
+		return parsed?.result?[0]?.friendshipApplication?.Value<bool>() ?? false;
+	}
+
+	public async Task<bool> GetNonFriendMessageSettingAsync(Guid userId)
+	{
+		string query = $@"
+		SELECT nonFriendMessage 
+		FROM User 
+		WHERE id = '{userId}'";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsed = JsonConvert.DeserializeObject<dynamic>(result);
+		return parsed?.result?[0]?.nonFriendMessage?.Value<bool>() ?? false;
+	}
+
+	public async Task<List<Guid>> GetFriendsByUserIdAsync(Guid userId)
+	{
+		string query = $@"
+			SELECT in.id AS userId FROM Friendship 
+			WHERE out IN (SELECT @rid FROM User WHERE id = '{userId}')
+			UNION
+			SELECT out.id AS userId FROM Friendship 
+			WHERE in IN (SELECT @rid FROM User WHERE id = '{userId}')";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var resultList = parsedResult?.result as JArray;
+
+		if (resultList != null)
+		{
+			return resultList
+				.Select(item => Guid.Parse(item.Value<string>("userId")))
+				.ToList();
+		}
+
+		return new List<Guid>();
+	}
+
+
+	public async Task DeleteFriendshipAsync(Guid userIdFirst, Guid userIdSecond)
+	{
+		string query = $@"
+			DELETE EDGE Friendship 
+			WHERE 
+			(out IN (SELECT @rid FROM User WHERE id = '{userIdFirst}') AND in IN (SELECT @rid FROM User WHERE id = '{userIdSecond}'))
+			OR 
+			(out IN (SELECT @rid FROM User WHERE id = '{userIdSecond}') AND in IN (SELECT @rid FROM User WHERE id = '{userIdFirst}'))";
+
+		await ExecuteCommandAsync(query);
+	}
+
 }

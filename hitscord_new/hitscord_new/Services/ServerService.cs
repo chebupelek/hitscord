@@ -424,7 +424,10 @@ public class ServerService : IServerService
 						  UserName = u.AccountName,
 						  UserTag = u.AccountTag,
 						  RoleName = us.Role.Name,
-						  Mail = u.Mail
+						  Mail = u.Mail,
+						  Notifiable = u.Notifiable,
+						  FriendshipApplication = u.FriendshipApplication,
+						  NonFriendMessage = u.NonFriendMessage
 					  })
 				.ToListAsync(),
 			Channels = new ChannelListDTO

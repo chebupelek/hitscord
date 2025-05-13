@@ -33,6 +33,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
+builder.Services.AddScoped<IFriendshipService, FriendshipService>();
 
 builder.Services.AddSingleton<RabbitMQUtil>();
 

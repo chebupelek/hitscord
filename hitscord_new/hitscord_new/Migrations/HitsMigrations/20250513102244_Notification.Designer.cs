@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using hitscord.Contexts;
@@ -11,9 +12,11 @@ using hitscord.Contexts;
 namespace hitscord_new.Migrations
 {
     [DbContext(typeof(HitsContext))]
-    partial class HitsContextModelSnapshot : ModelSnapshot
+    [Migration("20250513102244_Notification")]
+    partial class Notification
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -50,32 +53,6 @@ namespace hitscord_new.Migrations
                     b.HasDiscriminator<string>("ChannelType").HasValue("ChannelDbModel");
 
                     b.UseTphMappingStrategy();
-                });
-
-            modelBuilder.Entity("hitscord.Models.db.FriendshipApplicationDbModel", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UserIdFrom")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UserIdTo")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserIdFrom")
-                        .IsUnique();
-
-                    b.HasIndex("UserIdTo")
-                        .IsUnique();
-
-                    b.ToTable("Friendship");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.RoleDbModel", b =>
@@ -145,19 +122,10 @@ namespace hitscord_new.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<bool>("FriendshipApplication")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Mail")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("NonFriendMessage")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("Notifiable")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -245,25 +213,6 @@ namespace hitscord_new.Migrations
                         .IsRequired();
 
                     b.Navigation("Server");
-                });
-
-            modelBuilder.Entity("hitscord.Models.db.FriendshipApplicationDbModel", b =>
-                {
-                    b.HasOne("hitscord.Models.db.UserDbModel", "UserFrom")
-                        .WithOne()
-                        .HasForeignKey("hitscord.Models.db.FriendshipApplicationDbModel", "UserIdFrom")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("hitscord.Models.db.UserDbModel", "UserTo")
-                        .WithOne()
-                        .HasForeignKey("hitscord.Models.db.FriendshipApplicationDbModel", "UserIdTo")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("UserFrom");
-
-                    b.Navigation("UserTo");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.RoleDbModel", b =>
