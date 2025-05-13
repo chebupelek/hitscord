@@ -62,7 +62,7 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
 
-    c.AddServer(new OpenApiServer { Url = "/message" });
+    //c.AddServer(new OpenApiServer { Url = "/message" });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
