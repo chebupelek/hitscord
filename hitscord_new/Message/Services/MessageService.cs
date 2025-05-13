@@ -91,8 +91,12 @@ public class MessageService : IMessageService
             AuthorId = userId,
             CreatedAt = newMessage.CreatedAt,
             ModifiedAt = newMessage.UpdatedAt,
-            NestedChannelId = newMessage.NestedChannelId,
-            ReplyToMessage = null
+			NestedChannel = newMessage.NestedChannelId == null ? null : new SubChannelResponceFullDTO
+			{
+				SubChannelId = (Guid)newMessage.NestedChannelId,
+				RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)newMessage.NestedChannelId),
+			},
+			ReplyToMessage = null
         };
         var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(channelId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
@@ -143,8 +147,12 @@ public class MessageService : IMessageService
             AuthorId = userId,
             CreatedAt = message.CreatedAt,
             ModifiedAt = message.UpdatedAt,
-            NestedChannelId = message.NestedChannelId,
-            ReplyToMessage = null
+			NestedChannel = message.NestedChannelId == null ? null : new SubChannelResponceFullDTO
+			{
+				SubChannelId = (Guid)message.NestedChannelId,
+				RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)message.NestedChannelId),
+			},
+			ReplyToMessage = null
         };
         var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(message.TextChannelId);
         if (alertedUsers != null && alertedUsers.Count() > 0)
@@ -209,24 +217,25 @@ public class MessageService : IMessageService
 				throw new CustomException("Channel not found", "GetChannelMessagesAsync", "Channel id", 404, "Канал не найден", "Получение списка сообщений");
 			}
 
-			await _orientService.CanUserSeeChannelAsync(userId, request.channelId);
-
 			var serverId = await _orientService.GetServerIdByChannelIdAsync(request.channelId);
 			if (serverId == null)
 			{
 				throw new CustomException("Server not found", "GetChannelMessagesAsync", "Server id", 404, "Сервер не найден", "Получение списка сообщений");
 			}
 
+			var messagesFresh = await _messageContext.Messages
+				.Include(m => m.ReplyToMessage)
+				.Where(m => m.TextChannelId == request.channelId)
+				.OrderByDescending(m => m.CreatedAt)
+				.Skip(request.fromStart)
+				.Take(request.number)
+				.OrderBy(m => m.CreatedAt)
+				.ToListAsync();
+
 			var messages = new MessageListResponseDTO
 			{
-				Messages = await _messageContext.Messages
-					.Include(m => m.ReplyToMessage)
-					.Where(m => m.TextChannelId == request.channelId)
-					.OrderByDescending(m => m.CreatedAt)
-					.Skip(request.fromStart)
-					.Take(request.number)
-					.OrderBy(m => m.CreatedAt)
-					.Select(m => new MessageResponceDTO
+				Messages = (await Task.WhenAll(messagesFresh
+					.Select(async m => new MessageResponceDTO
 					{
 						ServerId = (Guid)serverId,
 						ChannelId = m.TextChannelId,
@@ -235,7 +244,11 @@ public class MessageService : IMessageService
 						AuthorId = m.UserId,
 						CreatedAt = m.CreatedAt,
 						ModifiedAt = m.UpdatedAt,
-						NestedChannelId = m.NestedChannelId,
+						NestedChannel = m.NestedChannelId == null ? null : new MessageSubChannelResponceDTO
+						{
+							SubChannelId = (Guid)m.NestedChannelId,
+							CanUse = await _orientService.CanUserUseSubChannelAsync(userId, (Guid)m.NestedChannelId)
+						},
 						ReplyToMessage = m.ReplyToMessage == null ? null : new MessageResponceDTO
 						{
 							ServerId = (Guid)serverId,
@@ -245,17 +258,11 @@ public class MessageService : IMessageService
 							AuthorId = m.ReplyToMessage.UserId,
 							CreatedAt = m.ReplyToMessage.CreatedAt,
 							ModifiedAt = m.ReplyToMessage.UpdatedAt,
-							NestedChannelId = null,
+							NestedChannel = null,
 							ReplyToMessage = null
 						}
-					})
-					.ToListAsync(),
-				NumberOfMessages = await _messageContext.Messages
-					.Where(m => m.TextChannelId == request.channelId)
-					.OrderByDescending(m => m.CreatedAt)
-					.Skip(request.fromStart)
-					.Take(request.number)
-					.CountAsync(),
+					}))).ToList(),
+				NumberOfMessages = messagesFresh.Count(),
 				NumberOfStarterMessage = request.fromStart
 			};
 
@@ -335,7 +342,7 @@ public class MessageService : IMessageService
 				replyedMessage.AuthorId = repMessage.UserId;
 				replyedMessage.CreatedAt = repMessage.CreatedAt;
 				replyedMessage.ModifiedAt = repMessage.UpdatedAt;
-				replyedMessage.NestedChannelId = repMessage.NestedChannelId;
+				replyedMessage.NestedChannel = null;
 				replyedMessage.ReplyToMessage = null;
 			}
 			var newMessage = new MessageDbModel
@@ -373,7 +380,11 @@ public class MessageService : IMessageService
 				AuthorId = userId,
 				CreatedAt = newMessage.CreatedAt,
 				ModifiedAt = newMessage.UpdatedAt,
-				NestedChannelId = newMessage.NestedChannelId,
+				NestedChannel = newMessage.NestedChannelId == null ? null : new SubChannelResponceFullDTO
+				{
+					SubChannelId = (Guid)newMessage.NestedChannelId,
+					RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)newMessage.NestedChannelId),
+				},
 				ReplyToMessage = replyedMessage
 			};
 			var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(channelId);
@@ -458,7 +469,11 @@ public class MessageService : IMessageService
 				AuthorId = userId,
 				CreatedAt = message.CreatedAt,
 				ModifiedAt = message.UpdatedAt,
-				NestedChannelId = message.NestedChannelId,
+				NestedChannel = message.NestedChannelId == null ? null : new SubChannelResponceFullDTO
+				{
+					SubChannelId = (Guid)message.NestedChannelId,
+					RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)message.NestedChannelId),
+				},
 				ReplyToMessage = new MessageResponceDTO
 				{
 					ServerId = (Guid)serverId,
@@ -468,7 +483,7 @@ public class MessageService : IMessageService
 					AuthorId = message.ReplyToMessage.UserId,
 					CreatedAt = message.ReplyToMessage.CreatedAt,
 					ModifiedAt = message.ReplyToMessage.UpdatedAt,
-					NestedChannelId = message.ReplyToMessage.NestedChannelId,
+					NestedChannel = null,
 					ReplyToMessage = null
 				}
 			};

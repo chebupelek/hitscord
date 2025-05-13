@@ -11,6 +11,6 @@ public class MessageResponceSocket : NotificationObject
     public required Guid AuthorId { get; set; }
     public required DateTime CreatedAt { get; set; }
     public DateTime? ModifiedAt { get; set; }
-    public Guid? NestedChannelId { get; set; }
+    public SubChannelResponceFullDTO? NestedChannel { get; set; }
     public MessageResponceDTO? ReplyToMessage { get; set; }
 }

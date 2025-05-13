@@ -412,4 +412,27 @@ public class OrientDbService
 
 		return 0;
 	}
+
+	public async Task<List<Guid>> GetRolesThatCanUseSubChannelAsync(Guid channelId)
+	{
+		string query = $@"
+            SELECT out.id AS roleId    
+            FROM ChannelCanUse 
+            WHERE in IN (SELECT @rid FROM SubChannel WHERE id = '{channelId}')";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+
+		var roles = new List<Guid>();
+
+		if (parsedResult?.result != null)
+		{
+			foreach (var r in parsedResult.result)
+			{
+				roles.Add(Guid.Parse((string)r.roleId));
+			}
+		}
+
+		return roles;
+	}
 }
