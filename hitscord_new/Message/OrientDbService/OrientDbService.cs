@@ -391,7 +391,13 @@ public class OrientDbService
 		foreach (var item in channelEdgeParsed?.result ?? new JArray())
 			allUserIds.Add(Guid.Parse(item.userId.ToString()));
 
-		return allUserIds.ToList();
+		var allNotifiedUsers = allUserIds.ToList();
+
+		var usersCanSee = await GetUsersThatCanSeeChannelAsync(channelId);
+
+		var notifiedUsers = allNotifiedUsers.Where(u => usersCanSee.Contains(u)).ToList();
+
+		return notifiedUsers;
 	}
 
 
