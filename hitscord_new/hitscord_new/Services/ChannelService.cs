@@ -57,6 +57,27 @@ public class ChannelService : IChannelService
 		return channel;
 	}
 
+	public async Task<ChannelDbModel> CheckTextOrNotificationChannelExistAsync(Guid channelId)
+	{
+		var textChannel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is TextChannelDbModel);
+		var notificationChannel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is NotificationChannelDbModel);
+		if (textChannel != null)
+		{
+			return textChannel;
+		}
+		else
+		{
+			if (notificationChannel != null)
+			{
+				return notificationChannel;
+			}
+			else
+			{
+				throw new CustomException("Text channel not found", "Check text channel for existing", "Text channel", 404, "Текстовый канал не найден", "Проверка наличия текстового канала");
+			}
+		}
+	}
+
 	public async Task<ChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers)
 	{
 		var channel = joinedUsers ? await _hitsContext.Channel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.Id == channelId && c is VoiceChannelDbModel) :
@@ -551,7 +572,7 @@ public class ChannelService : IChannelService
 	public async Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, string token, int number, int fromStart)
     {
         var user = await _authService.GetUserAsync(token);
-        var channel = await CheckTextChannelExistAsync(channelId);
+        var channel = await CheckTextOrNotificationChannelExistAsync(channelId);
         await _authenticationService.CheckUserRightsSeeChannel(channel.Id, user.Id);
 
         using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
@@ -837,7 +858,7 @@ public class ChannelService : IChannelService
 				{
 					throw new CustomException("Role already notificated in channel", "Change notification channel sttings", "Role", 400, "Роль уже уведомляется в канале", "Изменение настроек уведомительного канала");
 				}
-				await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelNotificated");
+				await _orientDbService.GrantRolePermissionNotificateToNotificationChannelAsync(role.Id, channel.Id);
 			}
 			else
 			{

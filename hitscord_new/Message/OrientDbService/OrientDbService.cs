@@ -4,6 +4,7 @@ using HitscordLibrary.Models.other;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using static Authzed.Api.V1.CaveatEvalInfo.Types;
 
 namespace Message.OrientDb.Service;
 
@@ -138,7 +139,9 @@ public class OrientDbService
 
 		string result = await ExecuteCommandAsync(query);
 
-		return !result.Contains("\"value\":0");
+		var count = ExtractCountFromResult(result);
+
+		return count > 0;
 	}
 
 	public async Task<bool> CanUserSeeAndWriteToTextChannelAsync(Guid userId, Guid channelId)
@@ -160,7 +163,7 @@ public class OrientDbService
         )";
 
 		string canSeeResult = await ExecuteCommandAsync(canSeeQuery);
-		bool canSee = !canSeeResult.Contains("\"value\":0");
+		var canSee = ExtractCountFromResult(canSeeResult);
 
 		string canWriteQuery = $@"
             SELECT COUNT(*) 
@@ -179,9 +182,9 @@ public class OrientDbService
         )";
 
 		string canWriteResult = await ExecuteCommandAsync(canWriteQuery);
-		bool canWrite = !canWriteResult.Contains("\"value\":0");
+		var canWrite = ExtractCountFromResult(canWriteResult);
 
-		return canSee && canWrite;
+		return ((canSee > 0) && (canWrite > 0));
 	}
 
 
@@ -205,16 +208,20 @@ public class OrientDbService
 
 		string canSeeResult = await ExecuteCommandAsync(canSeeQuery);
 
-		return !canSeeResult.Contains("\"value\":0");
+		var count = ExtractCountFromResult(canSeeResult);
+
+		return count > 0;
 	}
 
 
 	public async Task<bool> ChannelExistsAsync(Guid channelId)
 	{
-		string query = $"SELECT COUNT(*) FROM Channel WHERE id = '{channelId}'";
+		string query = $"SELECT COUNT(*) FROM TextChannel WHERE id = '{channelId}'";
 		string result = await ExecuteCommandAsync(query);
 
-		return !result.Contains("\"value\":0");
+		var count = ExtractCountFromResult(result);
+
+		return count > 0;
 	}
 
 	public async Task<Guid?> GetServerIdByChannelIdAsync(Guid channelId)
@@ -389,7 +396,9 @@ public class OrientDbService
 
 		string result = await ExecuteCommandAsync(query);
 
-		return !result.Contains("\"value\":0");
+		var count = ExtractCountFromResult(result);
+
+		return count > 0;
 	}
 
 	public async Task<bool> CanUserUseSubChannelAsync(Guid userId, Guid channelId)

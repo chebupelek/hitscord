@@ -488,6 +488,18 @@ public class OrientDbService
 		}
 	}
 
+	public async Task GrantRolePermissionNotificateToNotificationChannelAsync(Guid roleId, Guid channelId)
+	{
+		string checkQuery = $"SELECT FROM Role WHERE id = '{roleId}' AND server IN (SELECT server FROM AnnouncementChannel WHERE id = '{channelId}')";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string query = $"CREATE EDGE ChannelNotificated FROM (SELECT FROM AnnouncementChannel WHERE id = '{channelId}') TO (SELECT FROM Role WHERE id = '{roleId}')";
+			await ExecuteCommandAsync(query);
+		}
+	}
+
 	public async Task RevokeRolePermissionFromChannelAsync(Guid roleId, Guid channelId, string permissionType)
 	{
 		string checkQuery = $@"
@@ -1079,7 +1091,7 @@ public class OrientDbService
 	public async Task<List<RolesItemDTO>> GetNotificatedRolesChannelAsync(Guid channelId)
 	{
 		string query = $@"
-            SELECT in.id AS roleId, in.server AS serverId, in.name AS roleName, in.tag AS roleTag, out.color AS roleColor    
+            SELECT in.id AS roleId, in.server AS serverId, in.name AS roleName, in.tag AS roleTag, in.color AS roleColor    
             FROM ChannelNotificated 
             WHERE out IN (SELECT @rid FROM AnnouncementChannel WHERE id = '{channelId}')";
 

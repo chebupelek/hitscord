@@ -13,6 +13,7 @@ using Message.OrientDb.Service;
 using Message.WebSockets;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualBasic;
 using System.Data;
 using System.Text.RegularExpressions;
@@ -28,14 +29,16 @@ public class MessageService : IMessageService
     private readonly ITokenService _tokenService;
     private readonly OrientDbService _orientService;
 	private readonly WebSocketsManager _webSocketManager;
+	private readonly ILogger<MessageService> _logger;
 
 
-	public MessageService(MessageContext messageContext, ITokenService tokenService, OrientDbService orientService, WebSocketsManager webSocketManager)
+	public MessageService(MessageContext messageContext, ITokenService tokenService, OrientDbService orientService, WebSocketsManager webSocketManager, ILogger<MessageService> logger)
     {
         _messageContext = messageContext ?? throw new ArgumentNullException(nameof(messageContext));
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
         _orientService = orientService ?? throw new ArgumentNullException(nameof(orientService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_logger = logger;
 	}
 
 	private List<string> ExtractUserTags(string input)
@@ -318,32 +321,42 @@ public class MessageService : IMessageService
 		try
 		{
 			var userId = await _tokenService.CheckAuth(token);
+			_logger.LogInformation("check 1: {bool}", await _orientService.ChannelExistsAsync(channelId));
 			if (!await _orientService.ChannelExistsAsync(channelId))
 			{
+				_logger.LogInformation("check 2: {bool}", await _orientService.ChannelExistsAsync(channelId));
 				throw new CustomExceptionUser("Channel not found", "Create message", "Channel id", 404, "Канал не найден", "Создание сообщения", userId);
 			}
+			_logger.LogInformation("check 3: {bool}", await _orientService.CanUserSeeAndWriteToTextChannelAsync(userId, channelId));
+			_logger.LogInformation("check 4: {bool}", await _orientService.CanUserUseSubChannelAsync(userId, channelId));
 			if (!await _orientService.CanUserSeeAndWriteToTextChannelAsync(userId, channelId) && !await _orientService.CanUserUseSubChannelAsync(userId, channelId))
 			{
+				_logger.LogInformation("check 5: {bool}", !await _orientService.CanUserSeeAndWriteToTextChannelAsync(userId, channelId) && !await _orientService.CanUserUseSubChannelAsync(userId, channelId));
 				throw new CustomExceptionUser("User hasnt permissions", "Create message", "User Id", 401, "У пользователя нет прав", "Создание сообщения", userId);
 			}
 			MessageResponceDTO? replyedMessage = null;
 			if (ReplyToMessageId != null)
 			{
 				var repMessage = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == ReplyToMessageId && m.TextChannelId == channelId);
+				_logger.LogInformation("check 6: {message}", repMessage);
 				if (repMessage == null)
 				{
 					throw new CustomExceptionUser("Message reply to doesn't found", "Create message", "Reply to message Id", 401, "Сообщение на которое пишется ответ не найдено", "Создание сообщения", userId);
 				}
 				var serverIdDouble = await _orientService.GetServerIdByChannelIdAsync(channelId);
-				replyedMessage.ServerId = (Guid)serverIdDouble;
-				replyedMessage.ChannelId = repMessage.TextChannelId;
-				replyedMessage.Id = repMessage.Id;
-				replyedMessage.Text = repMessage.Text;
-				replyedMessage.AuthorId = repMessage.UserId;
-				replyedMessage.CreatedAt = repMessage.CreatedAt;
-				replyedMessage.ModifiedAt = repMessage.UpdatedAt;
-				replyedMessage.NestedChannel = null;
-				replyedMessage.ReplyToMessage = null;
+				_logger.LogInformation("check 7: {server}", serverIdDouble);
+				replyedMessage = new MessageResponceDTO()
+				{
+					ServerId = (Guid)serverIdDouble,
+					ChannelId = repMessage.TextChannelId,
+					Id = repMessage.Id,
+					Text = repMessage.Text,
+					AuthorId = repMessage.UserId,
+					CreatedAt = repMessage.CreatedAt,
+					ModifiedAt = repMessage.UpdatedAt,
+					NestedChannel = null,
+					ReplyToMessage = null
+				};
 			}
 			var newMessage = new MessageDbModel
 			{
