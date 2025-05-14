@@ -494,7 +494,7 @@ public class ChannelService : IChannelService
 	public async Task<ChannelSettingsDTO> GetTextChannelSettingsAsync(Guid chnnelId, string token)
 	{
 		var user = await _authService.GetUserAsync(token);
-		var channel = await CheckVoiceChannelExistAsync(chnnelId, false);
+		var channel = await CheckTextChannelExistAsync(chnnelId);
 		await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
 
 		var roles = new ChannelSettingsDTO
@@ -513,7 +513,7 @@ public class ChannelService : IChannelService
 	public async Task<ChannelSettingsDTO> GetNotificationChannelSettingsAsync(Guid chnnelId, string token)
 	{
 		var user = await _authService.GetUserAsync(token);
-		var channel = await CheckVoiceChannelExistAsync(chnnelId, false);
+		var channel = await CheckNotificationChannelExistAsync(chnnelId);
 		await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
 
 		var roles = new ChannelSettingsDTO
@@ -532,7 +532,7 @@ public class ChannelService : IChannelService
 	public async Task<ChannelSettingsDTO> GetSubChannelSettingsAsync(Guid chnnelId, string token)
 	{
 		var user = await _authService.GetUserAsync(token);
-		var channel = await CheckVoiceChannelExistAsync(chnnelId, false);
+		var channel = await CheckSubChannelExistAsync(chnnelId);
 		await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
 
 		var roles = new ChannelSettingsDTO
