@@ -47,20 +47,38 @@ public class OrientDbService
 
 	private async Task<string> ExecuteBatchAsync(string sql)
 	{
-		var url = $"/command/{_dbName}/sql";
-		var payload = new { command = sql, language = "sql" };
-		var content = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
+		var url = $"/batch/{_dbName}/script";
+		var scriptLines = sql
+			.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+			.Select(line => line.Trim())
+			.Where(line => !string.IsNullOrWhiteSpace(line))
+			.ToArray();
+
+		var payload = new
+		{
+			operations = new[]
+			{
+			new
+			{
+				type = "script",
+				language = "sql",
+				script = scriptLines
+			}
+		}
+		};
+
+		var json = JsonConvert.SerializeObject(payload);
+		var content = new StringContent(json, Encoding.UTF8, "application/json");
 
 		var response = await _client.PostAsync(url, content);
 		var responseBody = await response.Content.ReadAsStringAsync();
 
 		if (!response.IsSuccessStatusCode)
 		{
-			// Логируем ошибку
 			Console.WriteLine($"Ошибка при выполнении запроса: {response.StatusCode} - {responseBody}");
 		}
 
-		return await response.Content.ReadAsStringAsync();
+		return responseBody;
 	}
 
 	public async Task EnsureSchemaExistsAsync()
@@ -182,8 +200,9 @@ public class OrientDbService
 	//Проверить на практике
 	public async Task DeleteServerAsync(Guid serverId)
 	{
+		/*
 		string deleteEdgesQuery = $@"
-			begin
+			BEGIN
 				DELETE EDGE BelongsToRole WHERE in IN (SELECT FROM Role WHERE server = '{serverId}');
 				DELETE EDGE BelongsToSub WHERE in IN (
 					SELECT FROM Subscription WHERE role IN (
@@ -209,18 +228,19 @@ public class OrientDbService
 
 				DELETE EDGE NonNotifiableChannel WHERE out IN (SELECT FROM Channel WHERE server = '{serverId}');
 				DELETE EDGE NonNotifiableServer WHERE out IN (SELECT FROM Server WHERE id = '{serverId}');
-			commit
+			COMMIT
         ";
 
-		await ExecuteCommandAsync(deleteEdgesQuery);
+		await ExecuteBatchAsync(deleteEdgesQuery);
+		*/
 
 		string deleteVerticesQuery = $@"
-            DELETE VERTEX Subscription WHERE role IN (SELECT id FROM Role WHERE server = '{serverId}');
-            DELETE VERTEX Role WHERE server = '{serverId}';
-            DELETE VERTEX Channel WHERE server = '{serverId}';
+			DELETE VERTEX Subscription WHERE role IN (SELECT id FROM Role WHERE server = '{serverId}');
+			DELETE VERTEX Role WHERE server = '{serverId}';
+			DELETE VERTEX Channel WHERE server = '{serverId}';
         ";
 
-		await ExecuteCommandAsync(deleteVerticesQuery);
+		await ExecuteBatchAsync(deleteVerticesQuery);
 
 		string deleteServerQuery = $"DELETE VERTEX Server WHERE id = '{serverId}'";
 
@@ -273,6 +293,7 @@ public class OrientDbService
 
 	public async Task DeleteChannelAsync(Guid channelId)
 	{
+		/*
 		string deleteEdgesQuery = $@"
             BEGIN
 				DELETE EDGE ContainsChannel WHERE in IN (SELECT FROM Channel WHERE id = '{channelId}');
@@ -290,6 +311,7 @@ public class OrientDbService
 			COMMIT
         ";
 		await ExecuteBatchAsync(deleteEdgesQuery);
+		*/
 
 		string deleteChannelQuery = $"DELETE VERTEX Channel WHERE id = '{channelId}'";
 		await ExecuteCommandAsync(deleteChannelQuery);
