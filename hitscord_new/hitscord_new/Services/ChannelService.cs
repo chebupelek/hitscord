@@ -629,7 +629,7 @@ public class ChannelService : IChannelService
 			}
 		}
 
-		if (settingsData.Type != ChangeRoleTypeEnum.CanSee || settingsData.Type != ChangeRoleTypeEnum.CanJoin)
+		if (settingsData.Type != ChangeRoleTypeEnum.CanSee && settingsData.Type != ChangeRoleTypeEnum.CanJoin)
 		{
 			throw new CustomException("Wrong setting type", "Change voice channel sttings", "Role", 404, "Тип настроек не верен", "Изменение настроек голосового канала");
 		}
@@ -748,7 +748,7 @@ public class ChannelService : IChannelService
 			}
 		}
 
-		if (settingsData.Type != ChangeRoleTypeEnum.CanSee || settingsData.Type != ChangeRoleTypeEnum.CanWrite || settingsData.Type != ChangeRoleTypeEnum.CanWriteSub)
+		if (settingsData.Type != ChangeRoleTypeEnum.CanSee && settingsData.Type != ChangeRoleTypeEnum.CanWrite && settingsData.Type != ChangeRoleTypeEnum.CanWriteSub)
 		{
 			throw new CustomException("Wrong setting type", "Change text channel sttings", "Role", 404, "Тип настроек не верен", "Изменение настроек текстового канала");
 		}
@@ -849,7 +849,7 @@ public class ChannelService : IChannelService
 			}
 		}
 
-		if (settingsData.Type != ChangeRoleTypeEnum.CanSee || settingsData.Type != ChangeRoleTypeEnum.CanWrite || settingsData.Type != ChangeRoleTypeEnum.Notificated)
+		if (settingsData.Type != ChangeRoleTypeEnum.CanSee && settingsData.Type != ChangeRoleTypeEnum.CanWrite && settingsData.Type != ChangeRoleTypeEnum.Notificated)
 		{
 			throw new CustomException("Wrong setting type", "Change notification channel sttings", "Role", 404, "Тип настроек не верен", "Изменение настроек уведомительного канала");
 		}
