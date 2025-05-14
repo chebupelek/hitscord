@@ -1012,6 +1012,7 @@ public class ChannelService : IChannelService
 		{
 			Id = Guid.NewGuid(),
 			Name = "SubChannel",
+			ServerId = channel.ServerId,
 			IsMessage = true
 		};
 

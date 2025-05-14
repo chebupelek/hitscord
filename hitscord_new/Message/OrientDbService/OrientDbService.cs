@@ -242,7 +242,9 @@ public class OrientDbService
 
 	public async Task<List<Guid>> GetUsersThatCanSeeChannelAsync(Guid channelId)
 	{
-		string query = $@"
+		var allUserIds = new HashSet<Guid>();
+
+		string userSeeQuery = $@"
             SELECT id AS userId 
 			FROM User 
 			WHERE @rid IN (
@@ -261,19 +263,37 @@ public class OrientDbService
 				)
 			)";
 
-		string result = await ExecuteCommandAsync(query);
-		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var userSeeResult = await ExecuteCommandAsync(userSeeQuery);
+		var userSeeParsed = JsonConvert.DeserializeObject<dynamic>(userSeeResult);
+		foreach (var item in userSeeParsed?.result ?? new JArray())
+			allUserIds.Add(Guid.Parse(item.userId.ToString()));
 
-		var resultList = parsedResult?.result as JArray;
 
-		if (resultList != null)
-		{
-			return resultList
-				.Select(item => Guid.Parse(item.Value<string>("userId")))
-				.ToList();
-		}
+		string userUseQuery = $@"
+            SELECT id AS userId 
+			FROM User 
+			WHERE @rid IN (
+				SELECT out 
+				FROM BelongsToSub 
+				WHERE in IN (
+					SELECT out 
+					FROM BelongsToRole 
+					WHERE in IN (
+						SELECT out 
+						FROM ChannelCanUse 
+						WHERE in IN (
+							SELECT @rid FROM Channel WHERE id = '{channelId}'
+						)
+					)
+				)
+			)";
 
-		return new List<Guid>();
+		var userUseResult = await ExecuteCommandAsync(userUseQuery);
+		var userUseParsed = JsonConvert.DeserializeObject<dynamic>(userUseResult);
+		foreach (var item in userUseParsed?.result ?? new JArray())
+			allUserIds.Add(Guid.Parse(item.userId.ToString()));
+
+		return allUserIds.ToList();
 	}
 
 	public async Task<List<Guid>> GetNotifiableUsersByChannelAsync(Guid channelId, List<string> userTags, List<string> roleTags)
