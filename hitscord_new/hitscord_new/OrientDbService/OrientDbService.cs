@@ -45,6 +45,24 @@ public class OrientDbService
 		return await response.Content.ReadAsStringAsync();
 	}
 
+	private async Task<string> ExecuteBatchAsync(string sql)
+	{
+		var url = $"/command/{_dbName}/sql";
+		var payload = new { command = sql, language = "sql" };
+		var content = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
+
+		var response = await _client.PostAsync(url, content);
+		var responseBody = await response.Content.ReadAsStringAsync();
+
+		if (!response.IsSuccessStatusCode)
+		{
+			// Логируем ошибку
+			Console.WriteLine($"Ошибка при выполнении запроса: {response.StatusCode} - {responseBody}");
+		}
+
+		return await response.Content.ReadAsStringAsync();
+	}
+
 	public async Task EnsureSchemaExistsAsync()
 	{
 		//string query = "SELECT FROM (SELECT expand(classes) FROM metadata:schema) WHERE name IN ('User', 'Server', 'Channel', 'Role', 'BelongsTo', 'ContainsChannel', 'ContainsRole', 'ChannelCanSee', 'ChannelCanWrite', 'ServerCanChangeRole', 'ServerCanWorkChannels', 'ServerCanDeleteUsers')";
@@ -165,31 +183,33 @@ public class OrientDbService
 	public async Task DeleteServerAsync(Guid serverId)
 	{
 		string deleteEdgesQuery = $@"
-            DELETE EDGE BelongsToRole WHERE in IN (SELECT FROM Role WHERE server = '{serverId}');
-            DELETE EDGE BelongsToSub WHERE in IN (
-                SELECT FROM Subscription WHERE role IN (
-                    SELECT id FROM Role WHERE server = '{serverId}'
-                )
-            );
+			begin
+				DELETE EDGE BelongsToRole WHERE in IN (SELECT FROM Role WHERE server = '{serverId}');
+				DELETE EDGE BelongsToSub WHERE in IN (
+					SELECT FROM Subscription WHERE role IN (
+						SELECT id FROM Role WHERE server = '{serverId}'
+					)
+				);
 
-            DELETE EDGE ChannelCanSee WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
-            DELETE EDGE ChannelCanWrite WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
-            DELETE EDGE ChannelCanWriteSub WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
-            DELETE EDGE ChannelCanUse WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
-            DELETE EDGE ChannelCanJoin WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
-            DELETE EDGE ChannelNotificated WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
-            DELETE EDGE ContainsSubChannel WHERE out IN (SELECT FROM Channel WHERE server = '{serverId}');
+				DELETE EDGE ChannelCanSee WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
+				DELETE EDGE ChannelCanWrite WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
+				DELETE EDGE ChannelCanWriteSub WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
+				DELETE EDGE ChannelCanUse WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
+				DELETE EDGE ChannelCanJoin WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
+				DELETE EDGE ChannelNotificated WHERE in IN (SELECT FROM Channel WHERE server = '{serverId}');
+				DELETE EDGE ContainsSubChannel WHERE out IN (SELECT FROM Channel WHERE server = '{serverId}');
 
-            DELETE EDGE ContainsChannel WHERE out IN (SELECT FROM Server WHERE id = '{serverId}');
-            DELETE EDGE ContainsRole WHERE out IN (SELECT FROM Server WHERE id = '{serverId}');
+				DELETE EDGE ContainsChannel WHERE out IN (SELECT FROM Server WHERE id = '{serverId}');
+				DELETE EDGE ContainsRole WHERE out IN (SELECT FROM Server WHERE id = '{serverId}');
 
-            DELETE EDGE ServerCanChangeRole WHERE out IN (SELECT FROM Role WHERE server = '{serverId}');
-            DELETE EDGE ServerCanWorkChannels WHERE out IN (SELECT FROM Role WHERE server = '{serverId}');
-            DELETE EDGE ServerCanDeleteUsers WHERE out IN (SELECT FROM Role WHERE server = '{serverId}');
-            DELETE EDGE ServerCanMuteOther WHERE out IN (SELECT FROM Role WHERE server = '{serverId}');
+				DELETE EDGE ServerCanChangeRole WHERE out IN (SELECT FROM Role WHERE server = '{serverId}');
+				DELETE EDGE ServerCanWorkChannels WHERE out IN (SELECT FROM Role WHERE server = '{serverId}');
+				DELETE EDGE ServerCanDeleteUsers WHERE out IN (SELECT FROM Role WHERE server = '{serverId}');
+				DELETE EDGE ServerCanMuteOther WHERE out IN (SELECT FROM Role WHERE server = '{serverId}');
 
-            DELETE EDGE NonNotifiableChannel WHERE out IN (SELECT FROM Channel WHERE server = '{serverId}');
-            DELETE EDGE NonNotifiableServer WHERE out IN (SELECT FROM Server WHERE id = '{serverId}');
+				DELETE EDGE NonNotifiableChannel WHERE out IN (SELECT FROM Channel WHERE server = '{serverId}');
+				DELETE EDGE NonNotifiableServer WHERE out IN (SELECT FROM Server WHERE id = '{serverId}');
+			commit
         ";
 
 		await ExecuteCommandAsync(deleteEdgesQuery);
@@ -244,29 +264,32 @@ public class OrientDbService
 
 	public async Task AddNotificationChannelAsync(Guid channelId, Guid serverId)
 	{
-		string query = $"INSERT INTO Channel SET id = '{channelId}', server = '{serverId}'";
+		string query = $"INSERT INTO AnnouncementChannel SET id = '{channelId}', server = '{serverId}'";
 		await ExecuteCommandAsync(query);
 
-		string linkQuery = $"CREATE EDGE AnnouncementChannel FROM (SELECT FROM Server WHERE id = '{serverId}') TO (SELECT FROM Channel WHERE id = '{channelId}')";
+		string linkQuery = $"CREATE EDGE ContainsChannel FROM (SELECT FROM Server WHERE id = '{serverId}') TO (SELECT FROM Channel WHERE id = '{channelId}')";
 		await ExecuteCommandAsync(linkQuery);
 	}
 
 	public async Task DeleteChannelAsync(Guid channelId)
 	{
 		string deleteEdgesQuery = $@"
-            DELETE EDGE ContainsChannel WHERE in IN (SELECT FROM Channel WHERE id = '{channelId}');
-            DELETE EDGE ChannelCanSee WHERE in IN (SELECT FROM Channel WHERE id = '{channelId}');
-            DELETE EDGE ChannelCanWrite WHERE in IN (SELECT FROM TextChannel WHERE id = '{channelId}');
-            DELETE EDGE ChannelCanWriteSub WHERE in IN (SELECT FROM TextChannel WHERE id = '{channelId}');
-            DELETE EDGE ChannelNotificated WHERE out IN (SELECT FROM AnnouncementChannel WHERE id = '{channelId}');
-            DELETE EDGE ChannelCanUse WHERE in IN (SELECT FROM SubChannel WHERE id = '{channelId}');
-            DELETE EDGE ChannelCanJoin WHERE in IN (SELECT FROM VoiceChannel WHERE id = '{channelId}');
-            DELETE EDGE NonNotifiableChannel WHERE out IN (SELECT FROM TextChannel WHERE id = '{channelId}');
-            DELETE VERTEX SubChannel WHERE @rid IN (
-                SELECT in FROM ContainsSubChannel WHERE out IN (SELECT FROM TextChannel WHERE id = '{channelId}')
-            );
+            BEGIN
+				DELETE EDGE ContainsChannel WHERE in IN (SELECT FROM Channel WHERE id = '{channelId}');
+				DELETE EDGE ChannelCanSee WHERE in IN (SELECT FROM Channel WHERE id = '{channelId}');
+				DELETE EDGE ChannelCanWrite WHERE in IN (SELECT FROM TextChannel WHERE id = '{channelId}');
+				DELETE EDGE ChannelCanWriteSub WHERE in IN (SELECT FROM TextChannel WHERE id = '{channelId}');
+				DELETE EDGE ChannelNotificated WHERE out IN (SELECT FROM AnnouncementChannel WHERE id = '{channelId}');
+				DELETE EDGE ChannelCanUse WHERE in IN (SELECT FROM SubChannel WHERE id = '{channelId}');
+				DELETE EDGE ChannelCanJoin WHERE in IN (SELECT FROM VoiceChannel WHERE id = '{channelId}');
+				DELETE EDGE NonNotifiableChannel WHERE out IN (SELECT FROM TextChannel WHERE id = '{channelId}');
+				DELETE VERTEX SubChannel WHERE @rid IN (
+					SELECT in FROM ContainsSubChannel WHERE out IN (SELECT FROM TextChannel WHERE id = '{channelId}')
+				);
+				DELETE VERTEX Channel WHERE id = '{channelId}';
+			COMMIT
         ";
-		await ExecuteCommandAsync(deleteEdgesQuery);
+		await ExecuteBatchAsync(deleteEdgesQuery);
 
 		string deleteChannelQuery = $"DELETE VERTEX Channel WHERE id = '{channelId}'";
 		await ExecuteCommandAsync(deleteChannelQuery);
@@ -351,7 +374,7 @@ public class OrientDbService
 
 	public async Task CreateAnnouncementChannel(Guid serverId, Guid channelId)
 	{
-		await AddTextChannelAsync(channelId, serverId);
+		await AddNotificationChannelAsync(channelId, serverId);
 
 		string jsonResponse = await GetServerRolesAsync(serverId);
 		var parsedResponse = JsonConvert.DeserializeObject<dynamic>(jsonResponse);
