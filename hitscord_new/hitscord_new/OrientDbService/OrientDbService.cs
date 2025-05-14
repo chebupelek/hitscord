@@ -1380,8 +1380,8 @@ public class OrientDbService
 	{
 		string query = $@"
 		CREATE EDGE Friendship 
-		FROM (SELECT @rid FROM User WHERE id = '{userIdFirst}') 
-		TO (SELECT @rid FROM User WHERE id = '{userIdSecond}')";
+		FROM (SELECT FROM User WHERE id = '{userIdFirst}') 
+		TO (SELECT FROM User WHERE id = '{userIdSecond}')";
 
 		await ExecuteCommandAsync(query);
 	}
@@ -1413,13 +1413,12 @@ public class OrientDbService
 	public async Task<List<Guid>> GetFriendsByUserIdAsync(Guid userId)
 	{
 		string query = $@"
-			SELECT in.id AS userId FROM Friendship 
-			WHERE out IN (SELECT @rid FROM User WHERE id = '{userId}')
-			UNION
-			SELECT out.id AS userId FROM Friendship 
-			WHERE in IN (SELECT @rid FROM User WHERE id = '{userId}')";
+			LET $user = (SELECT FROM User WHERE id = '{userId}');
+			LET $outFriends = (SELECT expand(in('Friendship')) FROM $user);
+			LET $inFriends = (SELECT expand(out('Friendship')) FROM $user);
+			SELECT id AS userId FROM (SELECT expand(UNIONALL($outFriends, $inFriends)));";
 
-		string result = await ExecuteCommandAsync(query);
+		string result = await ExecuteBatchAsync(query);
 		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
 		var resultList = parsedResult?.result as JArray;
 

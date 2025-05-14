@@ -150,7 +150,7 @@ public class FriendshipController : ControllerBase
 	[Authorize]
     [HttpGet]
     [Route("list")]
-    public async Task<IActionResult> GetFriends([FromBody] UnsubscribeDTO data)
+    public async Task<IActionResult> GetFriends()
     {
         try
         {
