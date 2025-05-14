@@ -236,25 +236,23 @@ public class OrientDbService
 	public async Task<List<Guid>> GetUsersThatCanSeeChannelAsync(Guid channelId)
 	{
 		string query = $@"
-            SELECT user.id AS userId
-            FROM (
-                SELECT FROM User 
-                WHERE @rid IN (
-                    SELECT out 
-                    FROM BelongsToSub 
-                    WHERE in IN (
-                        SELECT out 
-                        FROM BelongsToRole 
-                        WHERE in IN (
-                            SELECT out 
-                            FROM ChannelCanSee 
-                            WHERE in IN (
-                                SELECT @rid FROM Channel WHERE id = '{channelId}'
-                            )
-                        )
-                    )
-                )
-            ) AS user";
+            SELECT id AS userId 
+			FROM User 
+			WHERE @rid IN (
+				SELECT out 
+				FROM BelongsToSub 
+				WHERE in IN (
+					SELECT out 
+					FROM BelongsToRole 
+					WHERE in IN (
+						SELECT out 
+						FROM ChannelCanSee 
+						WHERE in IN (
+							SELECT @rid FROM Channel WHERE id = '{channelId}'
+						)
+					)
+				)
+			)";
 
 		string result = await ExecuteCommandAsync(query);
 		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
@@ -276,94 +274,99 @@ public class OrientDbService
 		var userTagsFilter = string.Join(",", userTags.Select(tag => $"'{tag}'"));
 		var roleTagsFilter = string.Join(",", roleTags.Select(tag => $"'{tag}'"));
 
-		string query = $@"
-            SELECT DISTINCT user.id AS userId
-            FROM (
-                SELECT FROM User 
-                WHERE notifiable = true
-                AND tag IN [{userTagsFilter}]
-                AND @rid IN (
-                    SELECT out FROM BelongsToSub 
-                    WHERE in IN (
-                        SELECT FROM Subscription 
-                        WHERE @rid NOT IN (
-                            SELECT out FROM NonNotifiableServer 
-                            WHERE in IN (
-                                SELECT @rid FROM Server 
-                                WHERE id IN (
-                                    SELECT server FROM Channel WHERE id = '{channelId}'
-                                )
-                            )
-                        )
-                        AND @rid NOT IN (
-                            SELECT out FROM NonNotifiableChannel 
-                            WHERE in IN (
-                                SELECT @rid FROM Channel 
-                                WHERE id = '{channelId}'
-                            )
-                        )
-                    )
-                )
-            ) AS user
+		string serverIdQuery = $@"
+			SELECT server FROM Channel WHERE id = '{channelId}'
+		";
+		var serverResult = await ExecuteCommandAsync(serverIdQuery);
+		var serverParsed = JsonConvert.DeserializeObject<dynamic>(serverResult);
+		string serverId = serverParsed?.result?[0]?.server;
 
-            LET $serverId = (SELECT server FROM Channel WHERE id = '{channelId}')[0].server
+		if (string.IsNullOrEmpty(serverId))
+			return new List<Guid>();
 
-            UNION
+		var allUserIds = new HashSet<Guid>();
 
-            SELECT DISTINCT user.id AS userId
-            FROM (
-                SELECT FROM User 
-                WHERE notifiable = true
-                AND @rid IN (
-                    SELECT out FROM BelongsToSub 
-                    WHERE in IN (
-                        SELECT FROM Subscription 
-                        WHERE role IN (
-                            SELECT id FROM Role WHERE tag IN [{roleTagsFilter}] AND server = $serverId
-                        )
-                        AND @rid NOT IN (
-                            SELECT out FROM NonNotifiableServer 
-                            WHERE in IN (
-                                SELECT @rid FROM Server WHERE id = $serverId
-                            )
-                        )
-                        AND @rid NOT IN (
-                            SELECT out FROM NonNotifiableChannel 
-                            WHERE in IN (
-                                SELECT @rid FROM Channel WHERE id = '{channelId}'
-                            )
-                        )
-                    )
-                )
-            ) AS user
+		string userTagQuery = $@"
+				SELECT id AS userId
+				FROM User 
+				WHERE notifiable = true
+				AND tag IN [{userTagsFilter}]
+				AND @rid IN (
+					SELECT out FROM BelongsToSub 
+					WHERE in IN (
+						SELECT FROM Subscription 
+						WHERE @rid NOT IN (
+							SELECT out FROM NonNotifiableServer 
+							WHERE in = (SELECT FROM Server WHERE id = '{serverId}')
+						)
+						AND @rid NOT IN (
+							SELECT out FROM NonNotifiableChannel 
+							WHERE in = (SELECT FROM Channel WHERE id = '{channelId}')
+						)
+					)
+				)
+			";
+		var userTagResult = await ExecuteCommandAsync(userTagQuery);
+		var userTagParsed = JsonConvert.DeserializeObject<dynamic>(userTagResult);
+		foreach (var item in userTagParsed?.result ?? new JArray())
+			allUserIds.Add(Guid.Parse(item.userId.ToString()));
 
-            UNION
+		string roleTagQuery = $@"
+				SELECT id AS userId
+				FROM User
+				WHERE notifiable = true
+				AND @rid IN (
+					SELECT out FROM BelongsToSub 
+					WHERE in IN (
+						SELECT FROM Subscription 
+						WHERE role IN (
+							SELECT id FROM Role WHERE tag IN [{roleTagsFilter}] AND server = '{serverId}'
+						)
+						AND @rid NOT IN (
+							SELECT out FROM NonNotifiableServer 
+							WHERE in = (SELECT FROM Server WHERE id = '{serverId}')
+						)
+						AND @rid NOT IN (
+							SELECT out FROM NonNotifiableChannel 
+							WHERE in = (SELECT FROM Channel WHERE id = '{channelId}')
+						)
+					)
+				)
+			";
+		var roleTagResult = await ExecuteCommandAsync(roleTagQuery);
+		var roleTagParsed = JsonConvert.DeserializeObject<dynamic>(roleTagResult);
+		foreach (var item in roleTagParsed?.result ?? new JArray())
+			allUserIds.Add(Guid.Parse(item.userId.ToString()));
 
-            SELECT DISTINCT user.id AS userId
-            FROM User user
-            WHERE @rid IN (
-                SELECT in FROM ChannelNotificated 
-                WHERE out IN (
-                    SELECT @rid FROM Channel WHERE id = '{channelId}'
-                )
-            )
-        ";
+		string channelEdgeQuery = $@"
+				SELECT id AS userId
+				FROM User
+				WHERE @rid IN (
+				  SELECT out FROM BelongsToSub
+				  WHERE in IN (
+					SELECT FROM Subscription
+					WHERE @rid IN (
+					  SELECT out FROM BelongsToRole
+					  WHERE in IN (
+						SELECT FROM Role WHERE @rid IN (
+						  SELECT in FROM ChannelNotificated
+						  WHERE out IN (
+							SELECT FROM AnnouncementChannel WHERE id = '{channelId}'
+						  )
+						)
+					  )
+					)
+				  )
+				)
+			";
+		var channelEdgeResult = await ExecuteCommandAsync(channelEdgeQuery);
+		var channelEdgeParsed = JsonConvert.DeserializeObject<dynamic>(channelEdgeResult);
+		foreach (var item in channelEdgeParsed?.result ?? new JArray())
+			allUserIds.Add(Guid.Parse(item.userId.ToString()));
 
-		string result = await ExecuteCommandAsync(query);
-		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
-
-		var resultList = parsedResult?.result as JArray;
-
-		if (resultList != null)
-		{
-			return resultList
-				.Select(item => Guid.Parse(item.Value<string>("userId")))
-				.Distinct()
-				.ToList();
-		}
-
-		return new List<Guid>();
+		return allUserIds.ToList();
 	}
+
 
 
 	public async Task<bool> CanUserAddSubChannelAsync(Guid userId, Guid textChannelId)

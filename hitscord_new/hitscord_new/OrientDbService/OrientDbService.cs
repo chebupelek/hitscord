@@ -160,6 +160,8 @@ public class OrientDbService
 		await ExecuteCommandAsync(query);
 	}
 
+
+	//Проверить на практике
 	public async Task DeleteServerAsync(Guid serverId)
 	{
 		string deleteEdgesQuery = $@"
@@ -229,11 +231,15 @@ public class OrientDbService
 		string query = $"INSERT INTO SubChannel SET id = '{subChannelId}', server = '{serverId}', AuthorId = '{AuthorId}'";
 		await ExecuteCommandAsync(query);
 
-		string linkQuery = $@"
+		string linkQueryF = $@"
             CREATE EDGE ContainsChannel FROM (SELECT FROM Server WHERE id = '{serverId}') TO (SELECT FROM Channel WHERE id = '{subChannelId}')
+        ";
+		await ExecuteCommandAsync(linkQueryF);
+
+		string linkQueryS = $@"
             CREATE EDGE ContainsSubChannel FROM (SELECT FROM TextChannel WHERE id = '{textChannelId}') TO (SELECT FROM SubChannel WHERE id = '{subChannelId}')
         ";
-		await ExecuteCommandAsync(linkQuery);
+		await ExecuteCommandAsync(linkQueryS);
 	}
 
 	public async Task AddNotificationChannelAsync(Guid channelId, Guid serverId)
@@ -507,6 +513,23 @@ public class OrientDbService
 				await ExecuteCommandAsync(deleteEdgeQuery);
 			}
 		}
+
+		string checkQueryNotif = $@"
+			    SELECT FROM ChannelNotificated 
+			    WHERE in IN (SELECT @rid FROM Role WHERE id = '{roleId}') 
+			      AND out IN (SELECT @rid FROM Channel WHERE id = '{channelId}')";
+
+		string checkResultNotif = await ExecuteCommandAsync(checkQueryNotif);
+
+		if (!checkResultNotif.Contains("\"result\":[]"))
+		{
+			string deleteEdgeQueryNotif = $@"
+				    DELETE EDGE ChannelNotificated 
+				    WHERE in IN (SELECT @rid FROM Role WHERE id = '{roleId}') 
+				      AND out IN (SELECT @rid FROM Channel WHERE id = '{channelId}')";
+
+			await ExecuteCommandAsync(deleteEdgeQueryNotif);
+		}
 	}
 
 
@@ -653,27 +676,24 @@ public class OrientDbService
 	public async Task<Guid?> GetUserRoleOnServerAsync(Guid userId, Guid serverId)
 	{
 		string query = $@"
-            SELECT role.id as roleId 
-            FROM Role 
-            LET role = (
-                SELECT FROM Role 
-                WHERE server = '{serverId}' 
-                AND @rid IN (
-                    SELECT in 
-                    FROM BelongsToRole 
-                    WHERE out IN (
-                        SELECT @rid 
-                        FROM Subscription 
-                        WHERE @rid IN (
-                            SELECT in 
-                            FROM BelongsToSub 
-                            WHERE out IN (
-                                SELECT FROM User WHERE id = '{userId}'
-                            )
-                        )
-                    )
-                )
-            )";
+            SELECT id as roleId 
+			FROM Role 
+			WHERE server = '{serverId}' 
+			AND @rid IN (
+				SELECT in 
+				FROM BelongsToRole 
+				WHERE out IN (
+					SELECT @rid 
+					FROM Subscription 
+					WHERE @rid IN (
+						SELECT in 
+						FROM BelongsToSub 
+						WHERE out IN (
+								SELECT FROM User WHERE id = '{userId}'
+						)
+					)
+				)
+			)";
 
 		string result = await ExecuteCommandAsync(query);
 
@@ -861,7 +881,7 @@ public class OrientDbService
 		string query = $@"
             SELECT in.id AS channelId 
             FROM ChannelNotificated
-            WHERE out IN (
+            WHERE in IN (
                 SELECT in 
                 FROM BelongsToRole 
                 WHERE out IN (
@@ -1178,12 +1198,17 @@ public class OrientDbService
 	public async Task<List<Guid>> GetUsersByServerIdAsync(Guid serverId)
 	{
 		string query = $@"
-        SELECT out.id AS userId 
-        FROM BelongsTo 
-        WHERE in IN (
-            SELECT @rid FROM Role 
-            WHERE server = '{serverId}'
-        )";
+			SELECT out.id AS userId
+			FROM BelongsToSub 
+			WHERE in IN (
+				SELECT @rid FROM Subscription 
+				WHERE @rid IN (
+					SELECT out FROM BelongsToRole 
+					WHERE in IN (
+						SELECT @rid FROM Role WHERE server = '{serverId}'
+					)
+				)
+			)";
 
 		string result = await ExecuteCommandAsync(query);
 		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
@@ -1199,6 +1224,7 @@ public class OrientDbService
 
 		return new List<Guid>();
 	}
+
 
 	private int ExtractCountFromResult(string result)
 	{
