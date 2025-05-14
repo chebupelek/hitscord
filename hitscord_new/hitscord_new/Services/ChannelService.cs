@@ -159,10 +159,7 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = newChannelResponse, UserIds = alertedUsers, Message = "New channel" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(newChannelResponse, alertedUsers, "New channel");
 		}
 	}
 
@@ -219,11 +216,7 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = newUserInVoiceChannel, UserIds = alertedUsers, Message = "New user in voice channel" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, alertedUsers, "New user in voice channel");
 		}
 
 		return (true);
@@ -390,11 +383,7 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = muteStatusResponse, UserIds = alertedUsers, Message = "User mute status is changed" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(muteStatusResponse, alertedUsers, "User mute status is changed");
 		}
 
 		return (true);
@@ -477,10 +466,7 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = deletedChannelResponse, UserIds = alertedUsers, Message = "Channel deleted" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(deletedChannelResponse, alertedUsers, "Channel deleted");
 		}
 
 		return true;
@@ -659,10 +645,7 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Voice channel settings edited");
 		}
 
 		return true;
@@ -781,10 +764,7 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Text channel settings edited");
 		}
 
 		return true;
@@ -885,10 +865,7 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Notification channel settings edited");
 		}
 
 		return true;
@@ -961,10 +938,7 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = changedSettingsresponse, UserIds = alertedUsers, Message = "Channel settings edited" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Sub channel settings edited");
 		}
 
 		return true;

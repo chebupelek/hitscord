@@ -390,14 +390,7 @@ public class MessageService : IMessageService
 			var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(channelId);
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-				{
-					bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "New message" }, "SendNotification");
-				}
-			}
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = new List<Guid> { messageDto.AuthorId }, Message = "Your message is sended" }, "SendNotification");
+				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "New message");
 			}
 
 			var userTags = ExtractUserTags(text);
@@ -406,11 +399,7 @@ public class MessageService : IMessageService
 			var notifiedUsers = await _orientService.GetNotifiableUsersByChannelAsync(channelId, userTags, rolesTags);
 			if (notifiedUsers != null && notifiedUsers.Count() > 0)
 			{
-
-				using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-				{
-					bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = notifiedUsers, Message = "User notified" }, "SendNotification");
-				}
+				await _webSocketManager.BroadcastMessageAsync(messageDto, notifiedUsers, "User notified");
 			}
 		}
 		catch (CustomExceptionUser ex)
@@ -421,10 +410,7 @@ public class MessageService : IMessageService
 				Message = ex.MessageFront,
 				Object = ex.ObjectFront
 			};
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = expetionNotification, UserIds = new List<Guid> { ex.UserId }, Message = "ErrorWithMessage" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
 		}
 	}
 
@@ -491,28 +477,7 @@ public class MessageService : IMessageService
 			var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(message.TextChannelId);
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-
-				using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-				{
-					bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Updated message" }, "SendNotification");
-				}
-			}
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = new List<Guid> { messageDto.AuthorId }, Message = "Your message is updated" }, "SendNotification");
-			}
-
-			var userTags = ExtractUserTags(text);
-			var rolesTags = ExtractRolesTags(text);
-
-			var notifiedUsers = await _orientService.GetNotifiableUsersByChannelAsync(message.TextChannelId, userTags, rolesTags);
-			if (notifiedUsers != null && notifiedUsers.Count() > 0)
-			{
-
-				using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-				{
-					bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = notifiedUsers, Message = "User notified" }, "SendNotification");
-				}
+				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Updated message");
 			}
 		}
 		catch (CustomExceptionUser ex)
@@ -523,10 +488,7 @@ public class MessageService : IMessageService
 				Message = ex.MessageFront,
 				Object = ex.ObjectFront
 			};
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = expetionNotification, UserIds = new List<Guid> { ex.UserId }, Message = "ErrorWithMessage" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
 		}
 	}
 
@@ -573,15 +535,7 @@ public class MessageService : IMessageService
 			var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(message.TextChannelId);
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-
-				using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-				{
-					bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Deleted message" }, "SendNotification");
-				}
-			}
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = new List<Guid> { userId }, Message = "Your message is deleted" }, "SendNotification");
+				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Deleted message");
 			}
 		}
 		catch (CustomExceptionUser ex)
@@ -592,10 +546,7 @@ public class MessageService : IMessageService
 				Message = ex.MessageFront,
 				Object = ex.ObjectFront
 			};
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = expetionNotification, UserIds = new List<Guid> { ex.UserId }, Message = "ErrorWithMessage" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
 		}
 	}
 }

@@ -8,7 +8,7 @@ using HitscordLibrary.Models.other;
 namespace hitscord.Controllers;
 
 [ApiController]
-[Route("friendship")]
+[Route("api/friendship")]
 public class FriendshipController : ControllerBase
 {
     private readonly IFriendshipService _friendshipService;

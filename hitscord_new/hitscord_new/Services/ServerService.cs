@@ -163,11 +163,7 @@ public class ServerService : IServerService
 		alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = newSubscriberResponse, UserIds = alertedUsers, Message = "New user on server" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
 		}
 	}
 
@@ -200,11 +196,7 @@ public class ServerService : IServerService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
 		}
 	}
 
@@ -249,12 +241,8 @@ public class ServerService : IServerService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
-				bus.PubSub.Publish(new NotificationDTO { Notification = newUserRole, UserIds = alertedUsers, Message = "Role changed" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+			await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role changed");
 		}
 	}
 
@@ -498,11 +486,7 @@ public class ServerService : IServerService
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-
-			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-			{
-				bus.PubSub.Publish(new NotificationDTO { Notification = newUnsubscriberResponse, UserIds = alertedUsers, Message = "User unsubscribe" }, "SendNotification");
-			}
+			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
 		}
 	}
 

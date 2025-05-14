@@ -10,7 +10,7 @@ using hitscord.Services;
 namespace hitscord.Controllers;
 
 [ApiController]
-[Route("channel")]
+[Route("api/channel")]
 public class ChannelController : ControllerBase
 {
     private readonly IChannelService _channelService;
