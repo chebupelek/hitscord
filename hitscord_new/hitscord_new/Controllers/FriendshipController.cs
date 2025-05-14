@@ -169,7 +169,7 @@ public class FriendshipController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet]
+    [HttpDelete]
     [Route("delete")]
     public async Task<IActionResult> DeleteFriend([FromQuery] UserIdRequestDTO data)
     {
