@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 using HitscordLibrary.Models.other;
+using hitscord.Services;
 
 namespace hitscord.Controllers;
 
@@ -65,28 +66,91 @@ public class ChannelController : ControllerBase
         }
     }
 
-    [Authorize]
-    [HttpGet]
-    [Route("settings")]
-    public async Task<IActionResult> GetChannelSettings([FromQuery] Guid channelId)
-    {
-        try
-        {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var settings = await _channelService.GetChannelSettingsAsync(channelId, jwtToken);
-            return Ok(settings);
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
+	[Authorize]
+	[HttpGet]
+	[Route("settings/voice")]
+	public async Task<IActionResult> GetVoiceChannelSettings([FromQuery] Guid channelId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var settings = await _channelService.GetVoiceChannelSettingsAsync(channelId, jwtToken);
+			return Ok(settings);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 
-    [Authorize]
+	[Authorize]
+	[HttpGet]
+	[Route("settings/text")]
+	public async Task<IActionResult> GetTextChannelSettings([FromQuery] Guid channelId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var settings = await _channelService.GetTextChannelSettingsAsync(channelId, jwtToken);
+			return Ok(settings);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("settings/notification")]
+	public async Task<IActionResult> GetNotificationChannelSettings([FromQuery] Guid channelId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var settings = await _channelService.GetNotificationChannelSettingsAsync(channelId, jwtToken);
+			return Ok(settings);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("settings/sub")]
+	public async Task<IActionResult> GetSubChannelSettings([FromQuery] Guid channelId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var settings = await _channelService.GetSubChannelSettingsAsync(channelId, jwtToken);
+			return Ok(settings);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
     [HttpGet]
     [Route("messages")]
     public async Task<IActionResult> GetTextChannelMesssages([FromQuery] Guid channelId, [FromQuery] int number, [FromQuery] int fromStart)
@@ -107,28 +171,113 @@ public class ChannelController : ControllerBase
         }
     }
 
-    [Authorize]
-    [HttpPost]
-    [Route("settings/change")]
-    public async Task<IActionResult> ChangeSettings([FromBody] ChannelRoleDTO channelRoleData)
-    {
-        try
-        {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.ChangeChannelSettingsAsync(jwtToken, channelRoleData);
-            return Ok();
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
+	[Authorize]
+	[HttpPost]
+	[Route("settings/change/voice")]
+	public async Task<IActionResult> ChangeVoiceChannelSettings([FromBody] ChannelRoleDTO channelRoleData)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _channelService.ChangeVoiceChannelSettingsAsync(jwtToken, channelRoleData);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 
-    [Authorize]
+	[Authorize]
+	[HttpPost]
+	[Route("settings/change/text")]
+	public async Task<IActionResult> ChangeTexthannelSettings([FromBody] ChannelRoleDTO channelRoleData)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _channelService.ChangeTextChannelSettingsAsync(jwtToken, channelRoleData);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("settings/change/sub")]
+	public async Task<IActionResult> ChangeSubChannelSettings([FromBody] ChannelRoleDTO channelRoleData)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _channelService.ChangeSubChannelSettingsAsync(jwtToken, channelRoleData);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("settings/change/notification")]
+	public async Task<IActionResult> ChangeNotificationChannelSettings([FromBody] ChannelRoleDTO channelRoleData)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _channelService.ChangeNotificationChannelSettingsAsync(jwtToken, channelRoleData);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("name/change")]
+	public async Task<IActionResult> ChangeChannelName([FromBody] ChangeNameDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			data.Validation();
+			await _channelService.ChnageChannnelNameAsync(jwtToken, data.Id, data.Name);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
     [HttpPost]
     [Route("voice/join")]
     public async Task<IActionResult> JoinToVoiceChannel([FromBody] VoiceChannelIdDTO channelId)
@@ -170,7 +319,28 @@ public class ChannelController : ControllerBase
         }
     }
 
-    [Authorize]
+	[Authorize]
+	[HttpGet]
+	[Route("voice/check")]
+	public async Task<IActionResult> CheckVoiceChannel()
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var answer = await _channelService.CheckVoiceChannelAsync(jwtToken);
+			return Ok(answer);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
     [HttpDelete]
     [Route("voice/remove/other")]
     public async Task<IActionResult> RemoveUserFromVoiceChannel([FromBody] RemoveUserDTO channelId)

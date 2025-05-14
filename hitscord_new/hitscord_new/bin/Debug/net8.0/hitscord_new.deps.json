@@ -1667,14 +1667,7 @@
           "runtime.native.System.Security.Cryptography.OpenSsl": "4.3.0"
         }
       },
-      "System.Net.Http.Json/8.0.1": {
-        "runtime": {
-          "lib/net8.0/System.Net.Http.Json.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.1024.46610"
-          }
-        }
-      },
+      "System.Net.Http.Json/8.0.1": {},
       "System.Net.Primitives/4.3.0": {
         "dependencies": {
           "Microsoft.NETCore.Platforms": "3.1.4",
@@ -2090,7 +2083,10 @@
           "OrientDB-NET.binary": "0.2.1"
         },
         "runtime": {
-          "HitscordLibrary.dll": {}
+          "HitscordLibrary.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
         }
       }
     }

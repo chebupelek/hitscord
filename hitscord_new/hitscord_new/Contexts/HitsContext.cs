@@ -15,9 +15,12 @@ namespace hitscord.Contexts
         public DbSet<ChannelDbModel> Channel { get; set; }
         public DbSet<TextChannelDbModel> TextChannel { get; set; }
         public DbSet<VoiceChannelDbModel> VoiceChannel { get; set; }
-        public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
+		public DbSet<NotificationChannelDbModel> NotificationChannel { get; set; }
+		public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
+        public DbSet<FriendshipApplicationDbModel> Friendship { get; set; }
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+
+		protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<ServerDbModel>(entity =>
             {
@@ -49,9 +52,10 @@ namespace hitscord.Contexts
             {
                 entity.HasDiscriminator<string>("ChannelType")
                     .HasValue<TextChannelDbModel>("Text")
-                    .HasValue<VoiceChannelDbModel>("Voice");
+                    .HasValue<VoiceChannelDbModel>("Voice")
+                    .HasValue<NotificationChannelDbModel>("Notification");
 
-                entity.HasOne(c => c.Server)
+				entity.HasOne(c => c.Server)
                     .WithMany(s => s.Channels)
                     .HasForeignKey(c => c.ServerId)
                     .IsRequired();
@@ -71,6 +75,19 @@ namespace hitscord.Contexts
                     .HasForeignKey(uvc => uvc.VoiceChannelId)
                     .IsRequired();
             });
+
+            modelBuilder.Entity<FriendshipApplicationDbModel>(entity =>
+            {
+                entity.HasOne(f => f.UserFrom)
+                    .WithOne()
+                    .HasForeignKey<FriendshipApplicationDbModel>(f => f.UserIdFrom)
+					.IsRequired();
+
+				entity.HasOne(f => f.UserTo)
+					.WithOne()
+					.HasForeignKey<FriendshipApplicationDbModel>(f => f.UserIdTo)
+					.IsRequired();
+			});
         }
     }
 }

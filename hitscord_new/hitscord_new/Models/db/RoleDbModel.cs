@@ -19,7 +19,7 @@ public class RoleDbModel
     [MaxLength(100)]
     public required string Name { get; set; }
 
-    [Required]
+	[Required]
     public required RoleEnum Role { get; set; }
 
     [Required]
@@ -27,4 +27,8 @@ public class RoleDbModel
 
     [ForeignKey(nameof(ServerId))]
     public ServerDbModel Server { get; set; }
+
+    public required string Color { get; set; }
+
+    public required string Tag { get; set; }
 }

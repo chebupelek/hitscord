@@ -1184,14 +1184,7 @@
       },
       "System.IO.Pipelines/6.0.3": {},
       "System.Memory/4.5.5": {},
-      "System.Net.Http.Json/8.0.1": {
-        "runtime": {
-          "lib/net8.0/System.Net.Http.Json.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.1024.46610"
-          }
-        }
-      },
+      "System.Net.Http.Json/8.0.1": {},
       "System.Numerics.Vectors/4.5.0": {},
       "System.Reflection.Metadata/6.0.1": {
         "dependencies": {
@@ -1244,7 +1237,10 @@
           "OrientDB-NET.binary": "0.2.1"
         },
         "runtime": {
-          "HitscordLibrary.dll": {}
+          "HitscordLibrary.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
         }
       }
     }

@@ -34,4 +34,8 @@ public class UserDbModel
     public required string AccountTag { get; set; }
 
     public DateTime AccountCreateDate { get; set; }
+
+    public required bool Notifiable { get; set; }
+	public required bool FriendshipApplication { get; set; }
+	public required bool NonFriendMessage { get; set; }
 }

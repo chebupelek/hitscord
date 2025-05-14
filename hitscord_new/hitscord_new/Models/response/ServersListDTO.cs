@@ -2,5 +2,5 @@
 
 public class ServersListDTO
 {
-    public required List<ServersListItemDTO> ServersList { get; set; }
+    public required List<ServersListItemDTO>? ServersList { get; set; }
 }

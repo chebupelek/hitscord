@@ -37,7 +37,7 @@ public class RabbitMQUtil
                 return response;
             }
         }, configure: x => x.WithQueueName("Get messages"));
-
+        /*
         _bus.PubSub.Subscribe<CreateMessageSocketDTO>("CreateMessage", async request =>
         {
             using (var scope = _serviceProvider.CreateScope())
@@ -74,5 +74,6 @@ public class RabbitMQUtil
             }
 
         }, conf => conf.WithTopic("DeleteMessage"));
+        */
     }
 }

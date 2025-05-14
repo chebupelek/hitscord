@@ -88,13 +88,16 @@ public class AuthorizationService : IAuthorizationService
             Mail = registrationData.Mail,
             PasswordHash = _passwordHasher.HashPassword(registrationData.Mail, registrationData.Password),
             AccountName = registrationData.AccountName,
-            AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(registrationData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + count
+            AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(registrationData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + count,
+            Notifiable = true,
+            FriendshipApplication = true,
+            NonFriendMessage = true
         };
 
         await _hitsContext.User.AddAsync(newUser);
         _hitsContext.SaveChanges();
 
-        await _orientDbService.AddUserAsync(newUser.Id);
+        await _orientDbService.AddUserAsync(newUser.Id, newUser.AccountTag);
 
         var tokens = _tokenService.CreateTokens(newUser);
         await _tokenService.ValidateTokenAsync(tokens.AccessToken, tokens.RefreshToken, newUser.Id);

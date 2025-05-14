@@ -9,6 +9,6 @@ public class MessageResponceDTO
     public required Guid AuthorId { get; set; }
     public required DateTime CreatedAt { get; set; }
     public DateTime? ModifiedAt { get; set; }
-    public Guid? NestedChannelId { get; set; }
+    public MessageSubChannelResponceDTO? NestedChannel { get; set; }
     public MessageResponceDTO? ReplyToMessage { get; set; }
 }

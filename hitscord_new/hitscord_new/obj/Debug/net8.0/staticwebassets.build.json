@@ -1,11 +1,12 @@
 {
   "Version": 1,
-  "Hash": "keo/0Lz26ngTcNXuI0GecSJ9IA8fSnQ07udsgtHhEUA=",
+  "Hash": "Sm+nlBs940KZSLF/LSllzSAd2Xxb01sCgNfmVPAcxTM=",
   "Source": "hitscord_new",
   "BasePath": "_content/hitscord_new",
   "Mode": "Default",
   "ManifestType": "Build",
   "ReferencedProjectsConfiguration": [],
   "DiscoveryPatterns": [],
-  "Assets": []
+  "Assets": [],
+  "Endpoints": []
 }
