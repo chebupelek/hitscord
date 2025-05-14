@@ -157,7 +157,10 @@ public class ServerService : IServerService
 			UserName = newSub.UserServerName,
 			RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
 			RoleName = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Name,
-			UserTag = user.AccountTag
+			UserTag = user.AccountTag,
+			Notifiable = user.Notifiable,
+			FriendshipApplication = user.FriendshipApplication,
+			NonFriendMessage = user.NonFriendMessage
 		};
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
 		alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
