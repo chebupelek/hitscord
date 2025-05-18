@@ -478,8 +478,20 @@ public class ServerService : IServerService
 		var userServer = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSub.Id);
 		userServer.IsBanned = true;
 		_hitsContext.UserServer.Update(userServer);
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == userId && uvc.VoiceChannel.ServerId == serverId);
+		var newRemovedUserResponse = new RemovedUserDTO
+		{
+			ServerId = serverId,
+			IsNeedRemoveFromVC = userVoiceChannel != null
+		};
+		if (userVoiceChannel != null)
+		{
+			_hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
+		}
 		await _hitsContext.SaveChangesAsync();
 		await _orientDbService.UnassignUserFromRoleAsync(userId, userSub.Id);
+
+		await _webSocketManager.BroadcastMessageAsync(newRemovedUserResponse, new List<Guid> { userId }, "You removed from server");
 
 		var newUnsubscriberResponse = new UnsubscribeResponseDTO
 		{
