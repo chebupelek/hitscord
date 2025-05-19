@@ -74,7 +74,17 @@ public class AuthorizationService : IAuthorizationService
         return user;
     }
 
-    public async Task<TokensDTO> CreateAccount(UserRegistrationDTO registrationData)
+	public async Task<UserDbModel> GetUserByTagAsync(string UserTag)
+	{
+		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.AccountTag == UserTag);
+		if (user == null)
+		{
+			throw new CustomException("User not found", "Get user by tag", "User", 404, "Пользователь не найден", "Получение пользователя по тегу");
+		}
+		return user;
+	}
+
+	public async Task<TokensDTO> CreateAccount(UserRegistrationDTO registrationData)
     {
         if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == registrationData.Mail) != null)
         {

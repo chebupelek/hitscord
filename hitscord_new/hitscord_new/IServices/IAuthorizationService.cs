@@ -10,7 +10,8 @@ public interface IAuthorizationService
     Task<bool> CheckUserAuthAsync(string token);
     Task<UserDbModel> GetUserAsync(string token);
     Task<UserDbModel> GetUserAsync(Guid userId);
-    Task<TokensDTO> CreateAccount(UserRegistrationDTO registrationData);
+    Task<UserDbModel> GetUserByTagAsync(string UserTag);
+	Task<TokensDTO> CreateAccount(UserRegistrationDTO registrationData);
     Task<TokensDTO> LoginAsync(LoginDTO loginData);
     Task LogoutAsync(string token);
     Task<TokensDTO> RefreshTokensAsync(string token);
