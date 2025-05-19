@@ -31,10 +31,10 @@ public class FriendshipService : IFriendshipService
 		_orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 	}
 
-    public async Task CreateApplicationAsync(string token, string userTag)
+    public async Task CreateApplicationAsync(string token, Guid userId)
     {
         var user = await _authorizationService.GetUserAsync(token);
-		var friend = await _authorizationService.GetUserByTagAsync(userTag);
+		var friend = await _authorizationService.GetUserAsync(userId);
 
 		if (user.Id == friend.Id)
 		{

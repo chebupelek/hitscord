@@ -5,7 +5,7 @@ namespace hitscord.IServices;
 
 public interface IFriendshipService
 {
-	Task CreateApplicationAsync(string token, string userTag);
+	Task CreateApplicationAsync(string token, Guid userId);
 	Task DeleteApplicationAsync(string token, Guid applicationId);
 	Task DeclineApplicationAsync(string token, Guid applicationId);
 	Task ApproveApplicationAsync(string token, Guid applicationId);

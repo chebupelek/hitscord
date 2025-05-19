@@ -3,12 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\message\\orientdbservice\\orientdbservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|solutionrelative:message\\orientdbservice\\orientdbservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\controllers\\friendshipcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\controllers\\friendshipcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\message\\websockets\\websockethandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|solutionrelative:message\\websockets\\websockethandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\iservices\\ifriendshipservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\iservices\\ifriendshipservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\services\\friendshipservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\services\\friendshipservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -18,32 +22,45 @@
       "DocumentGroups": [
         {
           "DockedWidth": 99,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 2,
           "Children": [
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "WebSocketHandler.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\WebSockets\\WebSocketHandler.cs",
-              "RelativeDocumentMoniker": "Message\\WebSockets\\WebSocketHandler.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\WebSockets\\WebSocketHandler.cs",
-              "RelativeToolTip": "Message\\WebSockets\\WebSocketHandler.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABMAAAAyAAAAAAAAAA==",
+              "Title": "IFriendshipService.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\IServices\\IFriendshipService.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\IServices\\IFriendshipService.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\IServices\\IFriendshipService.cs",
+              "RelativeToolTip": "hitscord_new\\IServices\\IFriendshipService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAA2AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-05-19T06:04:38.376Z",
+              "WhenOpened": "2025-05-19T06:07:29.558Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "FriendshipService.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\FriendshipService.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Services\\FriendshipService.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\FriendshipService.cs",
+              "RelativeToolTip": "hitscord_new\\Services\\FriendshipService.cs",
+              "ViewState": "AgIAABIAAAAAAAAAAAAAABsAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-19T06:07:24.643Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "OrientDbService.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\OrientDbService\\OrientDbService.cs",
-              "RelativeDocumentMoniker": "Message\\OrientDbService\\OrientDbService.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\OrientDbService\\OrientDbService.cs",
-              "RelativeToolTip": "Message\\OrientDbService\\OrientDbService.cs",
-              "ViewState": "AgIAACEAAAAAAAAAAAAowBAAAABYAAAAAAAAAA==",
+              "Title": "FriendshipController.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\FriendshipController.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Controllers\\FriendshipController.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\FriendshipController.cs",
+              "RelativeToolTip": "hitscord_new\\Controllers\\FriendshipController.cs",
+              "ViewState": "AgIAAAYAAAAAAAAAAAAAABkAAABYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-05-19T06:04:20.194Z",
+              "WhenOpened": "2025-05-19T06:07:17.635Z",
               "EditorCaption": ""
             }
           ]

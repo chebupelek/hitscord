@@ -23,12 +23,12 @@ public class FriendshipController : ControllerBase
     [Authorize]
     [HttpPost]
     [Route("application/create")]
-    public async Task<IActionResult> CreateApplication([FromBody] UserTagRequestDTO data)
+    public async Task<IActionResult> CreateApplication([FromBody] UserIdRequestDTO data)
     {
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _friendshipService.CreateApplicationAsync(jwtToken, data.UserTag);
+            await _friendshipService.CreateApplicationAsync(jwtToken, data.UserId);
 
 			return Ok();
         }
