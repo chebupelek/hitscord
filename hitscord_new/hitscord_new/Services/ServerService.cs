@@ -484,10 +484,6 @@ public class ServerService : IServerService
 			ServerId = serverId,
 			IsNeedRemoveFromVC = userVoiceChannel != null
 		};
-		if (userVoiceChannel != null)
-		{
-			_hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
-		}
 		await _hitsContext.SaveChangesAsync();
 		await _orientDbService.UnassignUserFromRoleAsync(userId, userSub.Id);
 
