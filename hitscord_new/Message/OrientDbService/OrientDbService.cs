@@ -12,8 +12,9 @@ public class OrientDbService
 {
 	private readonly HttpClient _client;
 	private readonly string _dbName;
+	private readonly ILogger<OrientDbService> _logger;
 
-	public OrientDbService(IOptions<OrientDbConfig> config)
+	public OrientDbService(IOptions<OrientDbConfig> config, ILogger<OrientDbService> logger)
 	{
 		var settings = config.Value;
 		_dbName = settings.DbName;
@@ -21,6 +22,7 @@ public class OrientDbService
 
 		var authToken = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{settings.User}:{settings.Password}"));
 		_client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authToken);
+		_logger = logger;
 	}
 
 	private async Task<string> ExecuteCommandAsync(string sql)
@@ -338,6 +340,10 @@ public class OrientDbService
 		foreach (var item in userTagParsed?.result ?? new JArray())
 			allUserIds.Add(Guid.Parse(item.userId.ToString()));
 
+		_logger.LogInformation("userTagResult: {userTagResult}", string.Join(", ", userTagResult));
+
+		_logger.LogInformation("User tags 1: {UserTags}", string.Join(", ", allUserIds));
+
 		string roleTagQuery = $@"
 				SELECT id AS userId
 				FROM User
@@ -365,6 +371,8 @@ public class OrientDbService
 		foreach (var item in roleTagParsed?.result ?? new JArray())
 			allUserIds.Add(Guid.Parse(item.userId.ToString()));
 
+		_logger.LogInformation("User tags 2: {UserTags}", string.Join(", ", allUserIds));
+
 		string channelEdgeQuery = $@"
 				SELECT id AS userId
 				FROM User
@@ -391,11 +399,19 @@ public class OrientDbService
 		foreach (var item in channelEdgeParsed?.result ?? new JArray())
 			allUserIds.Add(Guid.Parse(item.userId.ToString()));
 
+		_logger.LogInformation("User tags 3: {UserTags}", string.Join(", ", allUserIds));
+
 		var allNotifiedUsers = allUserIds.ToList();
+
+		_logger.LogInformation("User tags 4: {UserTags}", string.Join(", ", allNotifiedUsers));
 
 		var usersCanSee = await GetUsersThatCanSeeChannelAsync(channelId);
 
+		_logger.LogInformation("User tags 5: {UserTags}", string.Join(", ", usersCanSee));
+
 		var notifiedUsers = allNotifiedUsers.Where(u => usersCanSee.Contains(u)).ToList();
+
+		_logger.LogInformation("User tags 6: {UserTags}", string.Join(", ", notifiedUsers));
 
 		return notifiedUsers;
 	}
