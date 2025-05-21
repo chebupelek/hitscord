@@ -68,76 +68,13 @@ public class ChannelController : ControllerBase
 
 	[Authorize]
 	[HttpGet]
-	[Route("settings/voice")]
-	public async Task<IActionResult> GetVoiceChannelSettings([FromQuery] Guid channelId)
+	[Route("settings")]
+	public async Task<IActionResult> GetChannelSettings([FromQuery] Guid channelId)
 	{
 		try
 		{
 			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var settings = await _channelService.GetVoiceChannelSettingsAsync(channelId, jwtToken);
-			return Ok(settings);
-		}
-		catch (CustomException ex)
-		{
-			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
-		}
-		catch (Exception ex)
-		{
-			return StatusCode(500, ex.Message);
-		}
-	}
-
-	[Authorize]
-	[HttpGet]
-	[Route("settings/text")]
-	public async Task<IActionResult> GetTextChannelSettings([FromQuery] Guid channelId)
-	{
-		try
-		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var settings = await _channelService.GetTextChannelSettingsAsync(channelId, jwtToken);
-			return Ok(settings);
-		}
-		catch (CustomException ex)
-		{
-			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
-		}
-		catch (Exception ex)
-		{
-			return StatusCode(500, ex.Message);
-		}
-	}
-
-	[Authorize]
-	[HttpGet]
-	[Route("settings/notification")]
-	public async Task<IActionResult> GetNotificationChannelSettings([FromQuery] Guid channelId)
-	{
-		try
-		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var settings = await _channelService.GetNotificationChannelSettingsAsync(channelId, jwtToken);
-			return Ok(settings);
-		}
-		catch (CustomException ex)
-		{
-			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
-		}
-		catch (Exception ex)
-		{
-			return StatusCode(500, ex.Message);
-		}
-	}
-
-	[Authorize]
-	[HttpGet]
-	[Route("settings/sub")]
-	public async Task<IActionResult> GetSubChannelSettings([FromQuery] Guid channelId)
-	{
-		try
-		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var settings = await _channelService.GetSubChannelSettingsAsync(channelId, jwtToken);
+			var settings = await _channelService.GetChannelSettings(channelId, jwtToken);
 			return Ok(settings);
 		}
 		catch (CustomException ex)

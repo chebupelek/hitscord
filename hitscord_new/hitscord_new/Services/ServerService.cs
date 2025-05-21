@@ -74,7 +74,7 @@ public class ServerService : IServerService
         return newRole;
     }
 
-    public async Task CreateServerAsync(string token, string serverName)
+    public async Task<ServerIdDTO> CreateServerAsync(string token, string serverName)
     {
         var user = await _authorizationService.GetUserAsync(token);
 
@@ -125,6 +125,8 @@ public class ServerService : IServerService
         newServer.Channels.Add(newVoiceChannel);
         _hitsContext.Server.Update(newServer);
         await _hitsContext.SaveChangesAsync();
+
+		return (new ServerIdDTO { ServerId = newServer.Id });
     }
 
 	public async Task SubscribeAsync(Guid serverId, string token, string? userName)

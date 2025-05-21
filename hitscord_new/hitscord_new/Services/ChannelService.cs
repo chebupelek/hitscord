@@ -50,7 +50,7 @@ public class ChannelService : IChannelService
 	public async Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId)
 	{
 		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is TextChannelDbModel);
-		if (channel == null)
+		if (channel == null || ((TextChannelDbModel)channel).IsMessage == true)
 		{
 			throw new CustomException("Text channel not found", "Check text channel for existing", "Text channel", 404, "Текстовый канал не найден", "Проверка наличия текстового канала");
 		}
@@ -107,6 +107,30 @@ public class ChannelService : IChannelService
 			throw new CustomException("Sub channel not found", "Check sub channel for existing", "Sub channel", 404, "Под канал не найден", "Проверка наличия под канала");
 		}
 		return channel;
+	}
+
+	public async Task<ChannelTypeEnum> GetChannelType(Guid channelId)
+	{
+		if (await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is TextChannelDbModel && ((TextChannelDbModel)c).IsMessage == false) != null)
+		{
+			return ChannelTypeEnum.Text;
+		}
+		else if (await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is VoiceChannelDbModel) != null)
+		{
+			return ChannelTypeEnum.Voice;
+		}
+		else if (await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is NotificationChannelDbModel) != null)
+		{
+			return ChannelTypeEnum.Notification;
+		}
+		else if (await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is TextChannelDbModel && ((TextChannelDbModel)c).IsMessage == true) != null)
+		{
+			return ChannelTypeEnum.Sub;
+		}
+		else
+		{
+			throw new CustomException("Channel not found", "Get channel type", "Channel Id", 404, "Канал не найден", "Проверка типа канала");
+		}
 	}
 
 	public async Task CreateChannelAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType)
@@ -493,80 +517,73 @@ public class ChannelService : IChannelService
 		return true;
 	}
 
-	public async Task<ChannelSettingsDTO> GetVoiceChannelSettingsAsync(Guid chnnelId, string token)
+	public async Task<ChannelSettingsDTO> GetChannelSettings(Guid chnnelId, string token)
 	{
 		var user = await _authService.GetUserAsync(token);
-		var channel = await CheckVoiceChannelExistAsync(chnnelId, false);
-		await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
+		var type = await GetChannelType(chnnelId);
 
-		var roles = new ChannelSettingsDTO
+		switch (type)
 		{
-			CanSee = await _orientDbService.GetRolesThatCanSeeChannelAsync(channel.Id),
-			CanJoin = await _orientDbService.GetRolesThatCanJoinVoiceChannelAsync(channel.Id),
-			CanWrite = null,
-			CanWriteSub = null,
-			CanUse = null,
-			Notificated = null
-		};
+			case ChannelTypeEnum.Text:
+				var channelText = await CheckTextChannelExistAsync(chnnelId);
+				await _authenticationService.CheckUserRightsWorkWithChannels(channelText.ServerId, user.Id);
+				var rolesText = new ChannelSettingsDTO
+				{
+					CanSee = await _orientDbService.GetRolesThatCanSeeChannelAsync(channelText.Id),
+					CanJoin = null,
+					CanWrite = await _orientDbService.GetRolesThatCanWriteChannelAsync(channelText.Id),
+					CanWriteSub = await _orientDbService.GetRolesThatCanWriteSubChannelAsync(channelText.Id),
+					CanUse = null,
+					Notificated = null
+				};
+				return rolesText;
 
-		return roles;
-	}
+			case ChannelTypeEnum.Voice:
+				var channelVoice = await CheckVoiceChannelExistAsync(chnnelId, false);
+				await _authenticationService.CheckUserRightsWorkWithChannels(channelVoice.ServerId, user.Id);
+				var rolesVoice = new ChannelSettingsDTO
+				{
+					CanSee = await _orientDbService.GetRolesThatCanSeeChannelAsync(channelVoice.Id),
+					CanJoin = await _orientDbService.GetRolesThatCanJoinVoiceChannelAsync(channelVoice.Id),
+					CanWrite = null,
+					CanWriteSub = null,
+					CanUse = null,
+					Notificated = null
+				};
+				return rolesVoice;
 
-	public async Task<ChannelSettingsDTO> GetTextChannelSettingsAsync(Guid chnnelId, string token)
-	{
-		var user = await _authService.GetUserAsync(token);
-		var channel = await CheckTextChannelExistAsync(chnnelId);
-		await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
+			case ChannelTypeEnum.Notification:
+				var channelNotification = await CheckNotificationChannelExistAsync(chnnelId);
+				await _authenticationService.CheckUserRightsWorkWithChannels(channelNotification.ServerId, user.Id);
+				var rolesNotification = new ChannelSettingsDTO
+				{
+					CanSee = await _orientDbService.GetRolesThatCanSeeChannelAsync(channelNotification.Id),
+					CanJoin = null,
+					CanWrite = await _orientDbService.GetRolesThatCanWriteChannelAsync(channelNotification.Id),
+					CanWriteSub = null,
+					CanUse = null,
+					Notificated = await _orientDbService.GetNotificatedRolesChannelAsync(channelNotification.Id)
+				};
 
-		var roles = new ChannelSettingsDTO
-		{
-			CanSee = await _orientDbService.GetRolesThatCanSeeChannelAsync(channel.Id),
-			CanJoin = null,
-			CanWrite = await _orientDbService.GetRolesThatCanWriteChannelAsync(channel.Id),
-			CanWriteSub = await _orientDbService.GetRolesThatCanWriteSubChannelAsync(channel.Id),
-			CanUse = null,
-			Notificated = null
-		};
+				return rolesNotification;
 
-		return roles;
-	}
+			case ChannelTypeEnum.Sub:
+				var channelSub = await CheckSubChannelExistAsync(chnnelId);
+				await _authenticationService.CheckUserRightsWorkWithChannels(channelSub.ServerId, user.Id);
+				var rolesSub = new ChannelSettingsDTO
+				{
+					CanSee = null,
+					CanJoin = null,
+					CanWrite = null,
+					CanWriteSub = null,
+					CanUse = await _orientDbService.GetRolesThatCanUseSubChannelAsync(channelSub.Id),
+					Notificated = null
+				};
+				return rolesSub;
 
-	public async Task<ChannelSettingsDTO> GetNotificationChannelSettingsAsync(Guid chnnelId, string token)
-	{
-		var user = await _authService.GetUserAsync(token);
-		var channel = await CheckNotificationChannelExistAsync(chnnelId);
-		await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
-
-		var roles = new ChannelSettingsDTO
-		{
-			CanSee = await _orientDbService.GetRolesThatCanSeeChannelAsync(channel.Id),
-			CanJoin = null,
-			CanWrite = await _orientDbService.GetRolesThatCanWriteChannelAsync(channel.Id),
-			CanWriteSub = null,
-			CanUse = null,
-			Notificated = await _orientDbService.GetNotificatedRolesChannelAsync(channel.Id)
-		};
-
-		return roles;
-	}
-
-	public async Task<ChannelSettingsDTO> GetSubChannelSettingsAsync(Guid chnnelId, string token)
-	{
-		var user = await _authService.GetUserAsync(token);
-		var channel = await CheckSubChannelExistAsync(chnnelId);
-		await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
-
-		var roles = new ChannelSettingsDTO
-		{
-			CanSee = null,
-			CanJoin = null,
-			CanWrite = null,
-			CanWriteSub = null,
-			CanUse = await _orientDbService.GetRolesThatCanUseSubChannelAsync(channel.Id),
-			Notificated = null
-		};
-
-		return roles;
+			default:
+				throw new CustomException("Channel not found", "Get channel settings", "Channel id", 404, "Канал не найден", "Получение настроек канала");
+		}
 	}
 
 	public async Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, string token, int number, int fromStart)

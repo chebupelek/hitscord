@@ -18,10 +18,7 @@ public interface IChannelService
     Task<bool> ChangeSelfMuteStatusAsync(string token);
     Task<bool> ChangeUserMuteStatusAsync(string token, Guid UserId);
     Task<bool> DeleteChannelAsync(Guid chnnelId, string token);
-	Task<ChannelSettingsDTO> GetVoiceChannelSettingsAsync(Guid chnnelId, string token);
-	Task<ChannelSettingsDTO> GetTextChannelSettingsAsync(Guid chnnelId, string token);
-	Task<ChannelSettingsDTO> GetNotificationChannelSettingsAsync(Guid chnnelId, string token);
-	Task<ChannelSettingsDTO> GetSubChannelSettingsAsync(Guid chnnelId, string token);
+    Task<ChannelSettingsDTO> GetChannelSettings(Guid chnnelId, string token);
 	Task<bool> ChangeVoiceChannelSettingsAsync(string token, ChannelRoleDTO settingsData);
 	Task<bool> ChangeTextChannelSettingsAsync(string token, ChannelRoleDTO settingsData);
 	Task<bool> ChangeNotificationChannelSettingsAsync(string token, ChannelRoleDTO settingsData);
