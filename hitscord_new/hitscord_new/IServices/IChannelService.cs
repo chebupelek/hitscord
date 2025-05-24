@@ -29,4 +29,6 @@ public interface IChannelService
     Task<UserVoiceChannelCheck?> CheckVoiceChannelAsync(string token);
     Task<SubChannelResponseRabbit> CreateSubChannelAsync(string token, Guid textChannelId);
     Task DeleteSubChannelAsync(string token, Guid subChannelId);
+
+    Task ChangeNonNotifiableChannelAsync(string token, Guid channelId);
 }

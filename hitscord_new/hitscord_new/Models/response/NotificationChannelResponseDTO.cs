@@ -6,4 +6,5 @@ public class NotificationChannelResponseDTO
     public required string ChannelName { get; set; }
     public required bool CanWrite { get; set; }
 	public required bool IsNotificated { get; set; }
+    public required bool IsNotifiable { get; set; }
 }

@@ -287,14 +287,16 @@ public class ServerService : IServerService
     {
         var user = await _authorizationService.GetUserAsync(token);
         var idsList = await _orientDbService.GetSubscribedServerIdsListAsync(user.Id);
-        return new ServersListDTO
+		var notifiableList = await _orientDbService.GetNonNotifiableServersForUserAsync(user.Id);
+		return new ServersListDTO
         {
             ServersList = await _hitsContext.Server
                 .Where(s => idsList.Contains(s.Id))
                 .Select(s => new ServersListItemDTO
                 {
                     ServerId = s.Id,
-                    ServerName = s.Name
+                    ServerName = s.Name,
+					IsNotifiable = !notifiableList.Contains(s.Id)
                 })
                 .ToListAsync()
         };
@@ -365,6 +367,8 @@ public class ServerService : IServerService
 		var channelCanWriteSub = await _orientDbService.GetWritableSubChannelsAsync(user.Id, serverId);
 		var channelCanNotificate = await _orientDbService.GetNotificatedChannelsAsync(user.Id, serverId);
 		var channelCanJoin = await _orientDbService.GetJoinableChannelsAsync(user.Id, serverId);
+		var notifiableServersList = await _orientDbService.GetNonNotifiableServersForUserAsync(user.Id);
+		var notifiableChannelsList = await _orientDbService.GetNonNotifiableChannelsForUserAsync(user.Id, serverId);
 
 		var voiceChannelResponses = await _hitsContext.VoiceChannel
 			.Include(vc => vc.Users)
@@ -406,6 +410,7 @@ public class ServerService : IServerService
 			CanDeleteUsers = result.Contains("ServerCanDeleteUsers"),
 			CanWorkWithChannels = result.Contains("ServerCanWorkChannels"),
 			CanMuteOthers = result.Contains("ServerCanMuteOther"),
+			IsNotifiable = !notifiableServersList.Contains(serverId),
 			Users = await _hitsContext.UserServer
 				.Include(us => us.Role)
 				.Where(us => us.Role.ServerId == serverId)
@@ -439,6 +444,7 @@ public class ServerService : IServerService
 					ChannelId = c.Id,
 					CanWrite = channelCanWrite.Contains(c.Id),
 					CanWriteSub = channelCanWriteSub.Contains(c.Id),
+					IsNotifiable = !notifiableChannelsList.Contains(c.Id)
 				})
 				.ToList(),
 				NotificationChannels = server.Channels
@@ -453,6 +459,7 @@ public class ServerService : IServerService
 					ChannelId = c.Id,
 					CanWrite = channelCanWrite.Contains(c.Id),
 					IsNotificated = channelCanNotificate.Contains(c.Id),
+					IsNotifiable = !notifiableChannelsList.Contains(c.Id)
 				})
 				.ToList(),
 				VoiceChannels = voiceChannelResponses
@@ -573,5 +580,14 @@ public class ServerService : IServerService
 		{
 			await _webSocketManager.BroadcastMessageAsync(changeServerName, alertedUsers, "New users name on server");
 		}
+	}
+
+	public async Task ChangeNonNotifiableServerAsync(string token, Guid serverId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckSubscriptionExistAsync(server.Id, owner.Id);
+
+		await _orientDbService.ChangeNonNotifiableServer(owner.Id, server.Id);
 	}
 }

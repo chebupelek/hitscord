@@ -360,4 +360,25 @@ public class ChannelController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+	[Authorize]
+	[HttpPut]
+	[Route("settings/nonnotifiable")]
+	public async Task<IActionResult> ChangeNonNotifiable([FromBody] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _channelService.ChangeNonNotifiableChannelAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }

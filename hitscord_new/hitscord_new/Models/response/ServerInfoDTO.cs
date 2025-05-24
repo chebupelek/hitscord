@@ -14,6 +14,7 @@ public class ServerInfoDTO
 	public required bool CanDeleteUsers { get; set; }
 	public required bool CanWorkWithChannels { get; set; }
 	public required bool CanMuteOthers { get; set; }
+	public required bool IsNotifiable { get; set; }
 	public required List<ServerUserDTO> Users { get; set; }
 	public required ChannelListDTO Channels { get; set; }
 }

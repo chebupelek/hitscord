@@ -17,4 +17,8 @@ public interface IAuthorizationService
     Task<TokensDTO> RefreshTokensAsync(string token);
     Task<ProfileDTO> GetProfileAsync(string token);
     Task<ProfileDTO> ChangeProfileAsync(string token, ChangeProfileDTO newData);
+    Task ChangeNotifiableAsync(string token);
+    Task ChangeFriendshipAsync(string token);
+    Task ChangeNonFriendAsync(string token);
+    Task<UserResponseDTO> GetUserDataByIdAsync(string token, Guid userId);
 }

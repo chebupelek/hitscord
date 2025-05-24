@@ -1061,4 +1061,13 @@ public class ChannelService : IChannelService
 
 		await _orientDbService.DeleteChannelAsync(subChannelId);
 	}
+
+	public async Task ChangeNonNotifiableChannelAsync(string token, Guid channelId)
+	{
+		var owner = await _authService.GetUserAsync(token);
+		var channel = await CheckTextOrNotificationChannelExistAsync(channelId);
+		await _authenticationService.CheckUserRightsSeeChannel(channel.Id, owner.Id);
+
+		await _orientDbService.ChangeNonNotifiableChannel(owner.Id, channel.Id);
+	}
 }

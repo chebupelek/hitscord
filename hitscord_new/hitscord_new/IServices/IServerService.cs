@@ -20,4 +20,5 @@ public interface IServerService
     Task<RolesListDTO> GetServerRolesAsync(string token, Guid serverId);
     Task ChangeServerNameAsync(Guid serverId, string token, string name);
     Task ChangeUserNameAsync(Guid serverId, string token, string name);
+    Task ChangeNonNotifiableServerAsync(string token, Guid serverId);
 }

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 using HitscordLibrary.Models.other;
+using Newtonsoft.Json;
 
 namespace hitscord.Controllers;
 
@@ -150,4 +151,92 @@ public class AuthorizationController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+	[Authorize]
+	[HttpPut]
+	[Route("settings/notifiable")]
+	public async Task<IActionResult> ChangeNotifiable()
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _authService.ChangeNotifiableAsync(jwtToken);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("settings/friendship")]
+	public async Task<IActionResult> ChangeFriendship()
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _authService.ChangeFriendshipAsync(jwtToken);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("settings/nonfriend")]
+	public async Task<IActionResult> ChangeNonFriend()
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _authService.ChangeNonFriendAsync(jwtToken);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("data")]
+	public async Task<IActionResult> GetUserById([FromQuery] Guid UserId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			var data = await _authService.GetUserDataByIdAsync(jwtToken, UserId);
+			return Ok(data);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }

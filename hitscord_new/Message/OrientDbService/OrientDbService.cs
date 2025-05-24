@@ -489,4 +489,81 @@ public class OrientDbService
 
 		return roles;
 	}
+
+	public async Task<List<Guid>> GetNonNotifiableChannelsForUserAsync(Guid userId)
+	{
+		string query = $@"
+			SELECT id AS channelId
+			FROM SubChannel
+			WHERE @rid IN (
+				SELECT in
+				FROM ContainsChannel
+				WHERE out IN (
+					SELECT @rid
+					FROM Server
+					WHERE @rid IN (
+						SELECT out
+						FROM ContainsRole
+						WHERE in IN (
+							SELECT @rid
+							FROM Role
+							WHERE @rid IN (
+								SELECT in
+								FROM BelongsToRole 
+								WHERE out IN (
+									SELECT @rid
+									FROM Subscription 
+									WHERE user = '{userId}'
+								)
+							)
+						)
+					)
+				)
+			)
+			AND @rid IN (
+				SELECT in
+				FROM ChannelCanUse
+				WHERE out IN (
+					SELECT @rid
+					FROM Role
+					WHERE @rid IN (
+						SELECT in
+						FROM BelongsToRole 
+						WHERE out IN (
+							SELECT @rid
+							FROM Subscription 
+							WHERE user = '{userId}'
+						)
+					)
+				)
+			)
+			AND @rid IN (
+				SELECT out
+				FROM NonNotifiableChannel 
+				WHERE in IN (
+					SELECT @rid
+					FROM Subscription 
+					WHERE user = '{userId}'
+				)
+			)
+        )";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+
+		List<Guid> channels = new List<Guid>();
+
+		if (parsedResult?.result != null)
+		{
+			foreach (var r in parsedResult.result)
+			{
+				if (r.serverId != null)
+				{
+					channels.Add(Guid.Parse((string)r.channelId));
+				}
+			}
+		}
+
+		return channels;
+	}
 }

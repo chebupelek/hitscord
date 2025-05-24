@@ -174,4 +174,51 @@ public class AuthorizationService : IAuthorizationService
 
         return newUserData;
     }
+
+	public async Task ChangeNotifiableAsync(string token)
+	{
+		var userData = await GetUserAsync(token);
+		userData.Notifiable = !userData.Notifiable;
+        _hitsContext.User.Update(userData);
+        await _hitsContext.SaveChangesAsync();
+
+        await _orientDbService.UpdateUserNotifiableAsync(userData.Id, userData.Notifiable);
+	}
+
+	public async Task ChangeFriendshipAsync(string token)
+	{
+		var userData = await GetUserAsync(token);
+		userData.FriendshipApplication = !userData.FriendshipApplication;
+		_hitsContext.User.Update(userData);
+		await _hitsContext.SaveChangesAsync();
+
+		await _orientDbService.UpdateUserFriendshipApplicationAsync(userData.Id, userData.FriendshipApplication);
+	}
+
+	public async Task ChangeNonFriendAsync(string token)
+	{
+		var userData = await GetUserAsync(token);
+		userData.NonFriendMessage = !userData.NonFriendMessage;
+		_hitsContext.User.Update(userData);
+		await _hitsContext.SaveChangesAsync();
+
+		await _orientDbService.UpdateUserNonFriendMessageAsync(userData.Id, userData.NonFriendMessage);
+	}
+
+    public async Task<UserResponseDTO> GetUserDataByIdAsync(string token, Guid userId)
+    {
+		var user = await GetUserAsync(token);
+        var userById = await GetUserAsync(userId);
+        var userData = new UserResponseDTO
+        {
+            UserId = userId,
+            UserName = userById.AccountName,
+            UserTag = userById.AccountTag,
+            Mail = userById.Mail,
+            Notifiable = userById.Notifiable,
+            NonFriendMessage = userById.NonFriendMessage,
+            FriendshipApplication = userById.FriendshipApplication
+        };
+        return userData;
+	}
 }

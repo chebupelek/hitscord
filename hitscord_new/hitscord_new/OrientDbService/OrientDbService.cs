@@ -9,6 +9,7 @@ using HitscordLibrary.Models.other;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using static Authzed.Api.V1.CheckDebugTrace.Types;
 
 namespace hitscord.OrientDb.Service;
 
@@ -1457,4 +1458,212 @@ public class OrientDbService
 		await ExecuteCommandAsync(query);
 	}
 
+	public async Task UpdateUserNotifiableAsync(Guid userId, bool notifiable)
+	{
+		string checkQuery = $@"
+        SELECT FROM User WHERE id = '{userId}'";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string updateQuery = $@"
+            UPDATE User SET notifiable = {notifiable.ToString().ToLower()} WHERE id = '{userId}'";
+
+			await ExecuteCommandAsync(updateQuery);
+		}
+	}
+
+	public async Task UpdateUserFriendshipApplicationAsync(Guid userId, bool friendship)
+	{
+		string checkQuery = $@"
+        SELECT FROM User WHERE id = '{userId}'";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string updateQuery = $@"
+            UPDATE User SET friendshipApplication = {friendship.ToString().ToLower()} WHERE id = '{userId}'";
+
+			await ExecuteCommandAsync(updateQuery);
+		}
+	}
+
+	public async Task UpdateUserNonFriendMessageAsync(Guid userId, bool nonFriend)
+	{
+		string checkQuery = $@"
+        SELECT FROM User WHERE id = '{userId}'";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string updateQuery = $@"
+            UPDATE User SET nonFriendMessage = {nonFriend.ToString().ToLower()} WHERE id = '{userId}'";
+
+			await ExecuteCommandAsync(updateQuery);
+		}
+	}
+
+	public async Task ChangeNonNotifiableChannel(Guid userId, Guid channelId)
+	{
+		string checkQuery = $"SELECT FROM NonNotifiableChannel WHERE out IN (SELECT @rid FROM TextChannel Where id = '{channelId}') AND in IN (SELECT @rid FROM Subscription WHERE user = '{userId}')";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string query = $"CREATE EDGE NonNotifiableChannel FROM (SELECT @rid FROM TextChannel Where id = '{channelId}') TO (SELECT @rid FROM Subscription WHERE user = '{userId}')";
+			await ExecuteCommandAsync(query);
+		}
+		else
+		{
+			string deleteEdgeQuery = $@"DELETE EDGE NonNotifiableChannel WHERE out IN (SELECT @rid FROM TextChannel Where id = '{channelId}') AND in IN (SELECT @rid FROM Subscription WHERE user = '{userId}')";
+			await ExecuteCommandAsync(deleteEdgeQuery);
+		}
+	}
+
+	public async Task ChangeNonNotifiableServer(Guid userId, Guid serverId)
+	{
+		string checkQuery = $"SELECT FROM NonNotifiableServer WHERE out IN (SELECT @rid FROM Server Where id = '{serverId}') AND in IN (SELECT @rid FROM Subscription WHERE user = '{userId}')";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string query = $"CREATE EDGE NonNotifiableServer FROM (SELECT @rid FROM Server Where id = '{serverId}') TO (SELECT @rid FROM Subscription WHERE user = '{userId}')";
+			await ExecuteCommandAsync(query);
+		}
+		else
+		{
+			string deleteEdgeQuery = $@"DELETE EDGE NonNotifiableServer WHERE out IN (SELECT @rid FROM Server Where id = '{serverId}') AND in IN (SELECT @rid FROM Subscription WHERE user = '{userId}')";
+			await ExecuteCommandAsync(deleteEdgeQuery);
+		}
+	}
+
+	public async Task<List<Guid>> GetNonNotifiableServersForUserAsync(Guid userId)
+	{
+		string query = $@"
+			SELECT id AS serverId
+			FROM Server
+			WHERE @rid IN (
+				SELECT out
+				FROM ContainsRole
+				WHERE in IN (
+					SELECT @rid
+					FROM Role
+					WHERE @rid IN (
+						SELECT in
+						FROM BelongsToRole 
+						WHERE out IN (
+							SELECT @rid
+							FROM Subscription 
+							WHERE user = '{userId}'
+						)
+					)
+				)
+			)
+			AND @rid IN (
+				SELECT out
+				FROM NonNotifiableServer 
+				WHERE in IN (
+					SELECT @rid
+					FROM Subscription 
+					WHERE user = '{userId}'
+				)
+			)
+        )";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+
+		List<Guid> servers = new List<Guid>();
+
+		if (parsedResult?.result != null)
+		{
+			foreach (var r in parsedResult.result)
+			{
+				if (r.serverId != null)
+				{
+					servers.Add(Guid.Parse((string)r.serverId));
+				}
+			}
+		}
+
+		return servers;
+	}
+
+	public async Task<List<Guid>> GetNonNotifiableChannelsForUserAsync(Guid userId, Guid serverId)
+	{
+		string query = $@"
+			SELECT id AS channelId
+			FROM TextChannel
+			WHERE @rid IN (
+				SELECT in
+				FROM ContainsChannel
+				WHERE out IN (
+					SELECT @rid
+					FROM Server
+					WHERE @rid IN (
+						SELECT out
+						FROM ContainsRole
+						WHERE in IN (
+							SELECT @rid
+							FROM Role
+							WHERE @rid IN (
+								SELECT in
+								FROM BelongsToRole 
+								WHERE out IN (
+									SELECT @rid
+									FROM Subscription 
+									WHERE user = '{userId}'
+								)
+							)
+						)
+					)
+					AND id = '{serverId}'
+				)
+			)
+			AND @rid IN (
+				SELECT in
+				FROM ChannelCanSee
+				WHERE out IN (
+					SELECT @rid
+					FROM Role
+					WHERE @rid IN (
+						SELECT in
+						FROM BelongsToRole 
+						WHERE out IN (
+							SELECT @rid
+							FROM Subscription 
+							WHERE user = '{userId}'
+						)
+					)
+				)
+			)
+			AND @rid IN (
+				SELECT out
+				FROM NonNotifiableChannel 
+				WHERE in IN (
+					SELECT @rid
+					FROM Subscription 
+					WHERE user = '{userId}'
+				)
+			)
+        )";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+
+		List<Guid> channels = new List<Guid>();
+
+		if (parsedResult?.result != null)
+		{
+			foreach (var r in parsedResult.result)
+			{
+				if (r.serverId != null)
+				{
+					channels.Add(Guid.Parse((string)r.channelId));
+				}
+			}
+		}
+
+		return channels;
+	}
 }

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using hitscord.Models.DTOModels.request;
 using HitscordLibrary.Models.other;
+using hitscord.Services;
 
 namespace hitscord.Controllers;
 
@@ -269,6 +270,27 @@ public class ServerController : ControllerBase
 			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			data.Validation();
 			await _serverService.ChangeServerNameAsync(data.Id, jwtToken, data.Name);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("settings/nonnotifiable")]
+	public async Task<IActionResult> ChangeNonNotifiable([FromBody] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _serverService.ChangeNonNotifiableServerAsync(jwtToken, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)

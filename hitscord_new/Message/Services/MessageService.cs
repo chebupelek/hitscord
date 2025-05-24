@@ -98,6 +98,7 @@ public class MessageService : IMessageService
 			{
 				SubChannelId = (Guid)newMessage.NestedChannelId,
 				RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)newMessage.NestedChannelId),
+				IsNotifiable = false
 			},
 			ReplyToMessage = null
         };
@@ -154,6 +155,7 @@ public class MessageService : IMessageService
 			{
 				SubChannelId = (Guid)message.NestedChannelId,
 				RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)message.NestedChannelId),
+				IsNotifiable = false
 			},
 			ReplyToMessage = null
         };
@@ -235,6 +237,8 @@ public class MessageService : IMessageService
 				.OrderBy(m => m.CreatedAt)
 				.ToListAsync();
 
+			var nonNotifiableChannels = await _orientService.GetNonNotifiableChannelsForUserAsync(userId);
+
 			var messages = new MessageListResponseDTO
 			{
 				Messages = (await Task.WhenAll(messagesFresh
@@ -250,7 +254,8 @@ public class MessageService : IMessageService
 						NestedChannel = m.NestedChannelId == null ? null : new MessageSubChannelResponceDTO
 						{
 							SubChannelId = (Guid)m.NestedChannelId,
-							CanUse = await _orientService.CanUserUseSubChannelAsync(userId, (Guid)m.NestedChannelId)
+							CanUse = await _orientService.CanUserUseSubChannelAsync(userId, (Guid)m.NestedChannelId),
+							IsNotifiable = !nonNotifiableChannels.Contains((Guid)m.NestedChannelId)
 						},
 						ReplyToMessage = m.ReplyToMessage == null ? null : new MessageResponceDTO
 						{
@@ -383,6 +388,8 @@ public class MessageService : IMessageService
 			_messageContext.Messages.Add(newMessage);
 			await _messageContext.SaveChangesAsync();
 
+			var nonNotifiableChannels = await _orientService.GetNonNotifiableChannelsForUserAsync(userId);
+
 			var serverId = await _orientService.GetServerIdByChannelIdAsync(channelId);
 			var messageDto = new MessageResponceSocket
 			{
@@ -397,6 +404,7 @@ public class MessageService : IMessageService
 				{
 					SubChannelId = (Guid)newMessage.NestedChannelId,
 					RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)newMessage.NestedChannelId),
+					IsNotifiable = !nonNotifiableChannels.Contains((Guid)newMessage.NestedChannelId)
 				},
 				ReplyToMessage = replyedMessage
 			};
@@ -459,6 +467,8 @@ public class MessageService : IMessageService
 
 			var serverId = await _orientService.GetServerIdByChannelIdAsync(message.TextChannelId);
 
+			var nonNotifiableChannels = await _orientService.GetNonNotifiableChannelsForUserAsync(userId);
+
 			var messageDto = new MessageResponceSocket
 			{
 				ServerId = (Guid)serverId,
@@ -472,6 +482,7 @@ public class MessageService : IMessageService
 				{
 					SubChannelId = (Guid)message.NestedChannelId,
 					RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)message.NestedChannelId),
+					IsNotifiable = !nonNotifiableChannels.Contains((Guid)message.NestedChannelId)
 				},
 				ReplyToMessage = new MessageResponceDTO
 				{
