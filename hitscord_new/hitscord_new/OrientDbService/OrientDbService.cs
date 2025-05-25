@@ -1771,4 +1771,84 @@ public class OrientDbService
 
 		await ExecuteBatchAsync(deleteQuery);
 	}
+
+	public async Task<List<Guid>> GetUsersThatCanUseSubChannelAsync(Guid channelId)
+	{
+		string query = $@"
+            SELECT id AS userId    
+            FROM User 
+            WHERE @rid IN (
+				SELECT out 
+				FROM BelongsToSub 
+				WHERE in IN (
+					SELECT @rid
+					FROM Subscription
+					WHERE @rid IN (
+						SELECT out
+						FROM BelongsToRole
+						WHERE in IN (
+							SELECT @rid
+							FROM Role
+							WHERE @rid IN (
+								SELECT out
+								FROM ChannelCanUse
+								WHERE in IN (
+									SELECT @rid
+									FROM SubChannel
+									WHERE id = '{channelId}'
+								)
+							)
+						)
+					)
+				)
+			)";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var resultList = parsedResult?.result as JArray;
+
+		return resultList != null
+			? resultList.Select(item => Guid.Parse(item.Value<string>("userId"))).ToList()
+			: new List<Guid>();
+	}
+
+	public async Task<List<Guid>> GetUsersThatCanSeeChannelAsync(Guid channelId)
+	{
+		string query = $@"
+            SELECT id AS userId    
+            FROM User 
+            WHERE @rid IN (
+				SELECT out 
+				FROM BelongsToSub 
+				WHERE in IN (
+					SELECT @rid
+					FROM Subscription
+					WHERE @rid IN (
+						SELECT out
+						FROM BelongsToRole
+						WHERE in IN (
+							SELECT @rid
+							FROM Role
+							WHERE @rid IN (
+								SELECT out
+								FROM ChannelCanSee
+								WHERE in IN (
+									SELECT @rid
+									FROM Channel
+									WHERE id = '{channelId}'
+								)
+							)
+						)
+					)
+				)
+			)";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var resultList = parsedResult?.result as JArray;
+
+		return resultList != null
+			? resultList.Select(item => Guid.Parse(item.Value<string>("userId"))).ToList()
+			: new List<Guid>();
+	}
 }

@@ -404,4 +404,25 @@ public class ChannelController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("userscansee")]
+	public async Task<IActionResult> ChangeMaxCount([FromQuery] Guid channelId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var list = await _channelService.GetUserThatCanSeeChannelAsync(jwtToken, channelId);
+			return Ok(list);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }

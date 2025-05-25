@@ -1099,4 +1099,32 @@ public class ChannelService : IChannelService
 			await _webSocketManager.BroadcastMessageAsync(changeMaxCount, alertedUsers, "Change max count");
 		}
 	}
+
+	public async Task<UsersIdList> GetUserThatCanSeeChannelAsync(string token, Guid channelId)
+	{
+		var user = await _authService.GetUserAsync(token);
+		var channel = await CheckChannelExistAsync(channelId);
+		await _authenticationService.CheckUserRightsSeeChannel(channel.Id, user.Id);
+
+		if (await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is TextChannelDbModel && ((TextChannelDbModel)c).IsMessage == true) != null)
+		{
+			var listSub = new UsersIdList
+			{
+				Ids = await _orientDbService.GetUsersThatCanUseSubChannelAsync(channelId)
+			};
+			return listSub;
+		}
+		else if (await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId) != null)
+		{
+			var list = new UsersIdList
+			{
+				Ids = await _orientDbService.GetUsersThatCanSeeChannelAsync(channelId)
+			};
+			return list;
+		}
+		else
+		{
+			throw new CustomException("Channel not found", "GetUserThatCanSeeChannelAsync", "Channel id", 404, "Канал не найден", "Полусение пользователей которые могут видеть канал");
+		}
+	}
 }

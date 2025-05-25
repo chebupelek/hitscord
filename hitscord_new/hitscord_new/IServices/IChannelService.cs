@@ -31,4 +31,5 @@ public interface IChannelService
     Task DeleteSubChannelAsync(string token, Guid subChannelId);
     Task ChangeNonNotifiableChannelAsync(string token, Guid channelId);
     Task ChangeVoiceChannelMaxCount(string token, Guid voiceChannelId, int maxCount);
+    Task<UsersIdList> GetUserThatCanSeeChannelAsync(string token, Guid channelId);
 }
