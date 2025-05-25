@@ -15,6 +15,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 using Grpc.Core;
 using hitscord.WebSockets;
 using Grpc.Net.Client.Balancer;
+using System.Threading.Channels;
 
 namespace hitscord.Services;
 
@@ -78,7 +79,7 @@ public class ChannelService : IChannelService
 		}
 	}
 
-	public async Task<ChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers)
+	public async Task<VoiceChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers)
 	{
 		var channel = joinedUsers ? await _hitsContext.Channel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.Id == channelId && c is VoiceChannelDbModel) :
 			await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is VoiceChannelDbModel);
@@ -86,7 +87,7 @@ public class ChannelService : IChannelService
 		{
 			throw new CustomException("Voice channel not found", "Check voice channel for existing", "Voice channel", 404, "Голосовой не найден", "Проверка наличия голосового канала");
 		}
-		return channel;
+		return (VoiceChannelDbModel)channel;
 	}
 
 	public async Task<ChannelDbModel> CheckNotificationChannelExistAsync(Guid channelId)
@@ -133,7 +134,7 @@ public class ChannelService : IChannelService
 		}
 	}
 
-	public async Task CreateChannelAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType)
+	public async Task CreateChannelAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType, int? maxCount)
 	{
 		var owner = await _authService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
@@ -154,7 +155,8 @@ public class ChannelService : IChannelService
 				newChannel = new VoiceChannelDbModel
 				{
 					Name = name,
-					ServerId = serverId
+					ServerId = serverId,
+					MaxCount = (int)maxCount
 				};
 				break;
 
@@ -220,6 +222,13 @@ public class ChannelService : IChannelService
 			throw new CustomException("User is already on this channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится на этом канале", "Присоединение к голосовому каналу");
 		}
 
+		var uvcCount = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).CountAsync();
+
+		if (((VoiceChannelDbModel)channel).MaxCount < uvcCount + 1)
+		{
+			throw new CustomException($"Voice channel max count is {((VoiceChannelDbModel)channel).MaxCount}", "Join to voice channel", "Voice channel", 400, "Пользователь не может писоединиться к голосовому каналу - его максимальная вместимость будет превышена", "Присоединение к голосовому каналу");
+		}
+
 		var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
 		if (userVoiceChannel != null)
 		{
@@ -233,10 +242,7 @@ public class ChannelService : IChannelService
 					UserId = user.Id,
 					ChannelId = userVoiceChannel.VoiceChannel.Id
 				};
-				using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-				{
-					bus.PubSub.Publish(new NotificationDTO { Notification = userRemovedResponse, UserIds = serverUsers, Message = "User remove from voice channel" }, "SendNotification");
-				}
+				await _webSocketManager.BroadcastMessageAsync(userRemovedResponse, serverUsers, "User remove from voice channel");
 			}
 			_hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
 			await _hitsContext.SaveChangesAsync();
@@ -1069,5 +1075,28 @@ public class ChannelService : IChannelService
 		await _authenticationService.CheckUserRightsSeeChannel(channel.Id, owner.Id);
 
 		await _orientDbService.ChangeNonNotifiableChannel(owner.Id, channel.Id);
+	}
+
+	public async Task ChangeVoiceChannelMaxCount(string token, Guid voiceChannelId, int maxCount)
+	{
+		var owner = await _authService.GetUserAsync(token);
+		var channel = await CheckVoiceChannelExistAsync(voiceChannelId, false);
+		await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, owner.Id);
+
+		channel.MaxCount = maxCount;
+		_hitsContext.Channel.Update(channel);
+		await _hitsContext.SaveChangesAsync();
+
+		var changeMaxCount = new ChangeMaxCountDTO
+		{
+			ServerId = channel.ServerId,
+			VoiceChannelId = channel.Id,
+			MaxCount = channel.MaxCount
+		};
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(changeMaxCount, alertedUsers, "Change max count");
+		}
 	}
 }

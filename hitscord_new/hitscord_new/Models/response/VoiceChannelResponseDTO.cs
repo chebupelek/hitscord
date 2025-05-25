@@ -6,4 +6,5 @@ public class VoiceChannelResponseDTO
     public required string ChannelName { get; set; }
     public required bool CanJoin { get; set; }
     public required List<VoiceChannelUserDTO> Users { get; set; }
+	public required int MaxCount { get; set; }
 }

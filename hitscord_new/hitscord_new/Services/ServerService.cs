@@ -114,6 +114,7 @@ public class ServerService : IServerService
         {
             Name = "Основной голосовой",
             ServerId = newServer.Id,
+			MaxCount = 999
         };
         await _hitsContext.Channel.AddAsync(newTextChannel);
         await _hitsContext.Channel.AddAsync(newVoiceChannel);
@@ -378,6 +379,7 @@ public class ServerService : IServerService
 				ChannelName = vc.Name,
 				ChannelId = vc.Id,
 				CanJoin = channelCanJoin.Contains(vc.Id),
+				MaxCount = vc.MaxCount,
 				Users = vc.Users.Select(u => new VoiceChannelUserDTO
 				{
 					UserId = u.UserId,

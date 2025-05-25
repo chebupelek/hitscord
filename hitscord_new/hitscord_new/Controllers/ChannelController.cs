@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 using HitscordLibrary.Models.other;
 using hitscord.Services;
+using hitscord.Models.response;
 
 namespace hitscord.Controllers;
 
@@ -31,7 +32,7 @@ public class ChannelController : ControllerBase
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             channelData.Validation();
-            await _channelService.CreateChannelAsync(channelData.ServerId, jwtToken, channelData.Name, channelData.ChannelType);
+            await _channelService.CreateChannelAsync(channelData.ServerId, jwtToken, channelData.Name, channelData.ChannelType, channelData.MaxCount);
             return Ok();
         }
         catch (CustomException ex)
@@ -370,6 +371,28 @@ public class ChannelController : ControllerBase
 		{
 			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			await _channelService.ChangeNonNotifiableChannelAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("settings/maxcount")]
+	public async Task<IActionResult> ChangeMaxCount([FromBody] ChangeMaxCountRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            data.Validation();
+			await _channelService.ChangeVoiceChannelMaxCount(jwtToken, data.VoiceChannelId, data.MaxCount);
 			return Ok();
 		}
 		catch (CustomException ex)
