@@ -69,14 +69,16 @@ public class OrientDbService
 
 			"CREATE CLASS VoiceChannel EXTENDS Channel",
 			"CREATE CLASS TextChannel EXTENDS Channel",
-			"CREATE CLASS SubChannel EXTENDS TextChannel",
 			"CREATE CLASS AnnouncementChannel EXTENDS TextChannel",
+			"CREATE CLASS SubChannel EXTENDS TextChannel",
+			"CREATE PROPERTY SubChannel.AuthorId STRING",
 
 			"CREATE CLASS Role EXTENDS V",
 			"CREATE PROPERTY Role.id STRING",
 			"CREATE PROPERTY Role.name STRING",
 			"CREATE PROPERTY Role.tag STRING",
 			"CREATE PROPERTY Role.server STRING",
+			"CREATE PROPERTY Role.color STRING",
 			"CREATE INDEX Role.id UNIQUE",
 
 			"CREATE CLASS Subscription EXTENDS V",
@@ -84,7 +86,8 @@ public class OrientDbService
 			"CREATE PROPERTY Subscription.role STRING",
 
 			"CREATE CLASS Chat EXTENDS V",
-
+			"CREATE PROPERTY Chat.id STRING",
+			"CREATE INDEX Chat.id UNIQUE",
 
 
 			"CREATE CLASS BelongsToSub EXTENDS E", //from User to Subscription
@@ -102,6 +105,8 @@ public class OrientDbService
 			"CREATE CLASS ServerCanDeleteUsers EXTENDS E", //from Role to Server
 
 			"CREATE CLASS ServerCanMuteOther EXTENDS E", //from Role to Server
+
+			"CREATE CLASS ServerCanDeleteOthersMessages EXTENDS E", //from Role to Server
 
 			"CREATE CLASS ChannelCanSee EXTENDS E", //from Role to Channel
 
@@ -565,5 +570,121 @@ public class OrientDbService
 		}
 
 		return channels;
+	}
+	public async Task<bool> ChatExistsAsync(Guid chatId)
+	{
+		string query = $"SELECT COUNT(*) FROM Chat WHERE id = '{chatId}'";
+		string result = await ExecuteCommandAsync(query);
+
+		var count = ExtractCountFromResult(result);
+
+		return count > 0;
+	}
+
+	public async Task<bool> AreUserInChat(Guid userId, Guid chatId)
+	{
+		string query = $@"
+		SELECT FROM BeignIn
+		WHERE (out IN (SELECT @rid FROM User WHERE id = '{userId}') 
+		AND in IN (SELECT @rid FROM Chat WHERE id = '{chatId}'))";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsed = JsonConvert.DeserializeObject<dynamic>(result);
+		var resArray = parsed?.result as JArray;
+
+		return resArray != null && resArray.Any();
+	}
+
+	public async Task<List<Guid>> GetChatsUsers(Guid chatId)
+	{
+		string query = $@"
+            SELECT out.id AS userId 
+            FROM BeignIn
+            WHERE in IN (
+                SELECT @rid 
+                FROM Chat WHERE id = '{chatId}'
+			)
+        ";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var resultList = parsedResult?.result as JArray;
+
+		return resultList != null
+			? resultList.Select(item => Guid.Parse(item.Value<string>("userId"))).ToList()
+			: new List<Guid>();
+	}
+
+	public async Task<List<Guid>> GetNotifiableUsersByChatAsync(Guid chatId, List<string> userTags)
+	{
+		var userTagsFilter = string.Join(",", userTags.Select(tag => $"'{tag}'"));
+
+		var allUserIds = new HashSet<Guid>();
+
+		string userTagQuery = $@"
+				SELECT id AS userId
+				FROM User 
+				WHERE notifiable = true
+				AND tag IN [{userTagsFilter}]
+				AND @rid IN (
+					SELECT out FROM BeignIn 
+					WHERE in IN (
+						SELECT @rid FROM Chat 
+						WHERE id = '{chatId}'
+					)
+				)
+			";
+		var userTagResult = await ExecuteCommandAsync(userTagQuery);
+		var userTagParsed = JsonConvert.DeserializeObject<dynamic>(userTagResult);
+		foreach (var item in userTagParsed?.result ?? new JArray())
+			allUserIds.Add(Guid.Parse(item.userId.ToString()));
+
+		_logger.LogInformation("userTagResult: {userTagResult}", string.Join(", ", userTagResult));
+
+		_logger.LogInformation("User tags 1: {UserTags}", string.Join(", ", allUserIds));
+
+		var allNotifiedUsers = allUserIds.ToList();
+
+		return allNotifiedUsers;
+	}
+
+	public async Task<bool> CanUserDeleteOthersMessages(Guid userId, Guid channelId)
+	{
+		string canDeleteQuery = $@"
+            SELECT COUNT(*) 
+            FROM ServerCanDeleteOthersMessages 
+            WHERE out IN (
+                SELECT @rid
+				FROM Role
+				WHERE @rid IN (
+					SELECT in
+					FROM ContainsRole
+					WHERE out IN (
+						SELECT @rid
+						FROM Server
+						WHERE id IN (
+							SELECT server
+							FROM Channel
+							WHERE id = '{channelId}'
+						)
+					)
+				)								
+            )
+            AND in IN (
+                SELECT @rid
+				FROM Server
+				WHERE id IN (
+					SELECT server
+					FROM Channel
+					WHERE id = '{channelId}'
+				)
+			)	
+		";
+
+		string canDeleteResult = await ExecuteCommandAsync(canDeleteQuery);
+
+		var count = ExtractCountFromResult(canDeleteResult);
+
+		return count > 0;
 	}
 }

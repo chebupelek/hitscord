@@ -74,7 +74,7 @@ public class WebSocketHandler
                 if (newMessage != null)
                 {
                     var newMesssageData = newMessage.Content;
-                    await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.Roles, newMesssageData.UserIds, newMesssageData.ReplyToMessageId, newMesssageData.NestedChannel);
+                    await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.ReplyToMessageId, newMesssageData.NestedChannel);
 				}
 				break;
 			case "Delete message":
@@ -92,11 +92,39 @@ public class WebSocketHandler
                 if (updateMessage != null)
                 {
                     var updateMessageData = updateMessage.Content;
-					await _messageService.UpdateMessageWebsocketAsync(updateMessageData.MessageId, updateMessageData.Token, updateMessageData.Text, updateMessageData.Roles, updateMessageData.UserIds);
+					await _messageService.UpdateMessageWebsocketAsync(updateMessageData.MessageId, updateMessageData.Token, updateMessageData.Text);
 				}
                 break;
 
-            default:
+			case "New message chat":
+				var newMessagechat = System.Text.Json.JsonSerializer.Deserialize<NewMessageWebsocket>(json);
+				_logger.LogInformation("new message chat", newMessagechat);
+				if (newMessagechat != null)
+				{
+					var newMesssageData = newMessagechat.Content;
+					await _messageService.CreateMessageToChatWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.ReplyToMessageId);
+				}
+				break;
+			case "Delete message chat":
+				var deleteMessagechat = System.Text.Json.JsonSerializer.Deserialize<DeleteMessageWebsocket>(json);
+				Console.WriteLine($"User {userId} sent text: {deleteMessagechat?.Content}");
+				if (deleteMessagechat != null)
+				{
+					var deleteMesssageData = deleteMessagechat.Content;
+					await _messageService.DeleteMessageInChatWebsocketAsync(deleteMesssageData.MessageId, deleteMesssageData.Token);
+				}
+				break;
+			case "Update message chat":
+				var updateMessagechat = System.Text.Json.JsonSerializer.Deserialize<UpdateMessageWebsocket>(json);
+				Console.WriteLine($"User {userId} sent text: {updateMessagechat?.Content}");
+				if (updateMessagechat != null)
+				{
+					var updateMessageData = updateMessagechat.Content;
+					await _messageService.UpdateMessageInChatWebsocketAsync(updateMessageData.MessageId, updateMessageData.Token, updateMessageData.Text);
+				}
+				break;
+
+			default:
                 Console.WriteLine("Unknown message type.");
                 break;
         }

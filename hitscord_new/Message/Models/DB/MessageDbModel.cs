@@ -19,9 +19,6 @@ public class MessageDbModel
     [MaxLength(5000)]
     public required string Text { get; set; }
 
-    public required List<Guid> Roles { get; set; }
-    public required List<Guid> UserIds { get; set; }
-
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }

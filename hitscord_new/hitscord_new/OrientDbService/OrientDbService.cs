@@ -1,6 +1,9 @@
 ﻿using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
+using Authzed.Api.V0;
+using Grpc.Core;
 using Grpc.Gateway.ProtocGenOpenapiv2.Options;
 using hitscord.Models.db;
 using hitscord.Models.other;
@@ -39,7 +42,6 @@ public class OrientDbService
 
 		if (!response.IsSuccessStatusCode)
 		{
-			// Логируем ошибку
 			Console.WriteLine($"Ошибка при выполнении запроса: {response.StatusCode} - {responseBody}");
 		}
 
@@ -136,7 +138,8 @@ public class OrientDbService
 			"CREATE PROPERTY Subscription.role STRING",
 
 			"CREATE CLASS Chat EXTENDS V",
-
+			"CREATE PROPERTY Chat.id STRING",
+			"CREATE INDEX Chat.id UNIQUE",
 
 
 			"CREATE CLASS BelongsToSub EXTENDS E", //from User to Subscription
@@ -154,6 +157,8 @@ public class OrientDbService
 			"CREATE CLASS ServerCanDeleteUsers EXTENDS E", //from Role to Server
 
 			"CREATE CLASS ServerCanMuteOther EXTENDS E", //from Role to Server
+
+			"CREATE CLASS ServerCanDeleteOthersMessages EXTENDS E", //from Role to Server
 
 			"CREATE CLASS ChannelCanSee EXTENDS E", //from Role to Channel
 
@@ -334,6 +339,8 @@ public class OrientDbService
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanWorkChannels");
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanDeleteUsers");
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanMuteOther");
+				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanDeleteOthersMessages");
+				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanDeleteOthersMessages");
 
 				if (role.Role == RoleEnum.Creator)
 				{
@@ -1665,5 +1672,103 @@ public class OrientDbService
 		}
 
 		return channels;
+	}
+
+	public async Task AddChat(Guid chatId, Guid userF, Guid userS)
+	{
+		string checkQueryF = $@"
+        SELECT FROM User WHERE id = '{userF}'";
+		string checkResultF = await ExecuteCommandAsync(checkQueryF);
+
+		string checkQueryS = $@"
+        SELECT FROM User WHERE id = '{userS}'";
+		string checkResultS = await ExecuteCommandAsync(checkQueryS);
+
+		if (!checkResultF.Contains("\"result\":[]") && !checkResultS.Contains("\"result\":[]"))
+		{
+			string query = $"INSERT INTO Chat SET id = '{chatId}'";
+			await ExecuteCommandAsync(query);
+
+			string linkQueryF = $"CREATE EDGE BeignIn FROM (SELECT FROM User WHERE id = '{userF}') TO (SELECT FROM Chat WHERE id = '{chatId}')";
+			await ExecuteCommandAsync(linkQueryF);
+
+			string linkQueryS = $"CREATE EDGE BeignIn FROM (SELECT FROM User WHERE id = '{userS}') TO (SELECT FROM Chat WHERE id = '{chatId}')";
+			await ExecuteCommandAsync(linkQueryS);
+		}
+	}
+
+	public async Task<bool> AreUserInChat(Guid userId, Guid chatId)
+	{
+		string query = $@"
+		SELECT FROM BeignIn
+		WHERE (out IN (SELECT @rid FROM User WHERE id = '{userId}') 
+		AND in IN (SELECT @rid FROM Chat WHERE id = '{chatId}'))";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsed = JsonConvert.DeserializeObject<dynamic>(result);
+		var resArray = parsed?.result as JArray;
+
+		return resArray != null && resArray.Any();
+	}
+
+	public async Task<List<Guid>> GetChatsUsers(Guid chatId)
+	{
+		string query = $@"
+            SELECT out.id AS userId 
+            FROM BeignIn
+            WHERE in IN (
+                SELECT @rid 
+                FROM Chat WHERE id = '{chatId}'
+			)
+        ";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var resultList = parsedResult?.result as JArray;
+
+		return resultList != null
+			? resultList.Select(item => Guid.Parse(item.Value<string>("userId"))).ToList()
+			: new List<Guid>();
+	}
+
+	public async Task<List<Guid>> GetUsersChats(Guid userId)
+	{
+		string query = $@"
+            SELECT in.id AS chatId 
+            FROM BeignIn
+            WHERE out IN (
+                SELECT @rid 
+                FROM User WHERE id = '{userId}'
+			)
+        ";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var resultList = parsedResult?.result as JArray;
+
+		return resultList != null
+			? resultList.Select(item => Guid.Parse(item.Value<string>("chatId"))).ToList()
+			: new List<Guid>();
+	}
+
+	public async Task AddUserIntoChat(Guid userId, Guid chatId)
+	{
+		string linkQuery = $"CREATE EDGE BeignIn FROM (SELECT FROM User WHERE id = '{userId}') TO (SELECT FROM Chat WHERE id = '{chatId}')";
+		await ExecuteCommandAsync(linkQuery);
+	}
+
+	public async Task RemoveUserFromChat(Guid userId, Guid chatId)
+	{
+		string deleteEdgeQuery = $@"DELETE EDGE BeignIn WHERE out IN (SELECT @rid FROM User WHERE id = '{userId}') AND in IN (SELECT @rid FROM Chat WHERE id = '{chatId}')";
+		await ExecuteCommandAsync(deleteEdgeQuery);
+	}
+
+	public async Task DeleteChatAsync(Guid chatId)
+	{
+		string deleteQuery = $@"
+			DELETE VERTEX Chat WHERE id = '{chatId}';
+        ";
+
+		await ExecuteBatchAsync(deleteQuery);
 	}
 }

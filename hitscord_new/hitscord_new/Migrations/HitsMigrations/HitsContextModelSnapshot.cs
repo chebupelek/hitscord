@@ -22,6 +22,21 @@ namespace hitscord_new.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ChatDbModelUserDbModel", b =>
+                {
+                    b.Property<Guid>("ChatDbModelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UsersId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ChatDbModelId", "UsersId");
+
+                    b.HasIndex("UsersId");
+
+                    b.ToTable("ChatDbModelUserDbModel");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.ChannelDbModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -50,6 +65,22 @@ namespace hitscord_new.Migrations
                     b.HasDiscriminator<string>("ChannelType").HasValue("ChannelDbModel");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChatDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Chat");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.FriendshipApplicationDbModel", b =>
@@ -234,6 +265,21 @@ namespace hitscord_new.Migrations
                     b.HasBaseType("hitscord.Models.db.ChannelDbModel");
 
                     b.HasDiscriminator().HasValue("Voice");
+                });
+
+            modelBuilder.Entity("ChatDbModelUserDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.ChatDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("ChatDbModelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.UserDbModel", null)
+                        .WithMany()
+                        .HasForeignKey("UsersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ChannelDbModel", b =>

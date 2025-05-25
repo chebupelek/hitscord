@@ -18,6 +18,7 @@ namespace hitscord.Contexts
 		public DbSet<NotificationChannelDbModel> NotificationChannel { get; set; }
 		public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
         public DbSet<FriendshipApplicationDbModel> Friendship { get; set; }
+		public DbSet<ChatDbModel> Chat { get; set; }
 
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -88,6 +89,12 @@ namespace hitscord.Contexts
 					.HasForeignKey<FriendshipApplicationDbModel>(f => f.UserIdTo)
 					.IsRequired();
 			});
+
+            modelBuilder.Entity<ChatDbModel>(entity =>
+            {
+                entity.HasMany(ch => ch.Users)
+                    .WithMany();
+            });
         }
     }
 }

@@ -59,158 +59,6 @@ public class MessageService : IMessageService
 			.ToList();
 	}
 
-	public async Task CreateMessageAsync(Guid channelId, string token, string text, List<Guid>? roles, List<Guid>? users, Guid? ReplyToMessageId)
-    {
-        var userId = await _tokenService.CheckAuth(token);
-        if (!await _orientService.ChannelExistsAsync(channelId))
-        {
-            throw new CustomException("Channel not found", "Create message", "Channel id", 404, "Канал не найден", "Создание сообщения");
-        }
-        if(!await _orientService.CanUserSeeAndWriteToTextChannelAsync(userId, channelId))
-        {
-            throw new CustomException("User hasnt permissions", "Create message", "User Id", 401, "У пользователя нет прав", "Создание сообщения");
-        }
-        var newMessage = new MessageDbModel
-        {
-            Text = text,
-            Roles = roles == null ? new List<Guid>() : roles,
-            UserIds = users == null ? new List<Guid>() : users,
-            UpdatedAt = null,
-            UserId = userId,
-            TextChannelId = channelId,
-            NestedChannelId = null,
-            ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null
-        };
-        _messageContext.Messages.Add(newMessage);
-        await _messageContext.SaveChangesAsync();
-
-        var serverId = await _orientService.GetServerIdByChannelIdAsync(channelId);
-        var messageDto = new MessageResponceSocket
-        {
-            ServerId = (Guid)serverId,
-            ChannelId = channelId,
-            Id = newMessage.Id,
-            Text = newMessage.Text,
-            AuthorId = userId,
-            CreatedAt = newMessage.CreatedAt,
-            ModifiedAt = newMessage.UpdatedAt,
-			NestedChannel = newMessage.NestedChannelId == null ? null : new SubChannelResponceFullDTO
-			{
-				SubChannelId = (Guid)newMessage.NestedChannelId,
-				RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)newMessage.NestedChannelId),
-				IsNotifiable = false
-			},
-			ReplyToMessage = null
-        };
-        var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(channelId);
-        if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
-
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "New message" }, "SendNotification");
-            }
-        }
-    }
-
-    public async Task UpdateMessageAsync(Guid messageId, string token, string text, List<Guid>? roles, List<Guid>? users)
-    {
-        var userId = await _tokenService.CheckAuth(token);
-        var message = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
-        if (message == null)
-        {
-            throw new CustomException("Message not found", "Update normal message", "Normal message", 404, "Сообщение не найдено", "Обновление сообщения");
-        }
-        if (message.UserId != userId)
-        {
-            throw new CustomException("User not creator of this message", "Update normal message", "User", 401, "Пользователь - не создатель сообщения", "Обновление сообщения");
-        }
-        if (!await _orientService.ChannelExistsAsync(message.TextChannelId))
-        {
-            throw new CustomException("Channel not found", "Create message", "Update normal message", 404, "Канал не найден", "Обновление сообщения");
-        }
-        if (!await _orientService.CanUserSeeChannelAsync(userId, message.TextChannelId))
-        {
-            throw new CustomException("User hasnt permissions", "Create message", "Update normal message", 404, "У пользователя нет прав", "Обновление сообщения");
-        }
-
-        message.Text = text;
-        message.Roles = roles == null ? new List<Guid>() : roles;
-        message.UserIds = users == null ? new List<Guid>() : users;
-        message.UpdatedAt = DateTime.UtcNow;
-        _messageContext.Messages.Update(message);
-        await _messageContext.SaveChangesAsync();
-
-        var serverId = await _orientService.GetServerIdByChannelIdAsync(message.TextChannelId);
-        var messageDto = new MessageResponceSocket
-        {
-            ServerId = (Guid)serverId,
-            ChannelId = message.TextChannelId,
-            Id = message.Id,
-            Text = message.Text,
-            AuthorId = userId,
-            CreatedAt = message.CreatedAt,
-            ModifiedAt = message.UpdatedAt,
-			NestedChannel = message.NestedChannelId == null ? null : new SubChannelResponceFullDTO
-			{
-				SubChannelId = (Guid)message.NestedChannelId,
-				RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)message.NestedChannelId),
-				IsNotifiable = false
-			},
-			ReplyToMessage = null
-        };
-        var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(message.TextChannelId);
-        if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
-
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Updated message" }, "SendNotification");
-            }
-        }
-    }
-
-    public async Task DeleteMessageAsync(Guid messageId, string token)
-    {
-        var userId = await _tokenService.CheckAuth(token);
-        var message = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
-        if (message == null)
-        {
-            throw new CustomException("Message not found", "Delete normal message", "Normal message", 404, "Сообщение не найдено", "Удаление сообщения");
-        }
-        if (message.UserId != userId)
-        {
-            throw new CustomException("User not creator of this message", "Delete normal message", "User", 401, "Пользователь - не создатель сообщения", "Удаление сообщения");
-        }
-        if (!await _orientService.ChannelExistsAsync(message.TextChannelId))
-        {
-            throw new CustomException("Channel not found", "Create message", "Delete normal message", 404, "Канал не найден", "Удаление сообщения");
-        }
-        if (!await _orientService.CanUserSeeAndWriteToTextChannelAsync(userId, message.TextChannelId))
-        {
-            throw new CustomException("User hasnt permissions", "Create message", "Delete normal message", 404, "У пользователя нет прав", "Удаление сообщения");
-        }
-        _messageContext.Messages.Remove(message);
-        await _messageContext.SaveChangesAsync();
-
-        var serverId = await _orientService.GetServerIdByChannelIdAsync(message.TextChannelId);
-        var messageDto = new DeletedMessageResponceDTO
-        {
-            ServerId = (Guid)serverId,
-            ChannelId = message.TextChannelId,
-            MessageId = message.Id
-        };
-        var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(message.TextChannelId);
-        if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
-
-            using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
-            {
-                bus.PubSub.Publish(new NotificationDTO { Notification = messageDto, UserIds = alertedUsers, Message = "Deleted message" }, "SendNotification");
-            }
-        }
-    }
-
 	public async Task<ResponseObject> GetChannelMessagesAsync(ChannelRequestRabbit request)
 	{
 		try
@@ -321,7 +169,7 @@ public class MessageService : IMessageService
 	}
 
 
-	public async Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, List<Guid>? roles, List<Guid>? users, Guid? ReplyToMessageId, bool NestedChannel)
+	public async Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, Guid? ReplyToMessageId, bool NestedChannel)
 	{
 		try
 		{
@@ -366,8 +214,6 @@ public class MessageService : IMessageService
 			var newMessage = new MessageDbModel
 			{
 				Text = text,
-				Roles = roles == null ? new List<Guid>() : roles,
-				UserIds = users == null ? new List<Guid>() : users,
 				UpdatedAt = null,
 				UserId = userId,
 				TextChannelId = channelId,
@@ -435,7 +281,7 @@ public class MessageService : IMessageService
 		}
 	}
 
-	public async Task UpdateMessageWebsocketAsync(Guid messageId, string token, string text, List<Guid>? roles, List<Guid>? users)
+	public async Task UpdateMessageWebsocketAsync(Guid messageId, string token, string text)
 	{
 		try
 		{
@@ -451,16 +297,14 @@ public class MessageService : IMessageService
 			}
 			if (!await _orientService.ChannelExistsAsync(message.TextChannelId))
 			{
-				throw new CustomExceptionUser("Channel not found", "Create message", "Update normal message", 404, "Канал не найден", "Обновление сообщения", userId);
+				throw new CustomExceptionUser("Channel not found", "Update normal message", "Channel id", 404, "Канал не найден", "Обновление сообщения", userId);
 			}
 			if (!await _orientService.CanUserSeeChannelAsync(userId, message.TextChannelId) && !await _orientService.CanUserUseSubChannelAsync(userId, message.TextChannelId))
 			{
-				throw new CustomExceptionUser("User hasnt permissions", "Create message", "Update normal message", 404, "У пользователя нет прав", "Обновление сообщения", userId);
+				throw new CustomExceptionUser("User hasnt permissions", "Update normal message", "Channel id", 401, "У пользователя нет прав", "Обновление сообщения", userId);
 			}
 
 			message.Text = text;
-			message.Roles = roles == null ? new List<Guid>() : roles;
-			message.UserIds = users == null ? new List<Guid>() : users;
 			message.UpdatedAt = DateTime.UtcNow;
 			_messageContext.Messages.Update(message);
 			await _messageContext.SaveChangesAsync();
@@ -526,17 +370,17 @@ public class MessageService : IMessageService
 			{
 				throw new CustomExceptionUser("Message not found", "Delete normal message", "Normal message", 404, "Сообщение не найдено", "Удаление сообщения", userId);
 			}
-			if (message.UserId != userId)
+			if (message.UserId != userId && !await _orientService.CanUserDeleteOthersMessages(userId, message.TextChannelId))
 			{
 				throw new CustomExceptionUser("User not creator of this message", "Delete normal message", "User", 401, "Пользователь - не создатель сообщения", "Удаление сообщения", userId);
 			}
 			if (!await _orientService.ChannelExistsAsync(message.TextChannelId))
 			{
-				throw new CustomExceptionUser("Channel not found", "Create message", "Delete normal message", 404, "Канал не найден", "Удаление сообщения", userId);
+				throw new CustomExceptionUser("Channel not found", "Delete normal message", "Channel id", 404, "Канал не найден", "Удаление сообщения", userId);
 			}
 			if (!await _orientService.CanUserSeeAndWriteToTextChannelAsync(userId, message.TextChannelId) && !await _orientService.CanUserUseSubChannelAsync(userId, message.TextChannelId))
 			{
-				throw new CustomExceptionUser("User hasnt permissions", "Create message", "Delete normal message", 404, "У пользователя нет прав", "Удаление сообщения", userId);
+				throw new CustomExceptionUser("User hasnt permissions", "Delete normal message", "Channel id", 401, "У пользователя нет прав", "Удаление сообщения", userId);
 			}
 			_messageContext.Messages.Remove(message);
 			await _messageContext.SaveChangesAsync();
@@ -560,6 +404,284 @@ public class MessageService : IMessageService
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
 				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Deleted message");
+			}
+		}
+		catch (CustomExceptionUser ex)
+		{
+			var expetionNotification = new ExceptionNotification
+			{
+				Code = ex.Code,
+				Message = ex.MessageFront,
+				Object = ex.ObjectFront
+			};
+			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
+		}
+	}
+
+
+
+	public async Task<ResponseObject> GetChatMessagesAsync(ChannelRequestRabbit request)
+	{
+		try
+		{
+			var userId = await _tokenService.CheckAuth(request.token);
+
+			if (!await _orientService.ChatExistsAsync(request.channelId))
+			{
+				throw new CustomException("Chat not found", "GetChatMessagesAsync", "Chat id", 404, "Чат не найден", "Получение списка сообщений чата");
+			}
+
+			var messagesFresh = await _messageContext.Messages
+				.Where(m => m.TextChannelId == request.channelId)
+				.OrderByDescending(m => m.CreatedAt)
+				.Skip(request.fromStart)
+				.Take(request.number)
+				.OrderBy(m => m.CreatedAt)
+				.ToListAsync();
+
+			var messages = new MessageChatListResponseDTO
+			{
+				Messages = messagesFresh
+					.Select(m => new MessageChatResponceDTO
+					{
+						ChatId = m.TextChannelId,
+						Id = m.Id,
+						Text = m.Text,
+						AuthorId = m.UserId,
+						CreatedAt = m.CreatedAt,
+						ModifiedAt = m.UpdatedAt,
+						ReplyToMessage = m.ReplyToMessage == null ? null : new MessageChatResponceDTO
+						{
+							ChatId = m.TextChannelId,
+							Id = m.ReplyToMessage.Id,
+							Text = m.ReplyToMessage.Text,
+							AuthorId = m.ReplyToMessage.UserId,
+							CreatedAt = m.ReplyToMessage.CreatedAt,
+							ModifiedAt = m.ReplyToMessage.UpdatedAt,
+							ReplyToMessage = null
+						}
+					}).ToList(),
+				NumberOfMessages = messagesFresh.Count(),
+				NumberOfStarterMessage = request.fromStart
+			};
+
+			return messages;
+		}
+		catch (CustomException ex)
+		{
+			return new ErrorResponse
+			{
+				Message = ex.Message,
+				Type = ex.Type,
+				Object = ex.Object,
+				Code = ex.Code,
+				MessageFront = ex.MessageFront,
+				ObjectFront = ex.ObjectFront
+			};
+		}
+		catch (Exception ex)
+		{
+			return new ErrorResponse
+			{
+				Message = ex.Message,
+				Type = "Unexpected error",
+				Object = "Unexpected error",
+				Code = 500,
+				MessageFront = ex.Message,
+				ObjectFront = "Неожиданная ошибка"
+			};
+		}
+	}
+
+
+	public async Task CreateMessageToChatWebsocketAsync(Guid chatId, string token, string text, Guid? ReplyToMessageId)
+	{
+		try
+		{
+			var userId = await _tokenService.CheckAuth(token);
+			_logger.LogInformation("check 1: {bool}", await _orientService.ChatExistsAsync(chatId));
+			if (!await _orientService.ChatExistsAsync(chatId))
+			{
+				_logger.LogInformation("check 2: {bool}", await _orientService.ChatExistsAsync(chatId));
+				throw new CustomExceptionUser("Chat not found", "Create message for chat", "Chat id", 404, "Чат не найден", "Создание сообщения для чата", userId);
+			}
+			_logger.LogInformation("check 4: {bool}", await _orientService.AreUserInChat(userId, chatId));
+			if (!await _orientService.AreUserInChat(userId, chatId))
+			{
+				_logger.LogInformation("check 5: {bool}", !await _orientService.AreUserInChat(userId, chatId));
+				throw new CustomExceptionUser("User hasnt permissions", "Create message for chat", "User Id", 401, "У пользователя нет прав", "Создание сообщения для чата", userId);
+			}
+
+			MessageChatResponceDTO? replyedMessage = null;
+			if (ReplyToMessageId != null)
+			{
+				var repMessage = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == ReplyToMessageId && m.TextChannelId == chatId);
+				_logger.LogInformation("check 6: {message}", repMessage);
+				if (repMessage == null)
+				{
+					throw new CustomExceptionUser("Message reply to doesn't found", "Create message for chat", "Reply to message Id", 401, "Сообщение на которое пишется ответ не найдено", "Создание сообщения для чата", userId);
+				}
+				replyedMessage = new MessageChatResponceDTO()
+				{
+					ChatId = repMessage.TextChannelId,
+					Id = repMessage.Id,
+					Text = repMessage.Text,
+					AuthorId = repMessage.UserId,
+					CreatedAt = repMessage.CreatedAt,
+					ModifiedAt = repMessage.UpdatedAt,
+					ReplyToMessage = null
+				};
+			}
+			var newMessage = new MessageDbModel
+			{
+				Text = text,
+				UpdatedAt = null,
+				UserId = userId,
+				TextChannelId = chatId,
+				NestedChannelId = null,
+				ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null
+			};
+
+			_messageContext.Messages.Add(newMessage);
+			await _messageContext.SaveChangesAsync();
+
+			var messageDto = new MessageChatResponceDTO
+			{
+				ChatId = chatId,
+				Id = newMessage.Id,
+				Text = newMessage.Text,
+				AuthorId = userId,
+				CreatedAt = newMessage.CreatedAt,
+				ModifiedAt = newMessage.UpdatedAt,
+				ReplyToMessage = replyedMessage
+			};
+			var alertedUsers = await _orientService.GetChatsUsers(chatId);
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "New message in chat");
+			}
+
+			var userTags = ExtractUserTags(text);
+
+			var notifiedUsers = await _orientService.GetNotifiableUsersByChatAsync(chatId, userTags);
+			if (notifiedUsers != null && notifiedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(messageDto, notifiedUsers, "User notified in chat");
+			}
+		}
+		catch (CustomExceptionUser ex)
+		{
+			var expetionNotification = new ExceptionNotification
+			{
+				Code = ex.Code,
+				Message = ex.MessageFront,
+				Object = ex.ObjectFront
+			};
+			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
+		}
+	}
+
+	public async Task UpdateMessageInChatWebsocketAsync(Guid messageId, string token, string text)
+	{
+		try
+		{
+			var userId = await _tokenService.CheckAuth(token);
+			var message = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
+			if (message == null)
+			{
+				throw new CustomExceptionUser("Message not found", "Update normal message in chat", "Normal message", 404, "Сообщение не найдено", "Обновление сообщения в чате", userId);
+			}
+			if (message.UserId != userId)
+			{
+				throw new CustomExceptionUser("User not creator of this message", "Update normal message in chat", "User", 401, "Пользователь - не создатель сообщения", "Обновление сообщения в чате", userId);
+			}
+			if (!await _orientService.ChatExistsAsync(message.TextChannelId))
+			{
+				throw new CustomExceptionUser("Chat not found", "Update normal message in chat", "Chat id", 404, "Чат не найден", "Обновление сообщения в чате", userId);
+			}
+			if (!await _orientService.AreUserInChat(userId, message.TextChannelId))
+			{
+				throw new CustomExceptionUser("User hasnt permissions", "Update normal message in chat", "Chat id", 401, "У пользователя нет прав", "Обновление сообщения в чате", userId);
+			}
+
+			message.Text = text;
+			message.UpdatedAt = DateTime.UtcNow;
+			_messageContext.Messages.Update(message);
+			await _messageContext.SaveChangesAsync();
+
+			var messageDto = new MessageChatResponceDTO
+			{
+				ChatId = message.TextChannelId,
+				Id = message.Id,
+				Text = message.Text,
+				AuthorId = userId,
+				CreatedAt = message.CreatedAt,
+				ModifiedAt = message.UpdatedAt,
+				ReplyToMessage = new MessageChatResponceDTO
+				{
+					ChatId = message.ReplyToMessage.TextChannelId,
+					Id = message.ReplyToMessage.Id,
+					Text = message.ReplyToMessage.Text,
+					AuthorId = message.ReplyToMessage.UserId,
+					CreatedAt = message.ReplyToMessage.CreatedAt,
+					ModifiedAt = message.ReplyToMessage.UpdatedAt,
+					ReplyToMessage = null
+				}
+			};
+
+			var alertedUsers = await _orientService.GetChatsUsers(message.TextChannelId);
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Updated message in chat");
+			}
+		}
+		catch (CustomExceptionUser ex)
+		{
+			var expetionNotification = new ExceptionNotification
+			{
+				Code = ex.Code,
+				Message = ex.MessageFront,
+				Object = ex.ObjectFront
+			};
+			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
+		}
+	}
+
+	public async Task DeleteMessageInChatWebsocketAsync(Guid messageId, string token)
+	{
+		try
+		{
+			var userId = await _tokenService.CheckAuth(token);
+			var message = await _messageContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId);
+			if (message == null)
+			{
+				throw new CustomExceptionUser("Message not found", "Delete normal message in chat", "Normal message", 404, "Сообщение не найдено", "Удаление сообщения в чате", userId);
+			}
+			if (message.UserId != userId)
+			{
+				throw new CustomExceptionUser("User not creator of this message", "Delete normal message in chat", "User", 401, "Пользователь - не создатель сообщения", "Удаление сообщения в чате", userId);
+			}
+			if (!await _orientService.ChatExistsAsync(message.TextChannelId))
+			{
+				throw new CustomExceptionUser("Chat not found", "Delete normal message in chat", "Chat id", 404, "Чат не найден", "Удаление сообщения в чате", userId);
+			}
+			if (!await _orientService.AreUserInChat(userId, message.TextChannelId))
+			{
+				throw new CustomExceptionUser("User hasnt permissions", "Delete normal message in chat", "Chat id", 401, "У пользователя нет прав", "Удаление сообщения в чате", userId);
+			}
+			_messageContext.Messages.Remove(message);
+			await _messageContext.SaveChangesAsync();
+
+
+			var messageDto = new DeletedMessageInChatResponceDTO
+			{
+				ChatId = message.TextChannelId,
+				MessageId = message.Id
+			};
+			var alertedUsers = await _orientService.GetChatsUsers(message.TextChannelId);
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Deleted message in chat");
 			}
 		}
 		catch (CustomExceptionUser ex)
