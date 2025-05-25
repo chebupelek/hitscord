@@ -412,6 +412,7 @@ public class ServerService : IServerService
 			CanDeleteUsers = result.Contains("ServerCanDeleteUsers"),
 			CanWorkWithChannels = result.Contains("ServerCanWorkChannels"),
 			CanMuteOthers = result.Contains("ServerCanMuteOther"),
+			CanDeleteOtherMessages = result.Contains("ServerCanDeleteOthersMessages"),
 			IsNotifiable = !notifiableServersList.Contains(serverId),
 			Users = await _hitsContext.UserServer
 				.Include(us => us.Role)

@@ -408,7 +408,7 @@ public class ChannelController : ControllerBase
 	[Authorize]
 	[HttpGet]
 	[Route("userscansee")]
-	public async Task<IActionResult> ChangeMaxCount([FromQuery] Guid channelId)
+	public async Task<IActionResult> GetUsersCanSee([FromQuery] Guid channelId)
 	{
 		try
 		{
