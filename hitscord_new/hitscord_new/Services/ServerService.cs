@@ -469,7 +469,7 @@ public class ServerService : IServerService
 		return info;
 	}
 
-	public async Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId)
+	public async Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId, string? banReason)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
@@ -486,6 +486,8 @@ public class ServerService : IServerService
 		}
 		var userServer = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSub.Id);
 		userServer.IsBanned = true;
+		userServer.BanReason = banReason;
+		userServer.BanTime = DateTime.UtcNow;
 		_hitsContext.UserServer.Update(userServer);
 		var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == userId && uvc.VoiceChannel.ServerId == serverId);
 		var newRemovedUserResponse = new RemovedUserDTO
@@ -589,5 +591,50 @@ public class ServerService : IServerService
 		await _authenticationService.CheckSubscriptionExistAsync(server.Id, owner.Id);
 
 		await _orientDbService.ChangeNonNotifiableServer(owner.Id, server.Id);
+	}
+
+	public async Task<BanListDTO> GetBannedListAsync(string token, Guid serverId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
+
+		var bannedUsers = new BanListDTO
+		{
+			BannedList = await _hitsContext.UserServer
+				.Include(us => us.User)
+				.Include(us => us.Role)
+				.Where(us => 
+					us.Role.ServerId == server.Id
+					&& us.IsBanned == true)
+				.Select(us => new ServerBannedUserDTO
+				{
+					UserId = us.UserId,
+					UserName = us.UserServerName,
+					UserTag = us.User.AccountTag,
+					Mail = us.User.Mail,
+					BanReason = us.BanReason,
+					BanTime = (DateTime)us.BanTime
+				})
+				.ToListAsync()
+		};
+
+		return bannedUsers;
+	}
+
+	public async Task UnBanUser(string token, Guid serverId, Guid bannedId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
+
+		var banned = await _hitsContext.UserServer.Include(us => us.Role).FirstOrDefaultAsync(us => us.Role.ServerId == serverId && us.UserId == bannedId && us.IsBanned == true);
+		if (banned == null)
+		{
+			throw new CustomException("Banned user not found", "Unban user", "User", 404, "Забаненный пользователь не найден", "Разбан пользователя");
+		}
+
+		_hitsContext.UserServer.Remove(banned);
+		await _hitsContext.SaveChangesAsync();
 	}
 }

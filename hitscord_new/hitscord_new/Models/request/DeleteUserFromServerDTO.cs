@@ -6,6 +6,7 @@ public class DeleteUserFromServerDTO
 {
     public required Guid ServerId { get; set; }
     public required Guid UserId { get; set; }
+    public string? BanReason { get; set; }
 
     public void Validation()
     {

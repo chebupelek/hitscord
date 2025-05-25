@@ -15,6 +15,8 @@ public class UserServerDbModel
     public required Guid RoleId { get; set; }
 
     public required bool IsBanned { get; set; }
+	public string? BanReason { get; set; }
+	public DateTime? BanTime { get; set; }
 
 	[ForeignKey(nameof(RoleId))]
     public RoleDbModel Role { get; set; }

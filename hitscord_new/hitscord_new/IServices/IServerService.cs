@@ -16,9 +16,11 @@ public interface IServerService
     Task<ServersListDTO> GetServerListAsync(string token);
     Task ChangeUserRoleAsync(string token, Guid serverId, Guid userId, Guid roleId);
     Task<ServerInfoDTO> GetServerInfoAsync(string token, Guid serverId);
-    Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId);
-    Task<RolesListDTO> GetServerRolesAsync(string token, Guid serverId);
+    Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId, string? banReason);
+	Task<RolesListDTO> GetServerRolesAsync(string token, Guid serverId);
     Task ChangeServerNameAsync(Guid serverId, string token, string name);
     Task ChangeUserNameAsync(Guid serverId, string token, string name);
     Task ChangeNonNotifiableServerAsync(string token, Guid serverId);
+    Task<BanListDTO> GetBannedListAsync(string token, Guid serverId);
+    Task UnBanUser(string token, Guid serverId, Guid bannedId);
 }

@@ -225,7 +225,7 @@ public class ServerController : ControllerBase
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validation();
-            await _serverService.DeleteUserFromServerAsync(jwtToken, data.ServerId, data.UserId);
+            await _serverService.DeleteUserFromServerAsync(jwtToken, data.ServerId, data.UserId, data.BanReason);
             return Ok();
         }
         catch (CustomException ex)
@@ -291,6 +291,48 @@ public class ServerController : ControllerBase
 		{
 			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			await _serverService.ChangeNonNotifiableServerAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("banned/list")]
+	public async Task<IActionResult> GetBannedList([FromQuery] Guid serverId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var list = await _serverService.GetBannedListAsync(jwtToken, serverId);
+			return Ok(list);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpDelete]
+	[Route("banned/unban")]
+	public async Task<IActionResult> UnbanUser([FromBody] UserServerIdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _serverService.UnBanUser(jwtToken, data.ServerId, data.UserId);
 			return Ok();
 		}
 		catch (CustomException ex)
