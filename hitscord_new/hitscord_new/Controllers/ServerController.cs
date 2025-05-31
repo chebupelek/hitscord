@@ -154,27 +154,6 @@ public class ServerController : ControllerBase
 
     [Authorize]
     [HttpGet]
-    [Route("roles")]
-    public async Task<IActionResult> GetServerRole([FromQuery] Guid serverId)
-    {
-        try
-        {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var roles = await _serverService.GetServerRolesAsync(jwtToken, serverId);
-            return Ok(roles);
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
-
-    [Authorize]
-    [HttpGet]
     [Route("getserverdata")]
     public async Task<IActionResult> GetServerData([FromQuery] Guid serverId)
     {
