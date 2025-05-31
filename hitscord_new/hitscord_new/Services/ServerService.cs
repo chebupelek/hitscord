@@ -408,11 +408,16 @@ public class ServerService : IServerService
 			UserRoleId = sub.Id,
 			UserRole = sub.Name,
 			IsCreator = sub.Role == RoleEnum.Creator,
-			CanChangeRole = result.Contains("ServerCanChangeRole"),
-			CanDeleteUsers = result.Contains("ServerCanDeleteUsers"),
-			CanWorkWithChannels = result.Contains("ServerCanWorkChannels"),
-			CanMuteOthers = result.Contains("ServerCanMuteOther"),
-			CanDeleteOtherMessages = result.Contains("ServerCanDeleteOthersMessages"),
+			Permissions = new SettingsDTO
+			{
+				CanChangeRole = result.Contains("ServerCanChangeRole"),
+				CanWorkChannels = result.Contains("ServerCanWorkChannels"),
+				CanDeleteUsers = result.Contains("ServerCanDeleteUsers"),
+				CanMuteOther = result.Contains("ServerCanMuteOther"),
+				CanDeleteOthersMessages = result.Contains("ServerCanDeleteOthersMessages"),
+				CanIgnoreMaxCount = result.Contains("ServerCanIgnoreMaxCount"),
+				CanCreateRoles = result.Contains("ServerCanCreateRoles")
+			},
 			IsNotifiable = !notifiableServersList.Contains(serverId),
 			Users = await _hitsContext.UserServer
 				.Include(us => us.Role)

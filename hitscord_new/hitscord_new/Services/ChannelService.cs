@@ -224,7 +224,7 @@ public class ChannelService : IChannelService
 
 		var uvcCount = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).CountAsync();
 
-		if (((VoiceChannelDbModel)channel).MaxCount < uvcCount + 1)
+		if (((VoiceChannelDbModel)channel).MaxCount < uvcCount + 1 && !(await _authenticationService.CheckUserRightsIgnore(channel.ServerId, user.Id)))
 		{
 			throw new CustomException($"Voice channel max count is {((VoiceChannelDbModel)channel).MaxCount}", "Join to voice channel", "Voice channel", 400, "Пользователь не может писоединиться к голосовому каналу - его максимальная вместимость будет превышена", "Присоединение к голосовому каналу");
 		}

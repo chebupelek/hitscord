@@ -13,7 +13,7 @@ public interface IAuthenticationService
 	Task CheckUserRightsWorkWithSubChannels(Guid ServerId, Guid UserId, Guid SubChannelId);
 	Task CheckUserRightsMuteOthers(Guid ServerId, Guid UserId);
 	Task CheckUserRightsDeleteUsers(Guid ServerId, Guid UserId);
-	Task CheckUserRightsIgnore(Guid ServerId, Guid UserId);
+	Task<bool> CheckUserRightsIgnore(Guid ServerId, Guid UserId);
 	Task CheckUserRightsCreateRoles(Guid ServerId, Guid UserId);
 	Task CheckUserRightsJoinToVoiceChannel(Guid channelId, Guid UserId);
 	Task CheckUserRightsWriteInChannel(Guid channelId, Guid UserId);

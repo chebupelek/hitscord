@@ -142,7 +142,7 @@ public class AuthenticationService : IAuthenticationService
 		}
 	}
 
-	public async Task CheckUserRightsIgnore(Guid ServerId, Guid UserId)
+	public async Task<bool> CheckUserRightsIgnore(Guid ServerId, Guid UserId)
 	{
 		await CheckSubscriptionExistAsync(ServerId, UserId);
 		string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(UserId, ServerId);
@@ -153,8 +153,9 @@ public class AuthenticationService : IAuthenticationService
 		}
 		if (!result.Contains("ServerCanIgnoreMaxCount"))
 		{
-			throw new CustomException("User doesnt has rights for ignore max count", "Check user rights for ignore max count", "User", 401, "Пользователь не может игнорировать максимальное количество", "Проверка на возможность игнорировать максимально количество");
+			return false;
 		}
+		return true;
 	}
 
 	public async Task CheckUserRightsCreateRoles(Guid ServerId, Guid UserId)
