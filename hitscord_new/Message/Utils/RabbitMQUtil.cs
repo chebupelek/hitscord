@@ -49,6 +49,19 @@ public class RabbitMQUtil
 				return response;
 			}
 		}, configure: x => x.WithQueueName("Get messages from chat"));
+
+		_bus.Rpc.Respond<Guid, ResponseObject>(async request =>
+		{
+			using (var scope = _serviceProvider.CreateScope())
+			{
+				var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
+
+				var response = await messageService.DeleteMessagesListAsync(request);
+
+				return response;
+			}
+		}, configure: x => x.WithQueueName("Delete messages"));
+
 		/*
         _bus.PubSub.Subscribe<CreateMessageSocketDTO>("CreateMessage", async request =>
         {

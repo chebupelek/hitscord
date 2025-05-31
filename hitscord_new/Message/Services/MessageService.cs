@@ -1,4 +1,5 @@
 ﻿using Authzed.Api.V0;
+using Azure.Core;
 using EasyNetQ;
 using Grpc.Core;
 using HitscordLibrary.Models;
@@ -218,7 +219,8 @@ public class MessageService : IMessageService
 				UserId = userId,
 				TextChannelId = channelId,
 				NestedChannelId = null,
-				ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null
+				ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null,
+				DeleteTime = null
 			};
 			
 			if (NestedChannel)
@@ -539,7 +541,8 @@ public class MessageService : IMessageService
 				UserId = userId,
 				TextChannelId = chatId,
 				NestedChannelId = null,
-				ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null
+				ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null,
+				DeleteTime = null
 			};
 
 			_messageContext.Messages.Add(newMessage);
@@ -693,6 +696,63 @@ public class MessageService : IMessageService
 				Object = ex.ObjectFront
 			};
 			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
+		}
+	}
+
+
+
+	public async Task<ResponseObject> DeleteMessagesListAsync(Guid channelId)
+	{
+		try
+		{
+			var deleteTime = DateTime.UtcNow.AddMonths(3);
+
+			await _messageContext.Messages
+				.Where(m => m.TextChannelId == channelId)
+				.ExecuteUpdateAsync(setters => setters
+					.SetProperty(m => m.DeleteTime, deleteTime));
+
+			return new BoolResponse { True = true };
+		}
+		catch (CustomException ex)
+		{
+			return new ErrorResponse
+			{
+				Message = ex.Message,
+				Type = ex.Type,
+				Object = ex.Object,
+				Code = ex.Code,
+				MessageFront = ex.MessageFront,
+				ObjectFront = ex.ObjectFront
+			};
+		}
+		catch (Exception ex)
+		{
+			return new ErrorResponse
+			{
+				Message = ex.Message,
+				Type = "Unexpected error",
+				Object = "Unexpected error",
+				Code = 500,
+				MessageFront = ex.Message,
+				ObjectFront = "Неожиданная ошибка"
+			};
+		}
+	}
+
+	public async Task RemoveMessagesFromDBAsync()
+	{
+		try
+		{
+			var now = DateTime.UtcNow;
+
+			await _messageContext.Messages
+				.Where(m => m.DeleteTime != null && m.DeleteTime <= now)
+				.ExecuteDeleteAsync();
+		}
+		catch (Exception ex)
+		{
+			throw;
 		}
 	}
 }

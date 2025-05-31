@@ -226,6 +226,15 @@ public class ChatService : IChatService
 			await _orientDbService.DeleteChatAsync(chat.Id);
 			_hitsContext.Chat.Remove(chat);
 			await _hitsContext.SaveChangesAsync();
+
+			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+			{
+				var deletingMessages = bus.Rpc.Request<Guid, ResponseObject>(chat.Id, x => x.WithQueueName("Delete messages"));
+				if (deletingMessages is ErrorResponse error)
+				{
+					throw new CustomException(error.Message, error.Type, error.Object, error.Code, error.MessageFront, error.ObjectFront);
+				}
+			}
 		}
 
 		var alertedUsers = await _orientDbService.GetChatsUsers(chat.Id);

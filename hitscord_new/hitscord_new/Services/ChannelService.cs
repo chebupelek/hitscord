@@ -513,9 +513,27 @@ public class ChannelService : IChannelService
 					{
 						_hitsContext.Channel.Remove(subChannel);
 						await _orientDbService.DeleteChannelAsync(subId);
+
+						using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+						{
+							var deletingMessages = bus.Rpc.Request<Guid, ResponseObject>(subChannel.Id, x => x.WithQueueName("Delete messages"));
+							if (deletingMessages is ErrorResponse error)
+							{
+								throw new CustomException(error.Message, error.Type, error.Object, error.Code, error.MessageFront, error.ObjectFront);
+							}
+						}
 					}
 				}
 				await _hitsContext.SaveChangesAsync();
+			}
+
+			using (var bus = RabbitHutch.CreateBus("host=rabbitmq"))
+			{
+				var deletingMessages = bus.Rpc.Request<Guid, ResponseObject>(channel.Id, x => x.WithQueueName("Delete messages"));
+				if (deletingMessages is ErrorResponse error)
+				{
+					throw new CustomException(error.Message, error.Type, error.Object, error.Code, error.MessageFront, error.ObjectFront);
+				}
 			}
 		}
 

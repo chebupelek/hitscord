@@ -330,3 +330,6 @@ C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\obj\Debug\net8.0\s
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\obj\Debug\net8.0\staticwebassets\msbuild.Message.Microsoft.AspNetCore.StaticWebAssetEndpoints.props
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\obj\Debug\net8.0\Message.csproj.Up2Date
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\bin\Debug\net8.0\Quartz.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\bin\Debug\net8.0\Quartz.Extensions.DependencyInjection.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\bin\Debug\net8.0\Quartz.Extensions.Hosting.dll

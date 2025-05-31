@@ -29,4 +29,5 @@ public class MessageDbModel
     public Guid? ReplyToMessageId { get; set; }
     [ForeignKey(nameof(ReplyToMessageId))]
     public MessageDbModel? ReplyToMessage { get; set; }
+    public DateTime? DeleteTime { get; set; }
 }

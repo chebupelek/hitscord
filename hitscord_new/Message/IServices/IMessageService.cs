@@ -14,4 +14,8 @@ public interface IMessageService
     Task CreateMessageToChatWebsocketAsync(Guid chatId, string token, string text, Guid? ReplyToMessageId);
     Task UpdateMessageInChatWebsocketAsync(Guid messageId, string token, string text);
     Task DeleteMessageInChatWebsocketAsync(Guid messageId, string token);
+
+
+    Task<ResponseObject> DeleteMessagesListAsync(Guid channelId);
+    Task RemoveMessagesFromDBAsync();
 }
