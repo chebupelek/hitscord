@@ -86,6 +86,10 @@
             "OrientDB-NET.binary": {
               "target": "Package",
               "version": "[0.2.1, )"
+            },
+            "nClam": {
+              "target": "Package",
+              "version": "[9.0.0, )"
             }
           },
           "imports": [

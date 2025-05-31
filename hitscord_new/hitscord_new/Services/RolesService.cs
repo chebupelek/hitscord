@@ -196,6 +196,11 @@ public class RolesService : IRolesService
 		var role = await CheckRoleAsync(roleId, serverId);
 		await _authenticationService.CheckUserRightsCreateRoles(server.Id, owner.Id);
 
+		if (role.Role != RoleEnum.Custom)
+		{
+			throw new CustomException("This role not custom", "Change role settings", "Role", 400, "Нельзя менять настройки предсозданных ролей", "Изменение настроек роли");
+		}
+
 		switch (setting)
 		{
 			case SettingsEnum.CanChangeRole:

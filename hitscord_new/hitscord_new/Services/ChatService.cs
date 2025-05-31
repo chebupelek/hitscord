@@ -171,7 +171,7 @@ public class ChatService : IChatService
 			throw new CustomException("Owner cant add this user in chat", "AddUserAsync", "UserTag", 401, "Нельзя добавлять в чат этого пользователя", "Добавление пользователя в чат");
 		}
 
-		chat.Users.Add(user); ;
+		chat.Users.Add(user);
 		await _orientDbService.AddUserIntoChat(user.Id, chat.Id);
 		_hitsContext.Chat.Update(chat);
 		await _hitsContext.SaveChangesAsync();
@@ -193,6 +193,9 @@ public class ChatService : IChatService
 		{
 			await _webSocketManager.BroadcastMessageAsync(userResponse, alertedUsers, "New user in chat");
 		}
+
+
+		//добавленному пользователю особое сообщение
 	}
 
 	public async Task RemoveUserAsync(string token, Guid chatId)

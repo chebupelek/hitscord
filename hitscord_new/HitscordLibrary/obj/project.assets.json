@@ -700,6 +700,15 @@
           "lib/netstandard2.0/Mono.TextTemplating.dll": {}
         }
       },
+      "nClam/9.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.1/nClam.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.1/nClam.dll": {}
+        }
+      },
       "Newtonsoft.Json/13.0.3": {
         "type": "package",
         "compile": {
@@ -2150,6 +2159,20 @@
         "mono.texttemplating.nuspec"
       ]
     },
+    "nClam/9.0.0": {
+      "sha512": "kjJ9W3TJOl0VIS2lCpblfDHDZTUG7oejwx2PkjKxu6r+XSmcgBGJUMsrx2c8Utm4EfNDhjtKbJqwIzDpgog0Bw==",
+      "type": "package",
+      "path": "nclam/9.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "lib/netstandard2.0/nClam.dll",
+        "lib/netstandard2.1/nClam.dll",
+        "nclam.9.0.0.nupkg.sha512",
+        "nclam.nuspec"
+      ]
+    },
     "Newtonsoft.Json/13.0.3": {
       "sha512": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ==",
       "type": "package",
@@ -2620,7 +2643,8 @@
       "Microsoft.EntityFrameworkCore.Tools >= 8.0.14",
       "Newtonsoft.Json >= 13.0.3",
       "Npgsql.EntityFrameworkCore.PostgreSQL >= 8.0.11",
-      "OrientDB-NET.binary >= 0.2.1"
+      "OrientDB-NET.binary >= 0.2.1",
+      "nClam >= 9.0.0"
     ]
   },
   "packageFolders": {
@@ -2709,6 +2733,10 @@
           "OrientDB-NET.binary": {
             "target": "Package",
             "version": "[0.2.1, )"
+          },
+          "nClam": {
+            "target": "Package",
+            "version": "[9.0.0, )"
           }
         },
         "imports": [

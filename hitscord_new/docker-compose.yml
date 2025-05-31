@@ -35,6 +35,14 @@ services:
     networks:
       - hitscord_network
 
+  clamav:
+    image: clamav/clamav:latest
+    restart: always
+    ports:
+      - "3310:3310"
+    networks:
+      - hitscord_network
+
   postgres:
     image: postgres:15
     restart: always

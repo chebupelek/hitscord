@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "fiRo3OO5gFI=",
+  "dgSpecHash": "OEg6KwB182w=",
   "success": true,
   "projectFilePath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
   "expectedPackageFiles": [
@@ -79,6 +79,7 @@
     "C:\\Users\\misti\\.nuget\\packages\\microsoft.win32.primitives\\4.3.0\\microsoft.win32.primitives.4.3.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\microsoft.win32.systemevents\\4.7.0\\microsoft.win32.systemevents.4.7.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\mono.texttemplating\\2.2.1\\mono.texttemplating.2.2.1.nupkg.sha512",
+    "C:\\Users\\misti\\.nuget\\packages\\nclam\\9.0.0\\nclam.9.0.0.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\netstandard.library\\1.6.1\\netstandard.library.1.6.1.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
     "C:\\Users\\misti\\.nuget\\packages\\newtonsoft.json.bson\\1.0.2\\newtonsoft.json.bson.1.0.2.nupkg.sha512",

@@ -15,6 +15,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using Quartz;
 using hitscord_new.DailyJob;
+using HitscordLibrary.nClamUtil;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,9 @@ builder.Services.AddSingleton<RabbitMQUtil>();
 
 builder.Services.Configure<OrientDbConfig>(builder.Configuration.GetSection("OrientDb"));
 builder.Services.AddSingleton<OrientDbService>();
+
+builder.Services.Configure<ClamAVOptions>(builder.Configuration.GetSection("ClamAV"));
+builder.Services.AddSingleton<nClamService>();
 
 builder.Services.AddSingleton<WebSocketConnectionStore>();
 builder.Services.AddScoped<WebSocketsManager>();
