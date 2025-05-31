@@ -142,6 +142,36 @@ public class AuthenticationService : IAuthenticationService
 		}
 	}
 
+	public async Task CheckUserRightsIgnore(Guid ServerId, Guid UserId)
+	{
+		await CheckSubscriptionExistAsync(ServerId, UserId);
+		string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(UserId, ServerId);
+		var server = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == ServerId);
+		if (server == null)
+		{
+			throw new CustomException("Server not exist", "Check user rights for ignore max count", "Server", 404, "Сервер не найден", "Проверка на возможность игнорировать максимально количество");
+		}
+		if (!result.Contains("ServerCanIgnoreMaxCount"))
+		{
+			throw new CustomException("User doesnt has rights for ignore max count", "Check user rights for ignore max count", "User", 401, "Пользователь не может игнорировать максимальное количество", "Проверка на возможность игнорировать максимально количество");
+		}
+	}
+
+	public async Task CheckUserRightsCreateRoles(Guid ServerId, Guid UserId)
+	{
+		await CheckSubscriptionExistAsync(ServerId, UserId);
+		string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(UserId, ServerId);
+		var server = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == ServerId);
+		if (server == null)
+		{
+			throw new CustomException("Server not exist", "Check user rights for create roles", "Server", 404, "Сервер не найден", "Проверка на возможность создавать роли");
+		}
+		if (!result.Contains("ServerCanCreateRoles"))
+		{
+			throw new CustomException("User doesnt has rights to create roles", "Check user rights for create roles", "User", 401, "Пользователь не может создавать роли", "Проверка на возможность создавать роли");
+		}
+	}
+
 	public async Task CheckUserRightsJoinToVoiceChannel(Guid channelId, Guid UserId)
 	{
 		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(s => s.Id == channelId);

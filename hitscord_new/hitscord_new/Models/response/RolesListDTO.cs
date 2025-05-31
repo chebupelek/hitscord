@@ -2,5 +2,5 @@
 
 public class RolesListDTO
 {
-    public required List<RolesItemDTO> Roles { get; set; }
+    public required List<RoleSettingsDTO> Roles { get; set; }
 }

@@ -4,7 +4,6 @@ public enum RoleEnum
 {
     Creator,
     Admin,
-    Teacher,
-    Student,
+    Custom,
     Uncertain
 }

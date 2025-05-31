@@ -310,8 +310,9 @@ public class ChannelService : IChannelService
         var removedUser = await _authService.GetUserAsync(UserId);
         var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
         var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
-        await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
-        await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
+        var userSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+		var remSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, removedUser.Id);
+		await _authenticationService.CheckUserRightsWorkWithChannels(channel.ServerId, user.Id);
 
         if (user.Id == removedUser.Id)
         {
@@ -323,6 +324,12 @@ public class ChannelService : IChannelService
         {
             throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400, "Пользователь не находится на этом канале", "Удаление пользователя из голосового канала");
         }
+
+		if ((userSub.Role <= remSub.Role))
+		{
+			throw new CustomException("USer lower in ierarchy than removed user", "Remove user from voice channel", "Removed user role", 401, "Пользователь ниже по иерархии чем удаляемый пользователь", "Удаление пользователя из голосового канала");
+		}
+
         _hitsContext.UserVoiceChannel.Remove(userthischannel);
         await _hitsContext.SaveChangesAsync();
 
@@ -398,7 +405,8 @@ public class ChannelService : IChannelService
 		}
 		var channel = await CheckVoiceChannelExistAsync(userVoiceChannel.VoiceChannelId, true);
 		var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
-		await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+		var userSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+		var changedSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, changedUser.Id);
 		await _authenticationService.CheckUserRightsMuteOthers(channel.ServerId, user.Id);
 
 		if (user.Id == changedUser.Id)
@@ -410,6 +418,11 @@ public class ChannelService : IChannelService
 		if (changedUserthischannel == null)
 		{
 			throw new CustomException("Changed user not on this channel", "Change user mute status", "Voice channel - Removed user", 400, "Пользователь которому необходимо изменить статус мута не находится в голосовом канале канале", "Изменение статуса другого пользователя в голосовом канале");
+		}
+
+		if ((userSub.Role <= changedSub.Role))
+		{
+			throw new CustomException("USer lower in ierarchy than changed user", "Change user mute status", "Changed user role", 401, "Пользователь ниже по иерархии чем изменяемый пользователь", "Изменение статуса другого пользователя в голосовом канале");
 		}
 
 		if (changedUserthischannel.MuteStatus == MuteStatusEnum.SelfMuted || changedUserthischannel.MuteStatus == MuteStatusEnum.NotMuted)

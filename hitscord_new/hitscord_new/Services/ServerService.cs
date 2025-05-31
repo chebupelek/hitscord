@@ -87,10 +87,8 @@ public class ServerService : IServerService
 
         var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Создатель", "#FF0000");
         var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Админ", "#00FF00");
-        var teacherRole = await CreateRoleAsync(newServer.Id, RoleEnum.Teacher, "Учитель", "#00FFFF");
-        var studentRole = await CreateRoleAsync(newServer.Id, RoleEnum.Student, "Студент", 	"#FF00FF");
         var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Неопределенная", "#FFFF00");
-        newServer.Roles = new List<RoleDbModel> { creatorRole, adminRole, teacherRole, studentRole, uncertainRole };
+        newServer.Roles = new List<RoleDbModel> { creatorRole, adminRole, uncertainRole };
         _hitsContext.Server.Update(newServer);
         await _hitsContext.SaveChangesAsync();
 
@@ -120,7 +118,7 @@ public class ServerService : IServerService
         await _hitsContext.Channel.AddAsync(newVoiceChannel);
         await _hitsContext.SaveChangesAsync();
 
-		await _orientDbService.CreateServerAsync(newServer.Id, user.Id, newTextChannel.Id, newVoiceChannel.Id, new List<RoleDbModel> { creatorRole, adminRole, teacherRole, studentRole, uncertainRole });
+		await _orientDbService.CreateServerAsync(newServer.Id, user.Id, newTextChannel.Id, newVoiceChannel.Id, new List<RoleDbModel> { creatorRole, adminRole, uncertainRole });
 
 		newServer.Channels.Add(newTextChannel);
         newServer.Channels.Add(newVoiceChannel);
@@ -309,7 +307,8 @@ public class ServerService : IServerService
         var server = await CheckServerExistAsync(serverId, false);
         await _authenticationService.CheckUserRightsChangeRoles(server.Id, owner.Id);
         await _authorizationService.GetUserAsync(userId);
-        var userSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, userId);
+		var ownerSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, owner.Id);
+		var userSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, userId);
         var userSubRoleId = await _orientDbService.GetUserRoleOnServerAsync(userId, serverId);
         if(userSubRoleId == null) 
         {
@@ -321,11 +320,12 @@ public class ServerService : IServerService
         {
             throw new CustomException("User cant change his role", "Change user role", "User", 400, "Пользователь не может менять свою роль", "Изменение роли пользователя");
         }
-        if (userSubRole.Role == RoleEnum.Creator)
-        {
-            throw new CustomException("User cant change role of creator", "Change user role", "User", 400, "Пользователь не может менять роль создателя сервера", "Изменение роли пользователя");
-        }
-        var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == serverId);
+		if ((ownerSub.Role <= userSub.Role))
+		{
+			throw new CustomException("Owner lower in ierarchy than changed user", "Change user role", "Changed user role", 401, "Пользователь ниже по иерархии чем изменяемый пользователь", "Изменение роли пользователя");
+		}
+
+		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == serverId);
 
         var userServ = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSubRoleId);
         var newUserServ = new UserServerDbModel
@@ -478,14 +478,19 @@ public class ServerService : IServerService
 		var server = await CheckServerExistAsync(serverId, false);
 		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
 		await _authorizationService.GetUserAsync(userId);
+		var ownerSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, owner.Id);
 		var userSub = await _authenticationService.CheckSubscriptionExistAsync(server.Id, userId);
 		if (userId == owner.Id)
 		{
-			throw new CustomException("User cant delete himself", "Change user role", "User", 400, "Пользователь не может удалить сам себя", "Удаление пользователя с сервера");
+			throw new CustomException("User cant delete himself", "Delete user from server", "User", 400, "Пользователь не может удалить сам себя", "Удаление пользователя с сервера");
 		}
 		if (userSub.Role == RoleEnum.Creator)
 		{
-			throw new CustomException("User cant delete creator of server", "Change user role", "User", 400, "Нельзя удалить создателя сервера", "Удаление пользователя с сервера");
+			throw new CustomException("User cant delete creator of server", "Delete user from server", "User", 400, "Нельзя удалить создателя сервера", "Удаление пользователя с сервера");
+		}
+		if ((ownerSub.Role <= userSub.Role))
+		{
+			throw new CustomException("Owner lower in ierarchy than deleted user", "Delete user from server", "Changed user role", 401, "Пользователь ниже по иерархии чем удаляемый пользователь", "Удаление пользователя с сервера");
 		}
 		var userServer = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSub.Id);
 		userServer.IsBanned = true;
@@ -514,29 +519,6 @@ public class ServerService : IServerService
 			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
 		}
 	}
-
-	public async Task<RolesListDTO> GetServerRolesAsync(string token, Guid serverId)
-    {
-        var user = await _authorizationService.GetUserAsync(token);
-        var server = await CheckServerExistAsync(serverId, true);
-        await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
-
-        var list = new RolesListDTO
-        {
-            Roles = server.Roles
-                .Select(r => new RolesItemDTO
-                {
-                    Id = r.Id,
-                    ServerId = server.Id,
-                    Name = r.Name,
-                    Tag = r.Tag,
-                    Color = r.Color
-                })
-                .ToList()
-        };
-
-        return list;
-    }
 
 	public async Task ChangeServerNameAsync(Guid serverId, string token, string name)
 	{

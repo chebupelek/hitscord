@@ -160,6 +160,10 @@ public class OrientDbService
 
 			"CREATE CLASS ServerCanDeleteOthersMessages EXTENDS E", //from Role to Server
 
+			"CREATE CLASS ServerCanIgnoreMaxCount EXTENDS E", //from Role to Server
+
+			"CREATE CLASS ServerCanCreateRoles EXTENDS E", //from Role to Server
+
 			"CREATE CLASS ChannelCanSee EXTENDS E", //from Role to Channel
 
             "CREATE CLASS ChannelCanWrite EXTENDS E", //from Role to TextChannel
@@ -323,6 +327,12 @@ public class OrientDbService
 		await ExecuteCommandAsync(deleteChannelQuery);
 	}
 
+	public async Task DeleteRoleAsync(Guid roleId)
+	{
+		string deleteRoleQuery = $"DELETE VERTEX Role WHERE id = '{roleId}'";
+		await ExecuteCommandAsync(deleteRoleQuery);
+	}
+
 	public async Task CreateServerAsync(Guid serverId, Guid userId, Guid textChannel, Guid voiceChannel, List<RoleDbModel> roles)
 	{
 		await AddServerAsync(serverId);
@@ -340,7 +350,8 @@ public class OrientDbService
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanDeleteUsers");
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanMuteOther");
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanDeleteOthersMessages");
-				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanDeleteOthersMessages");
+				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanIgnoreMaxCount");
+				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanCreateRoles");
 
 				if (role.Role == RoleEnum.Creator)
 				{
@@ -1850,5 +1861,49 @@ public class OrientDbService
 		return resultList != null
 			? resultList.Select(item => Guid.Parse(item.Value<string>("userId"))).ToList()
 			: new List<Guid>();
+	}
+
+	public async Task<bool> RoleUsedOnServerAsync(Guid roleId)
+	{
+		string query = $@"
+        SELECT COUNT(*) 
+        FROM BelongsToRole 
+        WHERE in IN (
+			SELECT @rid
+			FROM Role
+			WHERE id = '{roleId}'
+		)";
+
+		string result = await ExecuteCommandAsync(query);
+		var count = ExtractCountFromResult(result);
+		return count > 0;
+	}
+
+	public async Task UpdateRoleAsync(Guid roleId, string name, string tag, string color)
+	{
+		string checkQuery = $@"
+        SELECT FROM Role WHERE id = '{roleId}'";
+		string checkResult = await ExecuteCommandAsync(checkQuery);
+
+		if (!checkResult.Contains("\"result\":[]"))
+		{
+			string updateQuery = $@"
+            UPDATE Role SET name = '{name}', tag = '{tag}', color = '{color}' WHERE id = '{roleId}'";
+
+			await ExecuteCommandAsync(updateQuery);
+		}
+	}
+
+	public async Task<string> GetRolePermissionsOnServerAsync(Guid roleId, Guid serverId)
+	{
+		string query = $@"
+            SELECT 
+                $permissionsEdges
+            LET 
+                roles = (SELECT FROM Role WHERE id = '{roleId}'),
+                permissionsEdges = (SELECT FROM E WHERE out IN (SELECT @rid FROM $roles) AND in IN (SELECT @rid FROM Server WHERE id = '{serverId}'))
+        ";
+
+		return await ExecuteCommandAsync(query);
 	}
 }

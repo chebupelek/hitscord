@@ -35,6 +35,7 @@ builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IFriendshipService, FriendshipService>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IRolesService, RolesService>();
 
 builder.Services.AddSingleton<RabbitMQUtil>();
 
