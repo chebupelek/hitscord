@@ -122,7 +122,10 @@ using (var scope = app.Services.CreateScope())
     var LogContext = scope.ServiceProvider.GetRequiredService<HitscordLibrary.Contexts.TokenContext>();
     await LogContext.Database.MigrateAsync();
 
-    var orientDbService = scope.ServiceProvider.GetRequiredService<OrientDbService>();
+	var FileContext = scope.ServiceProvider.GetRequiredService<HitscordLibrary.Contexts.FilesContext>();
+	await FileContext.Database.MigrateAsync();
+
+	var orientDbService = scope.ServiceProvider.GetRequiredService<OrientDbService>();
     await orientDbService.EnsureSchemaExistsAsync();
 
     var bus = app.Services.GetRequiredService<RabbitMQUtil>();
