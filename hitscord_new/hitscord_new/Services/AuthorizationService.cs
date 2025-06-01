@@ -34,9 +34,8 @@ public class AuthorizationService : IServices.IAuthorizationService
     private readonly ITokenService _tokenService;
     private readonly OrientDbService _orientDbService;
 	private readonly nClamService _clamService;
-	private readonly IFileService _fileService;
 
-	public AuthorizationService(HitsContext hitsContext, FilesContext filesContext, ITokenService tokenService, OrientDbService orientDbService, nClamService clamService, IFileService fileService)
+	public AuthorizationService(HitsContext hitsContext, FilesContext filesContext, ITokenService tokenService, OrientDbService orientDbService, nClamService clamService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_filesContext = filesContext ?? throw new ArgumentNullException(nameof(filesContext));
@@ -44,7 +43,6 @@ public class AuthorizationService : IServices.IAuthorizationService
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
         _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
-		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
 	}
 
     public async Task<bool> CheckUserAuthAsync(string token)
@@ -97,6 +95,33 @@ public class AuthorizationService : IServices.IAuthorizationService
 			throw new CustomException("User not found", "Get user by tag", "User", 404, "Пользователь не найден", "Получение пользователя по тегу");
 		}
 		return user;
+	}
+
+	public async Task<FileResponseDTO?> GetImageAsync(Guid iconId)
+	{
+		var file = await _filesContext.File.FindAsync(iconId);
+		if (file == null)
+			return null;
+
+		if (!file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+			return null;
+
+		var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
+
+		if (!System.IO.File.Exists(filePath))
+			return null;
+
+		var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+		var base64File = Convert.ToBase64String(fileBytes);
+
+		return new FileResponseDTO
+		{
+			FileId = file.Id,
+			FileName = file.Name,
+			FileType = file.Type,
+			FileSize = file.Size,
+			Base64File = base64File
+		};
 	}
 
 	public async Task<TokensDTO> CreateAccount(UserRegistrationDTO registrationData)
@@ -176,7 +201,7 @@ public class AuthorizationService : IServices.IAuthorizationService
     {
         var user = await GetUserAsync(token);
 
-        var icon = user.IconId == null ? null : await _fileService.GetImageAsync((Guid)user.IconId);
+        var icon = user.IconId == null ? null : await GetImageAsync((Guid)user.IconId);
 
         var userData = new ProfileDTO
         {
@@ -339,6 +364,7 @@ public class AuthorizationService : IServices.IAuthorizationService
             FileId = file.Id,
             FileName = file.Name,
             FileType = file.Type,
+            FileSize = file.Size,
             Base64File = base64Icon
         });
 	}

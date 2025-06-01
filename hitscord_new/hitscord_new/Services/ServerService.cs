@@ -31,9 +31,8 @@ public class ServerService : IServerService
     private readonly OrientDbService _orientDbService;
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly nClamService _clamService;
-	private readonly IFileService _fileService;
 
-	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext, IFileService fileService)
+	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -42,7 +41,6 @@ public class ServerService : IServerService
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_filesContext = filesContext ?? throw new ArgumentNullException(nameof(filesContext));
-		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
 	}
 
     public async Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels)
@@ -85,7 +83,34 @@ public class ServerService : IServerService
         return newRole;
     }
 
-    public async Task<ServerIdDTO> CreateServerAsync(string token, string serverName)
+	public async Task<FileResponseDTO?> GetImageAsync(Guid iconId)
+	{
+		var file = await _filesContext.File.FindAsync(iconId);
+		if (file == null)
+			return null;
+
+		if (!file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+			return null;
+
+		var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
+
+		if (!System.IO.File.Exists(filePath))
+			return null;
+
+		var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+		var base64File = Convert.ToBase64String(fileBytes);
+
+		return new FileResponseDTO
+		{
+			FileId = file.Id,
+			FileName = file.Name,
+			FileType = file.Type,
+			FileSize = file.Size,
+			Base64File = base64File
+		};
+	}
+
+	public async Task<ServerIdDTO> CreateServerAsync(string token, string serverName)
     {
         var user = await _authorizationService.GetUserAsync(token);
 
@@ -308,7 +333,7 @@ public class ServerService : IServerService
 
 		foreach (var server in freshList)
 		{
-			var icon = server.IconId == null ? null : await _fileService.GetImageAsync((Guid)server.IconId);
+			var icon = server.IconId == null ? null : await GetImageAsync((Guid)server.IconId);
 			serverList.Add(new ServersListItemDTO
 			{
 				ServerId = server.Id,
@@ -394,7 +419,7 @@ public class ServerService : IServerService
 		var notifiableServersList = await _orientDbService.GetNonNotifiableServersForUserAsync(user.Id);
 		var notifiableChannelsList = await _orientDbService.GetNonNotifiableChannelsForUserAsync(user.Id, serverId);
 
-		var icon = server.IconId == null ? null : await _fileService.GetImageAsync((Guid)server.IconId);
+		var icon = server.IconId == null ? null : await GetImageAsync((Guid)server.IconId);
 
 		var voiceChannelResponses = await _hitsContext.VoiceChannel
 			.Include(vc => vc.Users)
@@ -440,7 +465,7 @@ public class ServerService : IServerService
 			var userEntity = await _hitsContext.User.FindAsync(serverUser.UserId);
 			if (userEntity?.IconId != null)
 			{
-				var userIcon = await _fileService.GetImageAsync(userEntity.IconId.Value);
+				var userIcon = await GetImageAsync(userEntity.IconId.Value);
 				serverUser.Icon = userIcon;
 			}
 			else
@@ -752,6 +777,7 @@ public class ServerService : IServerService
 				FileId = file.Id,
 				FileName = file.Name,
 				FileType = file.Type,
+				FileSize = file.Size,
 				Base64File = base64Icon
 			}
 		};
