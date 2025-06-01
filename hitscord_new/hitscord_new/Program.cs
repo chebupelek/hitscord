@@ -23,6 +23,9 @@ builder.Services.AddDbContext<HitsContext>(options =>
 builder.Services.AddDbContext<HitscordLibrary.Contexts.TokenContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("TokenContext")));
 
+builder.Services.AddDbContext<HitscordLibrary.Contexts.FilesContext>(options =>
+	options.UseNpgsql(builder.Configuration.GetConnectionString("FilesContext")));
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -37,6 +40,7 @@ builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IFriendshipService, FriendshipService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IRolesService, RolesService>();
+builder.Services.AddScoped<IFileService, FileService>();
 
 builder.Services.AddSingleton<RabbitMQUtil>();
 

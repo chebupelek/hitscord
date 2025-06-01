@@ -372,3 +372,5 @@ C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\staticwebassets\msbuild.hitscord_new.Microsoft.AspNetCore.StaticWebAssetEndpoints.props
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\hitscord.6F1605EB.Up2Date
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\nClam.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\SixLabors.ImageSharp.dll

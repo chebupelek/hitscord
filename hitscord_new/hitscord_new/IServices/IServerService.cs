@@ -22,4 +22,5 @@ public interface IServerService
     Task ChangeNonNotifiableServerAsync(string token, Guid serverId);
     Task<BanListDTO> GetBannedListAsync(string token, Guid serverId);
     Task UnBanUser(string token, Guid serverId, Guid bannedId);
+    Task ChangeServerIconAsync(string token, Guid serverId, IFormFile iconFile);
 }

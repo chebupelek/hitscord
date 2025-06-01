@@ -14,23 +14,38 @@ using hitscord.OrientDb.Service;
 using HitscordLibrary.Models.other;
 using EasyNetQ;
 using HitscordLibrary.Models.Rabbit;
+using HitscordLibrary.Contexts;
+using HitscordLibrary.Models.db;
+using HitscordLibrary.Models;
+using HitscordLibrary.nClamUtil;
+using Microsoft.AspNetCore.Authorization;
+using nClam;
+using Microsoft.AspNetCore.Mvc;
+using Authzed.Api.V0;
+using System.Drawing;
 
 namespace hitscord.Services;
 
-public class AuthorizationService : IAuthorizationService
+public class AuthorizationService : IServices.IAuthorizationService
 {
     private readonly HitsContext _hitsContext;
-    private readonly PasswordHasher<string> _passwordHasher;
+	private readonly FilesContext _filesContext;
+	private readonly PasswordHasher<string> _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly OrientDbService _orientDbService;
+	private readonly nClamService _clamService;
+	private readonly IFileService _fileService;
 
-    public AuthorizationService(HitsContext hitsContext, ITokenService tokenService, OrientDbService orientDbService)
+	public AuthorizationService(HitsContext hitsContext, FilesContext filesContext, ITokenService tokenService, OrientDbService orientDbService, nClamService clamService, IFileService fileService)
     {
-        _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
-        _passwordHasher = new PasswordHasher<string>();
+		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
+		_filesContext = filesContext ?? throw new ArgumentNullException(nameof(filesContext));
+		_passwordHasher = new PasswordHasher<string>();
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
         _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
-    }
+		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
+		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
+	}
 
     public async Task<bool> CheckUserAuthAsync(string token)
     {
@@ -159,8 +174,23 @@ public class AuthorizationService : IAuthorizationService
 
     public async Task<ProfileDTO> GetProfileAsync(string token)
     {
-        var userData = new ProfileDTO(await GetUserAsync(token));
-        return userData;
+        var user = await GetUserAsync(token);
+
+        var icon = user.IconId == null ? null : await _fileService.GetImageAsync((Guid)user.IconId);
+
+        var userData = new ProfileDTO
+        {
+            Id = user.Id,
+            Name = user.AccountName,
+            Tag = user.AccountTag,
+            Mail = user.Mail,
+            AccontCreateDate = DateOnly.FromDateTime(user.AccountCreateDate),
+			Notifiable = user.Notifiable,
+            FriendshipApplication = user.FriendshipApplication,
+            NonFriendMessage = user.NonFriendMessage,
+            Icon = icon
+        };
+		return userData;
     }
 
     public async Task<ProfileDTO> ChangeProfileAsync(string token, ChangeProfileDTO newData)
@@ -170,9 +200,19 @@ public class AuthorizationService : IAuthorizationService
         userData.Mail = newData.Mail != null ? newData.Mail : userData.Mail;
         _hitsContext.User.Update(userData);
         await _hitsContext.SaveChangesAsync();
-        var newUserData = new ProfileDTO(await GetUserAsync(token));
+        var newUserData = new ProfileDTO
+		{
+			Id = userData.Id,
+			Name = userData.AccountName,
+			Tag = userData.AccountTag,
+			Mail = userData.Mail,
+			AccontCreateDate = DateOnly.FromDateTime(userData.AccountCreateDate),
+			Notifiable = userData.Notifiable,
+			FriendshipApplication = userData.FriendshipApplication,
+			NonFriendMessage = userData.NonFriendMessage
+		};
 
-        return newUserData;
+		return newUserData;
     }
 
 	public async Task ChangeNotifiableAsync(string token)
@@ -218,7 +258,87 @@ public class AuthorizationService : IAuthorizationService
             Notifiable = userById.Notifiable,
             NonFriendMessage = userById.NonFriendMessage,
             FriendshipApplication = userById.FriendshipApplication
-        };
+		};
         return userData;
+	}
+
+	public async Task<FileResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile)
+	{
+		var user = await GetUserAsync(token);
+
+		if (iconFile.Length > 10 * 1024 * 1024)
+		{
+			throw new CustomException("Icon too large", "Сhange server icon", "Icon", 400, "Файл слишком большой (макс. 10 МБ)", "Изменение иконки сервера");
+		}
+
+		if (!iconFile.ContentType.StartsWith("image/"))
+		{
+			throw new CustomException("Invalid file type", "Сhange server icon", "Icon", 400, "Файл не является изображением!", "Изменение иконки сервера");
+		}
+
+		byte[] fileBytes;
+		using (var ms = new MemoryStream())
+		{
+			await iconFile.CopyToAsync(ms);
+			fileBytes = ms.ToArray();
+		}
+
+		var scanResult = await _clamService.ScanFileAsync(fileBytes);
+		if (scanResult.Result != ClamScanResults.Clean)
+		{
+			throw new CustomException("Virus detected", "Сhange server icon", "Icon", 400, "Обнаружен вирус в файле", "Изменение иконки сервера");
+		}
+
+		using var imgStream = new MemoryStream(fileBytes);
+		SixLabors.ImageSharp.Image image;
+		try
+		{
+			image = await SixLabors.ImageSharp.Image.LoadAsync(imgStream);
+		}
+		catch (SixLabors.ImageSharp.UnknownImageFormatException)
+		{
+			throw new CustomException("Invalid image file", "Сhange server icon", "Icon", 400, "Файл не является валидным изображением!", "Изменение иконки сервера");
+		}
+
+		if (image.Width > 650 || image.Height > 650)
+		{
+			throw new CustomException("Icon too large", "Сhange server icon", "Icon", 400, "Изображение слишком большое (макс. 650x650)", "Изменение иконки сервера");
+		}
+
+		var originalFileName = Path.GetFileName(iconFile.FileName);
+		originalFileName = Path.GetFileName(originalFileName);
+		var iconDirectory = Path.Combine("wwwroot", "icons");
+
+		Directory.CreateDirectory(iconDirectory);
+
+		var iconPath = Path.Combine(iconDirectory, originalFileName);
+
+		await File.WriteAllBytesAsync(iconPath, fileBytes);
+
+		var file = new FileDbModel
+		{
+			Id = Guid.NewGuid(),
+			Path = $"/icons/{originalFileName}",
+			Name = originalFileName,
+			Type = iconFile.ContentType,
+		};
+
+		_filesContext.File.Add(file);
+		await _filesContext.SaveChangesAsync();
+
+		user.IconId = file.Id;
+		_hitsContext.User.Update(user);
+		await _hitsContext.SaveChangesAsync();
+
+
+		string base64Icon = Convert.ToBase64String(fileBytes);
+
+        return (new FileResponseDTO
+        {
+            FileId = file.Id,
+            FileName = file.Name,
+            FileType = file.Type,
+            Base64File = base64Icon
+        });
 	}
 }

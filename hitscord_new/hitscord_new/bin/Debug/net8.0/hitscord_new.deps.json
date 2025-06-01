@@ -28,8 +28,10 @@
           "OrientDB-NET.binary": "0.2.1",
           "Serilog.AspNetCore": "9.0.0",
           "Serilog.Sinks.File": "6.0.0",
+          "SixLabors.ImageSharp": "3.1.8",
           "Swashbuckle.AspNetCore": "6.4.0",
-          "System.Net.Http.Json": "8.0.1"
+          "System.Net.Http.Json": "8.0.1",
+          "nClam": "9.0.0"
         },
         "runtime": {
           "hitscord_new.dll": {}
@@ -1020,6 +1022,14 @@
           }
         }
       },
+      "nClam/9.0.0": {
+        "runtime": {
+          "lib/netstandard2.1/nClam.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.0.0"
+          }
+        }
+      },
       "NETStandard.Library/1.6.1": {
         "dependencies": {
           "Microsoft.NETCore.Platforms": "3.1.4",
@@ -1297,6 +1307,14 @@
           "lib/net8.0/Serilog.Sinks.File.dll": {
             "assemblyVersion": "6.0.0.0",
             "fileVersion": "6.0.0.0"
+          }
+        }
+      },
+      "SixLabors.ImageSharp/3.1.8": {
+        "runtime": {
+          "lib/net6.0/SixLabors.ImageSharp.dll": {
+            "assemblyVersion": "3.0.0.0",
+            "fileVersion": "3.1.8.0"
           }
         }
       },
@@ -2080,7 +2098,9 @@
           "Microsoft.EntityFrameworkCore": "8.0.14",
           "Newtonsoft.Json": "13.0.3",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.11",
-          "OrientDB-NET.binary": "0.2.1"
+          "OrientDB-NET.binary": "0.2.1",
+          "SixLabors.ImageSharp": "3.1.8",
+          "nClam": "9.0.0"
         },
         "runtime": {
           "HitscordLibrary.dll": {
@@ -2622,6 +2642,13 @@
       "path": "mono.texttemplating/2.2.1",
       "hashPath": "mono.texttemplating.2.2.1.nupkg.sha512"
     },
+    "nClam/9.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-kjJ9W3TJOl0VIS2lCpblfDHDZTUG7oejwx2PkjKxu6r+XSmcgBGJUMsrx2c8Utm4EfNDhjtKbJqwIzDpgog0Bw==",
+      "path": "nclam/9.0.0",
+      "hashPath": "nclam.9.0.0.nupkg.sha512"
+    },
     "NETStandard.Library/1.6.1": {
       "type": "package",
       "serviceable": true,
@@ -2852,6 +2879,13 @@
       "sha512": "sha512-lxjg89Y8gJMmFxVkbZ+qDgjl+T4yC5F7WSLTvA+5q0R04tfKVLRL/EHpYoJ/MEQd2EeCKDuylBIVnAYMotmh2A==",
       "path": "serilog.sinks.file/6.0.0",
       "hashPath": "serilog.sinks.file.6.0.0.nupkg.sha512"
+    },
+    "SixLabors.ImageSharp/3.1.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-8eJkROLGh6DBQLR666q2aOpAaean2puZaZ6Ur9YxoyGzjaZhv8OJSxtnDou54+OXMkXtLUdyQC0so47sOsqZjg==",
+      "path": "sixlabors.imagesharp/3.1.8",
+      "hashPath": "sixlabors.imagesharp.3.1.8.nupkg.sha512"
     },
     "Swashbuckle.AspNetCore/6.4.0": {
       "type": "package",

@@ -333,3 +333,5 @@ C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\obj\Debug\net8.0\M
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\bin\Debug\net8.0\Quartz.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\bin\Debug\net8.0\Quartz.Extensions.DependencyInjection.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\bin\Debug\net8.0\Quartz.Extensions.Hosting.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\bin\Debug\net8.0\nClam.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\Message\bin\Debug\net8.0\SixLabors.ImageSharp.dll

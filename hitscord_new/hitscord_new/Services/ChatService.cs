@@ -17,6 +17,7 @@ using HitscordLibrary.SocketsModels;
 using Microsoft.EntityFrameworkCore;
 using NickBuhro.Translit;
 using System.Data;
+using System.Drawing;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 
@@ -29,14 +30,16 @@ public class ChatService : IChatService
     private readonly IServices.IAuthenticationService _authenticationService;
     private readonly OrientDbService _orientDbService;
 	private readonly WebSocketsManager _webSocketManager;
+	private readonly IFileService _fileService;
 
-	public ChatService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager)
+	public ChatService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, IFileService fileService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
         _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
 	}
 
 	public async Task<ChatDbModel> CheckChatExist(Guid chatId)
@@ -125,6 +128,35 @@ public class ChatService : IChatService
 		}
 
 		var chatsUser = await _orientDbService.GetChatsUsers(chat.Id);
+
+		var chatUsers = await _hitsContext.User
+			.Where(u => chatsUser.Contains(u.Id))
+			.Select(u => new UserResponseDTO
+			{
+				UserId = u.Id,
+				UserName = u.AccountName,
+				UserTag = u.AccountTag,
+				Mail = u.Mail,
+				Icon = null,
+				Notifiable = u.Notifiable,
+				NonFriendMessage = u.NonFriendMessage,
+				FriendshipApplication = u.FriendshipApplication
+			})
+			.ToListAsync();
+
+		foreach (var chatUser in chatUsers)
+		{
+			var userEntity = await _hitsContext.User.FindAsync(chatUser.UserId);
+			if (userEntity?.IconId != null)
+			{
+				var userIcon = await _fileService.GetImageAsync(userEntity.IconId.Value);
+				chatUser.Icon = userIcon;
+			}
+			else
+			{
+				chatUser.Icon = null;
+			}
+		}
 
 		var chatInfo = new ChatInfoDTO
 		{

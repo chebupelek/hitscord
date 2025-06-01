@@ -26,8 +26,10 @@
           "OrientDB-NET.binary": "0.2.1",
           "Quartz": "3.14.0",
           "Quartz.Extensions.Hosting": "3.14.0",
+          "SixLabors.ImageSharp": "3.1.8",
           "Swashbuckle.AspNetCore": "6.4.0",
-          "System.Net.Http.Json": "8.0.1"
+          "System.Net.Http.Json": "8.0.1",
+          "nClam": "9.0.0"
         },
         "runtime": {
           "Message.dll": {}
@@ -968,6 +970,14 @@
           }
         }
       },
+      "nClam/9.0.0": {
+        "runtime": {
+          "lib/netstandard2.1/nClam.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.0.0"
+          }
+        }
+      },
       "Newtonsoft.Json/13.0.3": {
         "runtime": {
           "lib/net6.0/Newtonsoft.Json.dll": {
@@ -1065,6 +1075,14 @@
           "lib/netstandard2.0/RabbitMQ.Client.dll": {
             "assemblyVersion": "6.0.0.0",
             "fileVersion": "6.8.1.0"
+          }
+        }
+      },
+      "SixLabors.ImageSharp/3.1.8": {
+        "runtime": {
+          "lib/net6.0/SixLabors.ImageSharp.dll": {
+            "assemblyVersion": "3.0.0.0",
+            "fileVersion": "3.1.8.0"
           }
         }
       },
@@ -1272,7 +1290,9 @@
           "Microsoft.EntityFrameworkCore": "8.0.14",
           "Newtonsoft.Json": "13.0.3",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.11",
-          "OrientDB-NET.binary": "0.2.1"
+          "OrientDB-NET.binary": "0.2.1",
+          "SixLabors.ImageSharp": "3.1.8",
+          "nClam": "9.0.0"
         },
         "runtime": {
           "HitscordLibrary.dll": {
@@ -1800,6 +1820,13 @@
       "path": "mono.texttemplating/2.2.1",
       "hashPath": "mono.texttemplating.2.2.1.nupkg.sha512"
     },
+    "nClam/9.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-kjJ9W3TJOl0VIS2lCpblfDHDZTUG7oejwx2PkjKxu6r+XSmcgBGJUMsrx2c8Utm4EfNDhjtKbJqwIzDpgog0Bw==",
+      "path": "nclam/9.0.0",
+      "hashPath": "nclam.9.0.0.nupkg.sha512"
+    },
     "Newtonsoft.Json/13.0.3": {
       "type": "package",
       "serviceable": true,
@@ -1862,6 +1889,13 @@
       "sha512": "sha512-jNsmGgmCNw2S/NzskeN2ijtGywtH4Sk/G6jWUTD5sY9SrC27Xz6BsLIiB8hdsfjeyWCa4j4GvCIGkpE8wrjU1Q==",
       "path": "rabbitmq.client/6.8.1",
       "hashPath": "rabbitmq.client.6.8.1.nupkg.sha512"
+    },
+    "SixLabors.ImageSharp/3.1.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-8eJkROLGh6DBQLR666q2aOpAaean2puZaZ6Ur9YxoyGzjaZhv8OJSxtnDou54+OXMkXtLUdyQC0so47sOsqZjg==",
+      "path": "sixlabors.imagesharp/3.1.8",
+      "hashPath": "sixlabors.imagesharp.3.1.8.nupkg.sha512"
     },
     "Swashbuckle.AspNetCore/6.4.0": {
       "type": "package",

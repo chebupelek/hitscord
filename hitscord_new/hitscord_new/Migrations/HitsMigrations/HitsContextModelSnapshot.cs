@@ -147,6 +147,9 @@ namespace hitscord_new.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("IconId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -178,6 +181,9 @@ namespace hitscord_new.Migrations
 
                     b.Property<bool>("FriendshipApplication")
                         .HasColumnType("boolean");
+
+                    b.Property<Guid?>("IconId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Mail")
                         .IsRequired()

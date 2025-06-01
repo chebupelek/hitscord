@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 using HitscordLibrary.Models.other;
 using Newtonsoft.Json;
+using hitscord.Services;
 
 namespace hitscord.Controllers;
 
@@ -229,6 +230,27 @@ public class AuthorizationController : ControllerBase
 			if (jwtToken == null || jwtToken == "") return Unauthorized();
 			var data = await _authService.GetUserDataByIdAsync(jwtToken, UserId);
 			return Ok(data);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("icon")]
+	public async Task<IActionResult> ChangeIconUser([FromForm] ChangeIconUserDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var icon = await _authService.ChangeUserIconAsync(jwtToken, data.Icon);
+			return Ok(icon);
 		}
 		catch (CustomException ex)
 		{

@@ -8,9 +8,14 @@ using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.OrientDb.Service;
 using hitscord.WebSockets;
+using HitscordLibrary.Contexts;
+using HitscordLibrary.Models;
+using HitscordLibrary.Models.db;
 using HitscordLibrary.Models.other;
+using HitscordLibrary.nClamUtil;
 using HitscordLibrary.SocketsModels;
 using Microsoft.EntityFrameworkCore;
+using nClam;
 using NickBuhro.Translit;
 using System.Data;
 using System.Text.RegularExpressions;
@@ -20,18 +25,24 @@ namespace hitscord.Services;
 public class ServerService : IServerService
 {
     private readonly HitsContext _hitsContext;
-    private readonly IAuthorizationService _authorizationService;
+	private readonly FilesContext _filesContext;
+	private readonly IAuthorizationService _authorizationService;
     private readonly IServices.IAuthenticationService _authenticationService;
     private readonly OrientDbService _orientDbService;
 	private readonly WebSocketsManager _webSocketManager;
+	private readonly nClamService _clamService;
+	private readonly IFileService _fileService;
 
-	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager)
+	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext, IFileService fileService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
         _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
+		_filesContext = filesContext ?? throw new ArgumentNullException(nameof(filesContext));
+		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
 	}
 
     public async Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels)
@@ -80,7 +91,8 @@ public class ServerService : IServerService
 
         var newServer = new ServerDbModel()
         {
-            Name = serverName
+            Name = serverName,
+			IconId = null
         };
         await _hitsContext.Server.AddAsync(newServer);
         await _hitsContext.SaveChangesAsync();
@@ -287,18 +299,29 @@ public class ServerService : IServerService
         var user = await _authorizationService.GetUserAsync(token);
         var idsList = await _orientDbService.GetSubscribedServerIdsListAsync(user.Id);
 		var notifiableList = await _orientDbService.GetNonNotifiableServersForUserAsync(user.Id);
-		return new ServersListDTO
+
+		var freshList = await _hitsContext.Server
+				.Where(s => idsList.Contains(s.Id))
+				.ToListAsync();
+
+		var serverList = new List<ServersListItemDTO>();
+
+		foreach (var server in freshList)
+		{
+			var icon = server.IconId == null ? null : await _fileService.GetImageAsync((Guid)server.IconId);
+			serverList.Add(new ServersListItemDTO
+			{
+				ServerId = server.Id,
+				ServerName = server.Name,
+				IsNotifiable = !notifiableList.Contains(server.Id),
+				Icon = icon
+			});
+		}
+
+		return (new ServersListDTO
         {
-            ServersList = await _hitsContext.Server
-                .Where(s => idsList.Contains(s.Id))
-                .Select(s => new ServersListItemDTO
-                {
-                    ServerId = s.Id,
-                    ServerName = s.Name,
-					IsNotifiable = !notifiableList.Contains(s.Id)
-                })
-                .ToListAsync()
-        };
+            ServersList = serverList
+		});
     }
 
     public async Task ChangeUserRoleAsync(string token, Guid serverId, Guid userId, Guid roleId)
@@ -371,6 +394,8 @@ public class ServerService : IServerService
 		var notifiableServersList = await _orientDbService.GetNonNotifiableServersForUserAsync(user.Id);
 		var notifiableChannelsList = await _orientDbService.GetNonNotifiableChannelsForUserAsync(user.Id, serverId);
 
+		var icon = server.IconId == null ? null : await _fileService.GetImageAsync((Guid)server.IconId);
+
 		var voiceChannelResponses = await _hitsContext.VoiceChannel
 			.Include(vc => vc.Users)
 			.Where(vc => vc.ServerId == server.Id && channelCanSee.Contains(vc.Id))
@@ -390,10 +415,45 @@ public class ServerService : IServerService
 			})
 			.ToListAsync();
 
+		var serverUsers = await _hitsContext.UserServer
+				.Include(us => us.Role)
+				.Where(us => us.Role.ServerId == serverId)
+				.Join(_hitsContext.User,
+					  us => us.UserId,
+					  u => u.Id,
+					  (us, u) => new ServerUserDTO
+					  {
+						  UserId = u.Id,
+						  UserName = u.AccountName,
+						  UserTag = u.AccountTag,
+						  Icon = null,
+						  RoleName = us.Role.Name,
+						  Mail = u.Mail,
+						  Notifiable = u.Notifiable,
+						  FriendshipApplication = u.FriendshipApplication,
+						  NonFriendMessage = u.NonFriendMessage
+					  })
+				.ToListAsync();
+
+		foreach (var serverUser in serverUsers)
+		{
+			var userEntity = await _hitsContext.User.FindAsync(serverUser.UserId);
+			if (userEntity?.IconId != null)
+			{
+				var userIcon = await _fileService.GetImageAsync(userEntity.IconId.Value);
+				serverUser.Icon = userIcon;
+			}
+			else
+			{
+				serverUser.Icon = null;
+			}
+		}
+
 		var info = new ServerInfoDTO
 		{
 			ServerId = serverId,
 			ServerName = server.Name,
+			Icon = icon,
 			Roles = await _hitsContext.Role
 				.Where(r => r.ServerId == server.Id)
 				.Select(r => new RolesItemDTO
@@ -419,24 +479,7 @@ public class ServerService : IServerService
 				CanCreateRoles = result.Contains("ServerCanCreateRoles")
 			},
 			IsNotifiable = !notifiableServersList.Contains(serverId),
-			Users = await _hitsContext.UserServer
-				.Include(us => us.Role)
-				.Where(us => us.Role.ServerId == serverId)
-				.Join(_hitsContext.User,
-					  us => us.UserId,
-					  u => u.Id,
-					  (us, u) => new ServerUserDTO
-					  {
-						  UserId = u.Id,
-						  UserName = u.AccountName,
-						  UserTag = u.AccountTag,
-						  RoleName = us.Role.Name,
-						  Mail = u.Mail,
-						  Notifiable = u.Notifiable,
-						  FriendshipApplication = u.FriendshipApplication,
-						  NonFriendMessage = u.NonFriendMessage
-					  })
-				.ToListAsync(),
+			Users = serverUsers,
 			Channels = new ChannelListDTO
 			{
 				TextChannels = server.Channels
@@ -626,5 +669,96 @@ public class ServerService : IServerService
 
 		_hitsContext.UserServer.Remove(banned);
 		await _hitsContext.SaveChangesAsync();
+	}
+
+	public async Task ChangeServerIconAsync(string token, Guid serverId, IFormFile iconFile)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckUserCreatorAsync(serverId, owner.Id);
+
+		if (iconFile.Length > 10 * 1024 * 1024)
+		{
+			throw new CustomException("Icon too large", "Сhange server icon", "Icon", 400, "Файл слишком большой (макс. 10 МБ)", "Изменение иконки сервера");
+		}
+
+		if (!iconFile.ContentType.StartsWith("image/"))
+		{
+			throw new CustomException("Invalid file type", "Сhange server icon", "Icon", 400, "Файл не является изображением!", "Изменение иконки сервера");
+		}
+
+		byte[] fileBytes;
+		using (var ms = new MemoryStream())
+		{
+			await iconFile.CopyToAsync(ms);
+			fileBytes = ms.ToArray();
+		}
+
+		var scanResult = await _clamService.ScanFileAsync(fileBytes);
+		if (scanResult.Result != ClamScanResults.Clean)
+		{
+			throw new CustomException("Virus detected", "Сhange server icon", "Icon", 400, "Обнаружен вирус в файле", "Изменение иконки сервера");
+		}
+
+		using var imgStream = new MemoryStream(fileBytes);
+		SixLabors.ImageSharp.Image image;
+		try
+		{
+			image = await SixLabors.ImageSharp.Image.LoadAsync(imgStream);
+		}
+		catch (SixLabors.ImageSharp.UnknownImageFormatException)
+		{
+			throw new CustomException("Invalid image file", "Сhange server icon", "Icon", 400, "Файл не является валидным изображением!", "Изменение иконки сервера");
+		}
+
+		if (image.Width > 650 || image.Height > 650)
+		{
+			throw new CustomException("Icon too large", "Сhange server icon", "Icon", 400, "Изображение слишком большое (макс. 650x650)", "Изменение иконки сервера");
+		}
+
+		var originalFileName = Path.GetFileName(iconFile.FileName);
+		originalFileName = Path.GetFileName(originalFileName);
+		var iconDirectory = Path.Combine("wwwroot", "icons");
+
+		Directory.CreateDirectory(iconDirectory);
+
+		var iconPath = Path.Combine(iconDirectory, originalFileName);
+
+		await File.WriteAllBytesAsync(iconPath, fileBytes);
+
+		var file = new FileDbModel
+		{
+			Id = Guid.NewGuid(),
+			Path = $"/icons/{originalFileName}",
+			Name = originalFileName,
+			Type = iconFile.ContentType,
+		};
+
+		_filesContext.File.Add(file);
+		await _filesContext.SaveChangesAsync();
+
+		server.IconId = file.Id;
+		_hitsContext.Server.Update(server);
+		await _hitsContext.SaveChangesAsync();
+
+
+		string base64Icon = Convert.ToBase64String(fileBytes);
+		var changeIconDto = new ServerIconResponseDTO
+		{
+			ServerId = server.Id,
+			Icon = new FileResponseDTO
+			{
+				FileId = file.Id,
+				FileName = file.Name,
+				FileType = file.Type,
+				Base64File = base64Icon
+			}
+		};
+
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
+		if (alertedUsers != null && alertedUsers.Any())
+		{
+			await _webSocketManager.BroadcastMessageAsync(changeIconDto, alertedUsers, "New icon on server");
+		}
 	}
 }

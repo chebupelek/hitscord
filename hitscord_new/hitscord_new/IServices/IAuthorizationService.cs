@@ -2,6 +2,7 @@
 using hitscord.Models.response;
 using hitscord.Models.request;
 using System.Runtime.CompilerServices;
+using HitscordLibrary.Models;
 
 namespace hitscord.IServices;
 
@@ -21,4 +22,5 @@ public interface IAuthorizationService
     Task ChangeFriendshipAsync(string token);
     Task ChangeNonFriendAsync(string token);
     Task<UserResponseDTO> GetUserDataByIdAsync(string token, Guid userId);
+    Task<FileResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile);
 }

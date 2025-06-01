@@ -20,4 +20,5 @@ public class ServerDbModel
     public required string Name { get; set; }
     public ICollection<RoleDbModel> Roles { get; set; }
     public ICollection<ChannelDbModel> Channels { get; set; }
+    public Guid? IconId { get; set; }
 }

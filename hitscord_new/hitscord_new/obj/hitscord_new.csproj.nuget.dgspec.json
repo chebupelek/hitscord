@@ -87,6 +87,10 @@
               "target": "Package",
               "version": "[0.2.1, )"
             },
+            "SixLabors.ImageSharp": {
+              "target": "Package",
+              "version": "[3.1.8, )"
+            },
             "nClam": {
               "target": "Package",
               "version": "[9.0.0, )"
@@ -248,6 +252,10 @@
             "Serilog.Sinks.File": {
               "target": "Package",
               "version": "[6.0.0, )"
+            },
+            "SixLabors.ImageSharp": {
+              "target": "Package",
+              "version": "[3.1.8, )"
             },
             "Swashbuckle.AspNetCore": {
               "target": "Package",

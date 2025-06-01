@@ -25,6 +25,9 @@ builder.Services.AddDbContext<MessageContext>(options =>
 builder.Services.AddDbContext<HitscordLibrary.Contexts.TokenContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("TokenContext")));
 
+builder.Services.AddDbContext<HitscordLibrary.Contexts.FilesContext>(options =>
+	options.UseNpgsql(builder.Configuration.GetConnectionString("FilesContext")));
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

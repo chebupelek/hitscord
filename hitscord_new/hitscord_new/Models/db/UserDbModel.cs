@@ -38,4 +38,5 @@ public class UserDbModel
     public required bool Notifiable { get; set; }
 	public required bool FriendshipApplication { get; set; }
 	public required bool NonFriendMessage { get; set; }
+    public Guid? IconId { get; set; }
 }

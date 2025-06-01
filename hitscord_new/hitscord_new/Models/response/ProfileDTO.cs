@@ -1,26 +1,17 @@
 ﻿using hitscord.Models.db;
+using HitscordLibrary.Models;
 
 namespace hitscord.Models.response;
 
 public class ProfileDTO
 {
-    public Guid Id { get; set; }
-    public string Name { get; set; }
-    public string Tag { get; set; }
-    public string Mail { get; set; }
-    public DateOnly AccontCreateDate { get; set; }
-	public bool Notifiable { get; set; }
-	public bool FriendshipApplication { get; set; }
-	public bool NonFriendMessage { get; set; }
-	public ProfileDTO(UserDbModel user)
-    {
-        Id = user.Id;
-        Name = user.AccountName;
-        Tag = user.AccountTag;
-        Mail = user.Mail;
-        AccontCreateDate = DateOnly.FromDateTime((DateTime)user.AccountCreateDate);
-        Notifiable = user.Notifiable;
-        FriendshipApplication = user.FriendshipApplication;
-        NonFriendMessage = user.NonFriendMessage;
-    }
+    public required Guid Id { get; set; }
+	public required string Name { get; set; }
+	public required string Tag { get; set; }
+	public required string Mail { get; set; }
+	public required DateOnly AccontCreateDate { get; set; }
+	public required bool Notifiable { get; set; }
+	public required bool FriendshipApplication { get; set; }
+	public required bool NonFriendMessage { get; set; }
+    public FileResponseDTO? Icon { get; set; }
 }
