@@ -13,4 +13,5 @@ public class MessageResponceSocket : NotificationObject
     public DateTime? ModifiedAt { get; set; }
     public SubChannelResponceFullDTO? NestedChannel { get; set; }
     public MessageResponceDTO? ReplyToMessage { get; set; }
+    public List<FileResponseDTO>? Files { get; set; }
 }

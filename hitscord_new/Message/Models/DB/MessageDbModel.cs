@@ -30,4 +30,5 @@ public class MessageDbModel
     [ForeignKey(nameof(ReplyToMessageId))]
     public MessageDbModel? ReplyToMessage { get; set; }
     public DateTime? DeleteTime { get; set; }
+    public required List<Guid> FilesId { get; set; }
 }

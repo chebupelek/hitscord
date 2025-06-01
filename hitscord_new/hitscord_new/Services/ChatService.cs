@@ -162,19 +162,7 @@ public class ChatService : IChatService
 		{
 			ChatId = chat.Id,
 			ChatName = chat.Name,
-			Users = await _hitsContext.User
-				.Where(u => chatsUser.Contains(u.Id))
-				.Select(u => new UserResponseDTO
-				{
-					UserId = u.Id,
-					UserName = u.AccountName,
-					UserTag = u.AccountTag,
-					Mail = u.Mail,
-					Notifiable = u.Notifiable,
-					NonFriendMessage = u.NonFriendMessage,
-					FriendshipApplication = u.FriendshipApplication
-				})
-				.ToListAsync()
+			Users = chatUsers
 		};
 
 		return chatInfo;
@@ -226,8 +214,44 @@ public class ChatService : IChatService
 			await _webSocketManager.BroadcastMessageAsync(userResponse, alertedUsers, "New user in chat");
 		}
 
-
-		//добавленному пользователю особое сообщение
+		var chatsUser = await _orientDbService.GetChatsUsers(chat.Id);
+		var chatUsers = await _hitsContext.User
+			.Where(u => chatsUser.Contains(u.Id))
+			.Select(u => new UserResponseDTO
+			{
+				UserId = u.Id,
+				UserName = u.AccountName,
+				UserTag = u.AccountTag,
+				Mail = u.Mail,
+				Icon = null,
+				Notifiable = u.Notifiable,
+				NonFriendMessage = u.NonFriendMessage,
+				FriendshipApplication = u.FriendshipApplication
+			})
+			.ToListAsync();
+		foreach (var chatUser in chatUsers)
+		{
+			var userEntity = await _hitsContext.User.FindAsync(chatUser.UserId);
+			if (userEntity?.IconId != null)
+			{
+				var userIcon = await _fileService.GetImageAsync(userEntity.IconId.Value);
+				chatUser.Icon = userIcon;
+			}
+			else
+			{
+				chatUser.Icon = null;
+			}
+		}
+		var chatInfo = new ChatInfoDTO
+		{
+			ChatId = chat.Id,
+			ChatName = chat.Name,
+			Users = chatUsers
+		};
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(chatInfo, new List<Guid>(){ user.Id} , "You added to chat");
+		}
 	}
 
 	public async Task RemoveUserAsync(string token, Guid chatId)

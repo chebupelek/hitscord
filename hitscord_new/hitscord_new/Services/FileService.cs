@@ -30,14 +30,16 @@ public class FileService : IFileService
     private readonly IServices.IAuthenticationService _authenticationService;
     private readonly OrientDbService _orientDbService;
 	private readonly WebSocketsManager _webSocketManager;
+	private readonly IChannelService _channelService;
 
-	public FileService(FilesContext filesContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager)
+	public FileService(FilesContext filesContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, IChannelService channelService)
     {
 		_filesContext = filesContext ?? throw new ArgumentNullException(nameof(filesContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
         _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 	}
 
     public async Task<FileResponseDTO?> GetImageAsync(Guid iconId)
@@ -62,6 +64,39 @@ public class FileService : IFileService
 			FileId = file.Id,
 			FileName = file.Name,
 			FileType = file.Type,
+			FileSize = file.Size,
+			Base64File = base64File
+		};
+	}
+
+	public async Task<FileResponseDTO> GetFileAsync(string token, Guid textChannelId, Guid fileId)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+		var channel = await _channelService.CheckTextOrNotificationChannelExistAsync(textChannelId);
+		await _authenticationService.CheckUserRightsSeeChannel(channel.Id, user.Id);
+
+		var file = await _filesContext.File.FindAsync(fileId);
+		if (file == null)
+		{
+			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
+		}
+
+		var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
+
+		if (!System.IO.File.Exists(filePath))
+		{
+			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
+		}
+
+		var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+		var base64File = Convert.ToBase64String(fileBytes);
+
+		return new FileResponseDTO
+		{
+			FileId = file.Id,
+			FileName = file.Name,
+			FileType = file.Type,
+			FileSize = file.Size,
 			Base64File = base64File
 		};
 	}

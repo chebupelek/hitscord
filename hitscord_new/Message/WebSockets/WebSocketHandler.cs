@@ -2,6 +2,7 @@
 using Azure.Core;
 using EasyNetQ;
 using Grpc.Gateway.ProtocGenOpenapiv2.Options;
+using HitscordLibrary.Migrations.Files;
 using HitscordLibrary.Models.Messages;
 using HitscordLibrary.SocketsModels;
 using Message.IServices;
@@ -74,7 +75,7 @@ public class WebSocketHandler
                 if (newMessage != null)
                 {
                     var newMesssageData = newMessage.Content;
-                    await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.ReplyToMessageId, newMesssageData.NestedChannel);
+                    await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.ReplyToMessageId, newMesssageData.NestedChannel, newMesssageData.Files);
 				}
 				break;
 			case "Delete message":
@@ -102,7 +103,7 @@ public class WebSocketHandler
 				if (newMessagechat != null)
 				{
 					var newMesssageData = newMessagechat.Content;
-					await _messageService.CreateMessageToChatWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.ReplyToMessageId);
+					await _messageService.CreateMessageToChatWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.ReplyToMessageId, newMesssageData.Files);
 				}
 				break;
 			case "Delete message chat":

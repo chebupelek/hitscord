@@ -2,9 +2,14 @@
 using Azure.Core;
 using EasyNetQ;
 using Grpc.Core;
+using HitscordLibrary.Contexts;
+using HitscordLibrary.Migrations.Files;
 using HitscordLibrary.Models;
+using HitscordLibrary.Models.db;
+using HitscordLibrary.Models.Messages;
 using HitscordLibrary.Models.other;
 using HitscordLibrary.Models.Rabbit;
+using HitscordLibrary.nClamUtil;
 using HitscordLibrary.SocketsModels;
 using Message.Contexts;
 using Message.IServices;
@@ -13,9 +18,13 @@ using Message.Models.Response;
 using Message.OrientDb.Service;
 using Message.WebSockets;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.JsonPatch.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualBasic;
+using nClam;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
@@ -27,18 +36,22 @@ namespace Message.Services;
 public class MessageService : IMessageService
 {
     private readonly MessageContext _messageContext;
-    private readonly ITokenService _tokenService;
+	private readonly FilesContext _fileContext;
+	private readonly ITokenService _tokenService;
     private readonly OrientDbService _orientService;
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly ILogger<MessageService> _logger;
+	private readonly nClamService _clamService;
 
 
-	public MessageService(MessageContext messageContext, ITokenService tokenService, OrientDbService orientService, WebSocketsManager webSocketManager, ILogger<MessageService> logger)
+	public MessageService(MessageContext messageContext, FilesContext fileContext, ITokenService tokenService, OrientDbService orientService, WebSocketsManager webSocketManager, ILogger<MessageService> logger, nClamService clamService)
     {
         _messageContext = messageContext ?? throw new ArgumentNullException(nameof(messageContext));
-        _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+		_fileContext = fileContext ?? throw new ArgumentNullException(nameof(fileContext));
+		_tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
         _orientService = orientService ?? throw new ArgumentNullException(nameof(orientService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_logger = logger;
 	}
 
@@ -58,6 +71,61 @@ public class MessageService : IMessageService
 			.Cast<Match>()
 			.Select(m => m.Groups[1].Value)
 			.ToList();
+	}
+
+	private async Task<List<Guid>> CreateFilesAsync(List<FileForWebsocketDTO> Files, Guid userId)
+	{
+		var filesIdsList = new List<Guid>();
+		foreach (var file in Files)
+		{
+			byte[] fileBytes;
+			try
+			{
+				fileBytes = Convert.FromBase64String(file.Base64Content);
+			}
+			catch
+			{
+				throw new CustomExceptionUser("Invalid file content", "Create message", "File", 400, "Некорректное содержимое файла", "Создание сообщения", userId);
+			}
+
+			if (fileBytes.Length == 0)
+			{
+				throw new CustomExceptionUser("Empty file", "Create message", "File", 400, "Пустой файл", "Создание сообщения", userId);
+			}
+
+			if (fileBytes.Length > 10 * 1024 * 1024)
+			{
+				throw new CustomExceptionUser("File too large", "Create message", "File", 400, "Файл слишком большой (макс. 10 МБ)", "Создание сообщения", userId);
+			}
+
+			var scanResult = await _clamService.ScanFileAsync(fileBytes);
+			if (scanResult.Result != ClamScanResults.Clean)
+			{
+				throw new CustomExceptionUser("Virus detected", "Create message", "File", 400, "Обнаружен вирус в файле", "Создание сообщения", userId);
+			}
+
+			var originalFileName = Path.GetFileName(file.FileName);
+			var fileDirectory = Path.Combine("wwwroot", "message_files");
+			Directory.CreateDirectory(fileDirectory);
+			var filePath = Path.Combine(fileDirectory, originalFileName);
+			await File.WriteAllBytesAsync(filePath, fileBytes);
+
+			var fileRecord = new FileDbModel
+			{
+				Id = Guid.NewGuid(),
+				Path = $"/message_files/{originalFileName}",
+				Name = originalFileName,
+				Type = file.ContentType,
+				Size = fileBytes.Length
+			};
+
+			_fileContext.File.Add(fileRecord);
+			await _fileContext.SaveChangesAsync();
+
+			filesIdsList.Add(fileRecord.Id);
+		}
+		await _fileContext.SaveChangesAsync();
+		return filesIdsList;
 	}
 
 	public async Task<ResponseObject> GetChannelMessagesAsync(ChannelRequestRabbit request)
@@ -169,8 +237,48 @@ public class MessageService : IMessageService
 		}
 	}
 
+	private async Task<List<FileResponseDTO>?> GetFilesAsync(List<Guid> filesId)
+	{
+		var filesData = await _fileContext.File.Where(f => filesId.Contains(f.Id)).ToListAsync();
+		if (filesData == null || filesData.Count == 0)
+		{
+			return null;
+		}
 
-	public async Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, Guid? ReplyToMessageId, bool NestedChannel)
+		var filesList = new List<FileResponseDTO>();
+		foreach (var file in filesData)
+		{
+			string? base64File = null;
+			if (file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && file.Size <= 2 * 1024 * 1024)
+			{
+				var filePath = Path.Combine(
+					Directory.GetCurrentDirectory(),
+					"wwwroot",
+					file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString())
+				);
+
+				if (System.IO.File.Exists(filePath))
+				{
+					var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+					base64File = Convert.ToBase64String(fileBytes);
+				}
+			}
+
+			filesList.Add(new FileResponseDTO
+			{
+				FileId = file.Id,
+				FileName = file.Name,
+				FileType = file.Type,
+				FileSize = file.Size,
+				Base64File = base64File
+			});
+		}
+
+		return filesList;
+	}
+
+
+	public async Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, Guid? ReplyToMessageId, bool NestedChannel, List<FileForWebsocketDTO>? Files)
 	{
 		try
 		{
@@ -212,6 +320,13 @@ public class MessageService : IMessageService
 					ReplyToMessage = null
 				};
 			}
+
+			var filesIds = new List<Guid>();
+			if (Files != null && Files.Any())
+			{
+				filesIds = await CreateFilesAsync(Files, userId);
+			}
+
 			var newMessage = new MessageDbModel
 			{
 				Text = text,
@@ -220,7 +335,8 @@ public class MessageService : IMessageService
 				TextChannelId = channelId,
 				NestedChannelId = null,
 				ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null,
-				DeleteTime = null
+				DeleteTime = null,
+				FilesId = filesIds
 			};
 			
 			if (NestedChannel)
@@ -254,7 +370,8 @@ public class MessageService : IMessageService
 					RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)newMessage.NestedChannelId),
 					IsNotifiable = !nonNotifiableChannels.Contains((Guid)newMessage.NestedChannelId)
 				},
-				ReplyToMessage = replyedMessage
+				ReplyToMessage = replyedMessage,
+				Files = await GetFilesAsync(newMessage.FilesId)
 			};
 			var alertedUsers = await _orientService.GetUsersThatCanSeeChannelAsync(channelId);
 			if (alertedUsers != null && alertedUsers.Count() > 0)
@@ -441,28 +558,30 @@ public class MessageService : IMessageService
 				.OrderBy(m => m.CreatedAt)
 				.ToListAsync();
 
+			var messagesList = await Task.WhenAll(messagesFresh.Select(async m => new MessageChatResponceDTO
+			{
+				ChatId = m.TextChannelId,
+				Id = m.Id,
+				Text = m.Text,
+				AuthorId = m.UserId,
+				CreatedAt = m.CreatedAt,
+				ModifiedAt = m.UpdatedAt,
+				ReplyToMessage = m.ReplyToMessage == null ? null : new MessageChatResponceDTO
+				{
+					ChatId = m.TextChannelId,
+					Id = m.ReplyToMessage.Id,
+					Text = m.ReplyToMessage.Text,
+					AuthorId = m.ReplyToMessage.UserId,
+					CreatedAt = m.ReplyToMessage.CreatedAt,
+					ModifiedAt = m.ReplyToMessage.UpdatedAt,
+					ReplyToMessage = null
+				},
+				Files = await GetFilesAsync(m.FilesId)
+			}));
+
 			var messages = new MessageChatListResponseDTO
 			{
-				Messages = messagesFresh
-					.Select(m => new MessageChatResponceDTO
-					{
-						ChatId = m.TextChannelId,
-						Id = m.Id,
-						Text = m.Text,
-						AuthorId = m.UserId,
-						CreatedAt = m.CreatedAt,
-						ModifiedAt = m.UpdatedAt,
-						ReplyToMessage = m.ReplyToMessage == null ? null : new MessageChatResponceDTO
-						{
-							ChatId = m.TextChannelId,
-							Id = m.ReplyToMessage.Id,
-							Text = m.ReplyToMessage.Text,
-							AuthorId = m.ReplyToMessage.UserId,
-							CreatedAt = m.ReplyToMessage.CreatedAt,
-							ModifiedAt = m.ReplyToMessage.UpdatedAt,
-							ReplyToMessage = null
-						}
-					}).ToList(),
+				Messages = messagesList.ToList(),
 				NumberOfMessages = messagesFresh.Count(),
 				NumberOfStarterMessage = request.fromStart
 			};
@@ -496,7 +615,7 @@ public class MessageService : IMessageService
 	}
 
 
-	public async Task CreateMessageToChatWebsocketAsync(Guid chatId, string token, string text, Guid? ReplyToMessageId)
+	public async Task CreateMessageToChatWebsocketAsync(Guid chatId, string token, string text, Guid? ReplyToMessageId, List<FileForWebsocketDTO>? Files)
 	{
 		try
 		{
@@ -534,6 +653,13 @@ public class MessageService : IMessageService
 					ReplyToMessage = null
 				};
 			}
+
+			var filesIds = new List<Guid>();
+			if (Files != null && Files.Any())
+			{
+				filesIds = await CreateFilesAsync(Files, userId);
+			}
+
 			var newMessage = new MessageDbModel
 			{
 				Text = text,
@@ -542,7 +668,8 @@ public class MessageService : IMessageService
 				TextChannelId = chatId,
 				NestedChannelId = null,
 				ReplyToMessageId = ReplyToMessageId != null ? ReplyToMessageId : null,
-				DeleteTime = null
+				DeleteTime = null,
+				FilesId = filesIds
 			};
 
 			_messageContext.Messages.Add(newMessage);
@@ -556,7 +683,8 @@ public class MessageService : IMessageService
 				AuthorId = userId,
 				CreatedAt = newMessage.CreatedAt,
 				ModifiedAt = newMessage.UpdatedAt,
-				ReplyToMessage = replyedMessage
+				ReplyToMessage = replyedMessage,
+				Files = await GetFilesAsync(newMessage.FilesId)
 			};
 			var alertedUsers = await _orientService.GetChatsUsers(chatId);
 			if (alertedUsers != null && alertedUsers.Count() > 0)

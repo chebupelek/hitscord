@@ -321,6 +321,7 @@ public class AuthorizationService : IServices.IAuthorizationService
 			Path = $"/icons/{originalFileName}",
 			Name = originalFileName,
 			Type = iconFile.ContentType,
+			Size = iconFile.Length
 		};
 
 		_filesContext.File.Add(file);
