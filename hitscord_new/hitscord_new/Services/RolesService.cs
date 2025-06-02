@@ -17,6 +17,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Text.RegularExpressions;
 using Grpc.Core;
+using Authzed.Api.V0;
 
 namespace hitscord.Services;
 
@@ -98,10 +99,48 @@ public class RolesService : IRolesService
 		var role = await CheckRoleAsync(roleId, serverId);
 		await _authenticationService.CheckUserRightsCreateRoles(server.Id, owner.Id);
 
-		var checkBelongs = await _orientDbService.RoleUsedOnServerAsync(roleId);
-		if (checkBelongs == true)
+		var users = await _orientDbService.GetUsersSubscribedToRoleAsync(roleId);
+		if (users != null && users.Count() > 0)
 		{
-			throw new CustomException("Some users subscribed on this role", "Delete role", "Role id", 400, "Эта роль присвоена пользователям", "Удаление роли");
+			var uncertainRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Role == RoleEnum.Uncertain && r.ServerId == server.Id);
+			if (uncertainRole == null)
+			{
+				throw new CustomException("Uncertain role not found", "Delete role", "Role id", 404, "Не найдена неопределенная роль", "Удаление роли");
+			}
+
+			foreach (var user in users)
+			{
+				var userServ = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user && us.RoleId == roleId);
+				if (userServ != null)
+				{
+					var newUserServ = new UserServerDbModel
+					{
+						UserId = user,
+						RoleId = uncertainRole.Id,
+						UserServerName = userServ.UserServerName,
+						IsBanned = userServ.IsBanned
+					};
+					_hitsContext.UserServer.Remove(userServ);
+					await _hitsContext.SaveChangesAsync();
+					_hitsContext.UserServer.Add(newUserServ);
+					await _hitsContext.SaveChangesAsync();
+
+					await _orientDbService.UnassignUserFromRoleAsync(user, role.Id);
+					await _orientDbService.AssignUserToRoleAsync(user, uncertainRole.Id);
+
+					var newUserRole = new NewUserRoleResponseDTO
+					{
+						ServerId = serverId,
+						UserId = user,
+						RoleId = uncertainRole.Id,
+					};
+					var alertedUsersUncertain = await _orientDbService.GetUsersByServerIdAsync(serverId);
+					if (alertedUsersUncertain != null && alertedUsersUncertain.Count() > 0)
+					{
+						await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsersUncertain, "Role changed");
+					}
+				}
+			}
 		}
 
 		await _orientDbService.DeleteRoleAsync(role.Id);

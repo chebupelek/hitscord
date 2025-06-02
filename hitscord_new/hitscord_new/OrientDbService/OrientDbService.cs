@@ -1863,21 +1863,38 @@ public class OrientDbService
 			: new List<Guid>();
 	}
 
-	public async Task<bool> RoleUsedOnServerAsync(Guid roleId)
+	public async Task<List<Guid>> GetUsersSubscribedToRoleAsync(Guid roleId)
 	{
 		string query = $@"
-        SELECT COUNT(*) 
-        FROM BelongsToRole 
-        WHERE in IN (
-			SELECT @rid
-			FROM Role
-			WHERE id = '{roleId}'
+        SELECT id AS userId
+        FROM User
+        WHERE @rid IN (
+			SELECT out
+			FROM BelongsToSub
+			WHERE in IN (
+				SELECT @rid
+				FROM Subscription
+				WHERE @rid IN (
+					SELECT out
+					FROM BelongsToRole
+					WHERE in IN (
+						SELECT @rid
+						FROM Role
+						WHERE id = '{roleId}'
+					)
+				)
+			)
 		)";
 
 		string result = await ExecuteCommandAsync(query);
-		var count = ExtractCountFromResult(result);
-		return count > 0;
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var resultList = parsedResult?.result as JArray;
+
+		return resultList != null
+			? resultList.Select(item => Guid.Parse(item.Value<string>("userId"))).ToList()
+			: new List<Guid>();
 	}
+
 
 	public async Task UpdateRoleAsync(Guid roleId, string name, string tag, string color)
 	{
