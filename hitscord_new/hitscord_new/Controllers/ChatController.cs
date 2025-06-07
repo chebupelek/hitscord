@@ -29,8 +29,8 @@ public class ChatController : ControllerBase
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _chatService.CreateChatAsync(jwtToken, data.UserTag);
-            return Ok();
+			var newChat = await _chatService.CreateChatAsync(jwtToken, data.UserTag);
+            return Ok(newChat);
         }
         catch (CustomException ex)
         {

@@ -10,6 +10,7 @@ using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.OrientDb.Service;
 using hitscord.WebSockets;
+using hitscord_new.Migrations;
 using HitscordLibrary.Models;
 using HitscordLibrary.Models.other;
 using HitscordLibrary.Models.Rabbit;
@@ -52,7 +53,7 @@ public class ChatService : IChatService
 		return chat;
 	}
 
-    public async Task CreateChatAsync(string token, string userTag)
+    public async Task<ChatListItemDTO> CreateChatAsync(string token, string userTag)
     {
 		var owner = await _authorizationService.GetUserAsync(token);
 		var user = await _authorizationService.GetUserByTagAsync(userTag);
@@ -61,7 +62,7 @@ public class ChatService : IChatService
 			throw new CustomException("User cant make chat with himself", "CreateChatAsync", "UserTag", 400, "Нельзя создавать чат для себя самого", "Создание чата");
 		}
 
-		if (!await _orientDbService.AreUsersFriendsAsync(user.Id, user.Id) && user.NonFriendMessage == true)
+		if (!await _orientDbService.AreUsersFriendsAsync(user.Id, user.Id) && user.NonFriendMessage == false)
 		{
 			throw new CustomException("Owner cant make chat with this user", "CreateChatAsync", "UserTag", 401, "Нельзя создавать чат с этим пользователем", "Создание чата");
 		}
@@ -75,6 +76,10 @@ public class ChatService : IChatService
 		await _orientDbService.AddChat(newChat.Id, owner.Id, user.Id);
 		await _hitsContext.Chat.AddAsync(newChat);
 		await _hitsContext.SaveChangesAsync();
+
+		await _webSocketManager.BroadcastMessageAsync(newChat, new List<Guid> { user.Id }, "You have been added into a chat");
+
+		return (new ChatListItemDTO { ChatId = newChat.Id, ChatName = newChat.Name});
 	}
 
 	public async Task ChangeChatNameAsync(string token, Guid chatId, string newName)
