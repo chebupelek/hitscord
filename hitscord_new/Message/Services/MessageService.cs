@@ -154,6 +154,12 @@ public class MessageService : IMessageService
 				.OrderBy(m => m.CreatedAt)
 				.ToListAsync();
 
+			var remainingMessagesCount = await _messageContext.Messages
+				.Where(m => m.TextChannelId == request.channelId)
+				.OrderByDescending(m => m.CreatedAt)
+				.Skip(request.fromStart + request.number)
+				.CountAsync();
+
 			var nonNotifiableChannels = await _orientService.GetNonNotifiableChannelsForUserAsync(userId);
 
 			var messages = new MessageListResponseDTO
@@ -188,7 +194,8 @@ public class MessageService : IMessageService
 						}
 					}))).ToList(),
 				NumberOfMessages = messagesFresh.Count(),
-				NumberOfStarterMessage = request.fromStart
+				NumberOfStarterMessage = request.fromStart,
+				RemainingMessagesCount = remainingMessagesCount
 			};
 
 			return messages;
@@ -558,6 +565,12 @@ public class MessageService : IMessageService
 				.OrderBy(m => m.CreatedAt)
 				.ToListAsync();
 
+			var remainingMessagesCount = await _messageContext.Messages
+				.Where(m => m.TextChannelId == request.channelId)
+				.OrderByDescending(m => m.CreatedAt)
+				.Skip(request.fromStart + request.number)
+				.CountAsync();
+
 			var messagesList = await Task.WhenAll(messagesFresh.Select(async m => new MessageChatResponceDTO
 			{
 				ChatId = m.TextChannelId,
@@ -583,7 +596,8 @@ public class MessageService : IMessageService
 			{
 				Messages = messagesList.ToList(),
 				NumberOfMessages = messagesFresh.Count(),
-				NumberOfStarterMessage = request.fromStart
+				NumberOfStarterMessage = request.fromStart,
+				RemainingMessagesCount = remainingMessagesCount
 			};
 
 			return messages;
