@@ -424,7 +424,7 @@ public class MessageService : IMessageService
 					RolesCanUse = await _orientService.GetRolesThatCanUseSubChannelAsync((Guid)message.NestedChannelId),
 					IsNotifiable = !nonNotifiableChannels.Contains((Guid)message.NestedChannelId)
 				},
-				ReplyToMessage = new MessageResponceDTO
+				ReplyToMessage = message.ReplyToMessageId == null ? null : new MessageResponceDTO
 				{
 					ServerId = (Guid)serverId,
 					ChannelId = message.ReplyToMessage.TextChannelId,
@@ -453,6 +453,10 @@ public class MessageService : IMessageService
 				Object = ex.ObjectFront
 			};
 			await _webSocketManager.BroadcastMessageAsync(expetionNotification, new List<Guid> { ex.UserId }, "ErrorWithMessage");
+		}
+		catch (Exception ex)
+		{
+			_logger.LogInformation("exception: {string}", ex.Message);
 		}
 	}
 
@@ -731,7 +735,7 @@ public class MessageService : IMessageService
 				AuthorId = userId,
 				CreatedAt = message.CreatedAt,
 				ModifiedAt = message.UpdatedAt,
-				ReplyToMessage = new MessageChatResponceDTO
+				ReplyToMessage = message.ReplyToMessageId == null ? null : new MessageChatResponceDTO
 				{
 					ChatId = message.ReplyToMessage.TextChannelId,
 					Id = message.ReplyToMessage.Id,

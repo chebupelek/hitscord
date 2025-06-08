@@ -1,12 +1,105 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\message\\contexts\\messagecontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|solutionrelative:message\\contexts\\messagecontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\message\\services\\messageservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|solutionrelative:message\\services\\messageservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\message\\models\\db\\messagedbmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|solutionrelative:message\\models\\db\\messagedbmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\message\\migrations\\20250607105815_mesagedeletetime.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|solutionrelative:message\\migrations\\20250607105815_mesagedeletetime.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\message\\websockets\\websockethandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}|Message\\Message.csproj|solutionrelative:message\\websockets\\websockethandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": []
+      "DocumentGroups": [
+        {
+          "DockedWidth": 99,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "MessageContext.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Contexts\\MessageContext.cs",
+              "RelativeDocumentMoniker": "Message\\Contexts\\MessageContext.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Contexts\\MessageContext.cs",
+              "RelativeToolTip": "Message\\Contexts\\MessageContext.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-08T10:09:45.358Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "MessageDbModel.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Models\\DB\\MessageDbModel.cs",
+              "RelativeDocumentMoniker": "Message\\Models\\DB\\MessageDbModel.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Models\\DB\\MessageDbModel.cs",
+              "RelativeToolTip": "Message\\Models\\DB\\MessageDbModel.cs",
+              "ViewState": "AgIAAAUAAAAAAAAAAAAgwCAAAAAWAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-08T10:05:11.763Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "20250607105815_MesageDeleteTime.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Migrations\\20250607105815_MesageDeleteTime.cs",
+              "RelativeDocumentMoniker": "Message\\Migrations\\20250607105815_MesageDeleteTime.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Migrations\\20250607105815_MesageDeleteTime.cs",
+              "RelativeToolTip": "Message\\Migrations\\20250607105815_MesageDeleteTime.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAswCgAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-08T10:05:18.338Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "WebSocketHandler.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\WebSockets\\WebSocketHandler.cs",
+              "RelativeDocumentMoniker": "Message\\WebSockets\\WebSocketHandler.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\WebSockets\\WebSocketHandler.cs",
+              "RelativeToolTip": "Message\\WebSockets\\WebSocketHandler.cs",
+              "ViewState": "AgIAACEAAAAAAAAAAAAowAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-08T09:18:05.447Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "MessageService.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Services\\MessageService.cs",
+              "RelativeDocumentMoniker": "Message\\Services\\MessageService.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\Message\\Services\\MessageService.cs",
+              "RelativeToolTip": "Message\\Services\\MessageService.cs",
+              "ViewState": "AgIAAA4AAAAAAAAAAAAcwDIBAAAmAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-08T09:18:04.518Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
     }
   ]
 }
