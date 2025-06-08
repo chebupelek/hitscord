@@ -9,7 +9,7 @@ public class CreateMessageSocketDTO
     public required string Text { get; set; }
     public required bool NestedChannel { get; set; }
     public Guid? ReplyToMessageId { get; set; }
-	public List<FileForWebsocketDTO>? Files { get; set; }
+	public List<Guid>? Files { get; set; }
 
 	public void Validation()
     {

@@ -374,3 +374,6 @@ C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\hitscord.6F1605EB.Up2Date
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\nClam.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\SixLabors.ImageSharp.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Quartz.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Quartz.Extensions.DependencyInjection.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Quartz.Extensions.Hosting.dll

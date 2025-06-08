@@ -10,4 +10,7 @@ public class FileDbModel
     public required string Name { get; set; }
     public required string Type { get; set; }
 	public required long Size { get; set; }
+	public required Guid Creator { get; set; }
+	public required bool IsApproved { get; set; }
+	public required DateTime CreatedAt { get; set; }
 }

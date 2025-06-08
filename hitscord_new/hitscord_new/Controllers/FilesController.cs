@@ -41,4 +41,25 @@ public class FilesController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+	[Authorize]
+	[HttpPost]
+	[Route("message")]
+	public async Task<IActionResult> UploadFileToMessage([FromForm] UploadFileToMessageDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var file = await _fileService.UploadFileToMessageAsync(jwtToken, data.ChannelId, data.File);
+			return Ok(file);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }

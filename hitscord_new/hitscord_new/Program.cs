@@ -14,6 +14,7 @@ using hitscord.Utils;
 using Microsoft.AspNetCore.HttpOverrides;
 using hitscord.WebSockets;
 using HitscordLibrary.nClamUtil;
+using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -111,6 +112,21 @@ builder.Services.AddCors(options =>
                   .AllowAnyHeader();
         });
 });
+
+builder.Services.AddQuartz(q =>
+{
+	var jobKey = new JobKey("DailyJob");
+
+	q.AddJob<DailyJobService>(opts => opts.WithIdentity(jobKey));
+
+	q.AddTrigger(opts => opts
+		.ForJob(jobKey)
+		.WithIdentity("DailyTrigger")
+		.WithCronSchedule("0 0 * * * ?")
+	);
+});
+
+builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
 var app = builder.Build();
 

@@ -73,59 +73,30 @@ public class MessageService : IMessageService
 			.ToList();
 	}
 
-	private async Task<List<Guid>> CreateFilesAsync(List<FileForWebsocketDTO> Files, Guid userId)
+	private async Task<List<Guid>> CreateFilesAsync(List<Guid> Files, Guid userId)
 	{
-		var filesIdsList = new List<Guid>();
-		foreach (var file in Files)
+		var files = await _fileContext.File
+		.Where(f => Files.Contains(f.Id) && f.Creator == userId && f.IsApproved == false)
+		.ToListAsync();
+
+		if (files.Count != Files.Count)
 		{
-			byte[] fileBytes;
-			try
-			{
-				fileBytes = Convert.FromBase64String(file.Base64Content);
-			}
-			catch
-			{
-				throw new CustomExceptionUser("Invalid file content", "Create message", "File", 400, "Некорректное содержимое файла", "Создание сообщения", userId);
-			}
+			await _fileContext.File
+				.Where(f => Files.Contains(f.Id))
+				.ExecuteDeleteAsync();
 
-			if (fileBytes.Length == 0)
-			{
-				throw new CustomExceptionUser("Empty file", "Create message", "File", 400, "Пустой файл", "Создание сообщения", userId);
-			}
-
-			if (fileBytes.Length > 10 * 1024 * 1024)
-			{
-				throw new CustomExceptionUser("File too large", "Create message", "File", 400, "Файл слишком большой (макс. 10 МБ)", "Создание сообщения", userId);
-			}
-
-			var scanResult = await _clamService.ScanFileAsync(fileBytes);
-			if (scanResult.Result != ClamScanResults.Clean)
-			{
-				throw new CustomExceptionUser("Virus detected", "Create message", "File", 400, "Обнаружен вирус в файле", "Создание сообщения", userId);
-			}
-
-			var originalFileName = Path.GetFileName(file.FileName);
-			var fileDirectory = Path.Combine("wwwroot", "message_files");
-			Directory.CreateDirectory(fileDirectory);
-			var filePath = Path.Combine(fileDirectory, originalFileName);
-			await File.WriteAllBytesAsync(filePath, fileBytes);
-
-			var fileRecord = new FileDbModel
-			{
-				Id = Guid.NewGuid(),
-				Path = $"/message_files/{originalFileName}",
-				Name = originalFileName,
-				Type = file.ContentType,
-				Size = fileBytes.Length
-			};
-
-			_fileContext.File.Add(fileRecord);
-			await _fileContext.SaveChangesAsync();
-
-			filesIdsList.Add(fileRecord.Id);
+			throw new CustomExceptionUser("File not found", "Create message", "File", 404, "Файл не найден. Файлы сообщения удалены", "Создание сообщения", userId);
 		}
+
+		foreach (var file in files)
+		{
+			file.IsApproved = true;
+		}
+
+		_fileContext.File.UpdateRange(files);
 		await _fileContext.SaveChangesAsync();
-		return filesIdsList;
+
+		return files.Select(f => f.Id).ToList();
 	}
 
 	public async Task<ResponseObject> GetChannelMessagesAsync(ChannelRequestRabbit request)
@@ -284,7 +255,7 @@ public class MessageService : IMessageService
 	}
 
 
-	public async Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, Guid? ReplyToMessageId, bool NestedChannel, List<FileForWebsocketDTO>? Files)
+	public async Task CreateMessageWebsocketAsync(Guid channelId, string token, string text, Guid? ReplyToMessageId, bool NestedChannel, List<Guid>? Files)
 	{
 		try
 		{
@@ -627,7 +598,7 @@ public class MessageService : IMessageService
 	}
 
 
-	public async Task CreateMessageToChatWebsocketAsync(Guid chatId, string token, string text, Guid? ReplyToMessageId, List<FileForWebsocketDTO>? Files)
+	public async Task CreateMessageToChatWebsocketAsync(Guid chatId, string token, string text, Guid? ReplyToMessageId, List<Guid>? Files)
 	{
 		try
 		{
@@ -885,6 +856,18 @@ public class MessageService : IMessageService
 		try
 		{
 			var now = DateTime.UtcNow;
+
+			var fileIds = await _messageContext.Messages
+				.Where(m => m.DeleteTime != null && m.DeleteTime <= now)
+				.SelectMany(m => m.FilesId)
+				.ToListAsync();
+
+			if (fileIds != null && fileIds.Count() > 0)
+			{
+				await _fileContext.File
+					.Where(f => fileIds.Contains(f.Id))
+					.ExecuteDeleteAsync();
+			}
 
 			await _messageContext.Messages
 				.Where(m => m.DeleteTime != null && m.DeleteTime <= now)

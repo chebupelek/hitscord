@@ -8,4 +8,6 @@ public interface IFileService
 {
 	Task<FileResponseDTO?> GetImageAsync(Guid iconId);
 	Task<FileResponseDTO> GetFileAsync(string token, Guid textChannelId, Guid fileId);
+	Task<FileResponseDTO> UploadFileToMessageAsync(string token, Guid channelId, IFormFile file);
+	Task RemoveFilesFromDBAsync();
 }
