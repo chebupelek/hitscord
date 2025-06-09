@@ -164,6 +164,10 @@ public class OrientDbService
 
 			"CREATE CLASS ServerCanCreateRoles EXTENDS E", //from Role to Server
 
+			"CREATE CLASS ServerCanCreateLessons EXTENDS E", //from Role to Server
+
+			"CREATE CLASS ServerCanCheckAttendance EXTENDS E", //from Role to Server
+
 			"CREATE CLASS ChannelCanSee EXTENDS E", //from Role to Channel
 
             "CREATE CLASS ChannelCanWrite EXTENDS E", //from Role to TextChannel
@@ -352,6 +356,8 @@ public class OrientDbService
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanDeleteOthersMessages");
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanIgnoreMaxCount");
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanCreateRoles");
+				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanCreateLessons");
+				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanCheckAttendance");
 
 				if (role.Role == RoleEnum.Creator)
 				{

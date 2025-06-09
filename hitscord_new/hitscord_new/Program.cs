@@ -33,6 +33,8 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpContextAccessor();
 
+builder.Services.AddHttpClient();
+
 builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -42,6 +44,9 @@ builder.Services.AddScoped<IFriendshipService, FriendshipService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IRolesService, RolesService>();
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IScheduleService, ScheduleService>();
+
+builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("ApiSettings"));
 
 builder.Services.AddSingleton<RabbitMQUtil>();
 

@@ -9,4 +9,6 @@ public enum SettingsEnum
 	CanDeleteOthersMessages,
 	CanIgnoreMaxCount,
 	CanCreateRole,
+	CanCreateLessons,
+	CanCheckAttendance
 }

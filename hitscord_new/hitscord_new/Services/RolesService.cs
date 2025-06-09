@@ -220,7 +220,9 @@ public class RolesService : IRolesService
 					CanMuteOther = permissions.Contains("ServerCanMuteOther"),
 					CanDeleteOthersMessages = permissions.Contains("ServerCanDeleteOthersMessages"),
 					CanIgnoreMaxCount = permissions.Contains("ServerCanIgnoreMaxCount"),
-					CanCreateRoles = permissions.Contains("ServerCanCreateRoles")
+					CanCreateRoles = permissions.Contains("ServerCanCreateRoles"),
+					CanCreateLessons = permissions.Contains("ServerCanCreateLessons"),
+					CanCheckAttendance = permissions.Contains("ServerCanCheckAttendance")
 				}
 			});
 		}
@@ -250,6 +252,7 @@ public class RolesService : IRolesService
 				else
 				{
 					await _orientDbService.RevokeRolePermissionFromServerAsync(role.Id, server.Id, "ServerCanChangeRole");
+					await _orientDbService.RevokeRolePermissionFromServerAsync(role.Id, server.Id, "ServerCanCreateRole");
 				}
 				break;
 
@@ -312,10 +315,35 @@ public class RolesService : IRolesService
 				if (settingsData)
 				{
 					await _orientDbService.GrantRolePermissionToServerAsync(role.Id, server.Id, "ServerCanCreateRole");
+					await _orientDbService.GrantRolePermissionToServerAsync(role.Id, server.Id, "ServerCanChangeRole");
 				}
 				else
 				{
 					await _orientDbService.RevokeRolePermissionFromServerAsync(role.Id, server.Id, "ServerCanCreateRole");
+				}
+				break;
+
+			case SettingsEnum.CanCreateLessons:
+				if (settingsData)
+				{
+					await _orientDbService.GrantRolePermissionToServerAsync(role.Id, server.Id, "ServerCanCreateLessons");
+					await _orientDbService.GrantRolePermissionToServerAsync(role.Id, server.Id, "ServerCanCheckAttendance");
+				}
+				else
+				{
+					await _orientDbService.RevokeRolePermissionFromServerAsync(role.Id, server.Id, "ServerCanCreateLessons");
+				}
+				break;
+
+			case SettingsEnum.CanCheckAttendance:
+				if (settingsData)
+				{
+					await _orientDbService.GrantRolePermissionToServerAsync(role.Id, server.Id, "ServerCanCheckAttendance");
+				}
+				else
+				{
+					await _orientDbService.RevokeRolePermissionFromServerAsync(role.Id, server.Id, "ServerCanCheckAttendance");
+					await _orientDbService.RevokeRolePermissionFromServerAsync(role.Id, server.Id, "ServerCanCreateLessons");
 				}
 				break;
 
@@ -331,7 +359,9 @@ public class RolesService : IRolesService
 			CanMuteOther = permissions.Contains("ServerCanMuteOther"),
 			CanDeleteOthersMessages = permissions.Contains("ServerCanDeleteOthersMessages"),
 			CanIgnoreMaxCount = permissions.Contains("ServerCanIgnoreMaxCount"),
-			CanCreateRoles = permissions.Contains("ServerCanCreateRoles")
+			CanCreateRoles = permissions.Contains("ServerCanCreateRoles"),
+			CanCreateLessons = permissions.Contains("ServerCanCreateLessons"),
+			CanCheckAttendance = permissions.Contains("ServerCanCheckAttendance")
 		};
 
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);

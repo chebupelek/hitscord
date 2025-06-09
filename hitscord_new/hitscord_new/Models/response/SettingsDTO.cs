@@ -11,4 +11,6 @@ public class SettingsDTO
 	public required bool CanDeleteOthersMessages { get; set; }
 	public required bool CanIgnoreMaxCount { get; set; }
 	public required bool CanCreateRoles { get; set; }
+	public required bool CanCreateLessons { get; set; }
+	public required bool CanCheckAttendance { get; set; }
 }

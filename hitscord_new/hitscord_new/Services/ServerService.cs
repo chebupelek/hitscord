@@ -501,7 +501,9 @@ public class ServerService : IServerService
 				CanMuteOther = result.Contains("ServerCanMuteOther"),
 				CanDeleteOthersMessages = result.Contains("ServerCanDeleteOthersMessages"),
 				CanIgnoreMaxCount = result.Contains("ServerCanIgnoreMaxCount"),
-				CanCreateRoles = result.Contains("ServerCanCreateRoles")
+				CanCreateRoles = result.Contains("ServerCanCreateRoles"),
+				CanCreateLessons = result.Contains("ServerCanCreateLessons"),
+				CanCheckAttendance = result.Contains("ServerCanCheckAttendance")
 			},
 			IsNotifiable = !notifiableServersList.Contains(serverId),
 			Users = serverUsers,
