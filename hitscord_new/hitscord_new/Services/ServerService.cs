@@ -297,11 +297,16 @@ public class ServerService : IServerService
         _hitsContext.UserServer.RemoveRange(userServerRelations);
         _hitsContext.Role.RemoveRange(serverRoles);
         var voiceChannels = server.Channels.OfType<VoiceChannelDbModel>().ToList();
-        foreach (var voiceChannel in voiceChannels)
+		var pairVoiceChannels = server.Channels.OfType<PairVoiceChannelDbModel>().ToList();
+		foreach (var voiceChannel in voiceChannels)
         {
             voiceChannel.Users.Clear();
         }
-        var channelsToDelete = server.Channels.ToList();
+		foreach (var pairVoiceChannel in pairVoiceChannels)
+		{
+			pairVoiceChannel.Users.Clear();
+		}
+		var channelsToDelete = server.Channels.ToList();
         _hitsContext.Channel.RemoveRange(channelsToDelete);
         _hitsContext.Server.Remove(server);
         await _hitsContext.SaveChangesAsync();
@@ -440,6 +445,25 @@ public class ServerService : IServerService
 			})
 			.ToListAsync();
 
+		var pairVoiceChannelResponses = await _hitsContext.PairVoiceChannel
+			.Include(vc => vc.Users)
+			.Where(vc => vc.ServerId == server.Id && channelCanSee.Contains(vc.Id))
+			.Select(vc => new VoiceChannelResponseDTO
+			{
+				ChannelName = vc.Name,
+				ChannelId = vc.Id,
+				CanJoin = channelCanJoin.Contains(vc.Id),
+				MaxCount = vc.MaxCount,
+				Users = vc.Users.Select(u => new VoiceChannelUserDTO
+				{
+					UserId = u.UserId,
+					MuteStatus = u.MuteStatus,
+					IsStream = u.IsStream
+				})
+				.ToList()
+			})
+			.ToListAsync();
+
 		var serverUsers = await _hitsContext.UserServer
 				.Include(us => us.Role)
 				.Where(us => us.Role.ServerId == serverId)
@@ -540,7 +564,8 @@ public class ServerService : IServerService
 					IsNotifiable = !notifiableChannelsList.Contains(c.Id)
 				})
 				.ToList(),
-				VoiceChannels = voiceChannelResponses
+				VoiceChannels = voiceChannelResponses,
+				PairVoiceChannels = pairVoiceChannelResponses
 			}
 		};
 

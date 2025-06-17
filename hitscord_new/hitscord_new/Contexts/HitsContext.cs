@@ -16,9 +16,12 @@ namespace hitscord.Contexts
         public DbSet<TextChannelDbModel> TextChannel { get; set; }
         public DbSet<VoiceChannelDbModel> VoiceChannel { get; set; }
 		public DbSet<NotificationChannelDbModel> NotificationChannel { get; set; }
+		public DbSet<PairVoiceChannelDbModel> PairVoiceChannel { get; set; }
 		public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
         public DbSet<FriendshipApplicationDbModel> Friendship { get; set; }
 		public DbSet<ChatDbModel> Chat { get; set; }
+		public DbSet<PairDbModel> Pair { get; set; }
+		public DbSet<PairUserDbModel> PairUser { get; set; }
 
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -54,7 +57,8 @@ namespace hitscord.Contexts
                 entity.HasDiscriminator<string>("ChannelType")
                     .HasValue<TextChannelDbModel>("Text")
                     .HasValue<VoiceChannelDbModel>("Voice")
-                    .HasValue<NotificationChannelDbModel>("Notification");
+                    .HasValue<NotificationChannelDbModel>("Notification")
+					.HasValue<PairVoiceChannelDbModel>("PairVoice");
 
 				entity.HasOne(c => c.Server)
                     .WithMany(s => s.Channels)
@@ -90,11 +94,34 @@ namespace hitscord.Contexts
 					.IsRequired();
 			});
 
-            modelBuilder.Entity<ChatDbModel>(entity =>
+            modelBuilder.Entity<PairDbModel>(entity =>
             {
-                entity.HasMany(ch => ch.Users)
+                entity.HasOne(p => p.Server)
+                    .WithMany()
+                    .HasForeignKey(p => p.ServerId)
+                    .IsRequired();
+
+				entity.HasOne(p => p.PairVoiceChannel)
+					.WithMany(pvc => pvc.Pairs)
+                    .HasForeignKey(p => p.PairVoiceChannelId)
+                    .IsRequired();
+
+                entity.HasMany(p => p.Roles)
                     .WithMany();
-            });
-        }
+			});
+
+			modelBuilder.Entity<PairUserDbModel>(entity =>
+			{
+				entity.HasOne(pu => pu.User)
+					.WithMany()
+					.HasForeignKey(pu => pu.UserId)
+					.IsRequired();
+
+				entity.HasOne(pu => pu.Pair)
+					.WithMany()
+					.HasForeignKey(pu => pu.PairId)
+					.IsRequired();
+			});
+		}
     }
 }

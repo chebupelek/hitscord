@@ -120,6 +120,7 @@ public class OrientDbService
 			"CREATE INDEX Channel.id UNIQUE",
 
 			"CREATE CLASS VoiceChannel EXTENDS Channel",
+			"CREATE CLASS PairVoiceChannel EXTENDS VoiceChannel",
 			"CREATE CLASS TextChannel EXTENDS Channel",
 			"CREATE CLASS AnnouncementChannel EXTENDS TextChannel",
 			"CREATE CLASS SubChannel EXTENDS TextChannel",
@@ -280,6 +281,15 @@ public class OrientDbService
 		await ExecuteCommandAsync(linkQuery);
 	}
 
+	public async Task AddPairVoiceChannelAsync(Guid channelId, Guid serverId)
+	{
+		string query = $"INSERT INTO PairVoiceChannel SET id = '{channelId}', server = '{serverId}'";
+		await ExecuteCommandAsync(query);
+
+		string linkQuery = $"CREATE EDGE ContainsChannel FROM (SELECT FROM Server WHERE id = '{serverId}') TO (SELECT FROM Channel WHERE id = '{channelId}')";
+		await ExecuteCommandAsync(linkQuery);
+	}
+
 	public async Task AddSubChannelAsync(Guid subChannelId, Guid textChannelId, Guid serverId, Guid AuthorId)
 	{
 		string query = $"INSERT INTO SubChannel SET id = '{subChannelId}', server = '{serverId}', AuthorId = '{AuthorId}'";
@@ -400,6 +410,28 @@ public class OrientDbService
 	public async Task CreateVoiceChannel(Guid serverId, Guid channelId)
 	{
 		await AddVoiceChannelAsync(channelId, serverId);
+
+		string jsonResponse = await GetServerRolesAsync(serverId);
+		var parsedResponse = JsonConvert.DeserializeObject<dynamic>(jsonResponse);
+		List<Guid> roleIds = new List<Guid>();
+		if (parsedResponse?.result != null)
+		{
+			foreach (var role in parsedResponse.result)
+			{
+				roleIds.Add(Guid.Parse((string)role.id));
+			}
+		}
+
+		foreach (var roleId in roleIds)
+		{
+			await GrantRolePermissionToChannelAsync(roleId, channelId, "ChannelCanSee");
+			await GrantRolePermissionToChannelAsync(roleId, channelId, "ChannelCanJoin");
+		}
+	}
+
+	public async Task CreatePairVoiceChannel(Guid serverId, Guid channelId)
+	{
+		await AddPairVoiceChannelAsync(channelId, serverId);
 
 		string jsonResponse = await GetServerRolesAsync(serverId);
 		var parsedResponse = JsonConvert.DeserializeObject<dynamic>(jsonResponse);
@@ -788,6 +820,36 @@ public class OrientDbService
 		return Guid.TryParse((string)roleInfo.result[0].roleId, out var roleId) ? roleId : null;
 	}
 
+	public async Task<List<Guid>> GetUserRolesAsync(Guid userId)
+	{
+		string query = $@"
+            SELECT id as roleId 
+			FROM Role 
+			WHERE @rid IN (
+				SELECT in 
+				FROM BelongsToRole 
+				WHERE out IN (
+					SELECT @rid 
+					FROM Subscription 
+					WHERE @rid IN (
+						SELECT in 
+						FROM BelongsToSub 
+						WHERE out IN (
+								SELECT FROM User WHERE id = '{userId}'
+						)
+					)
+				)
+			)";
+
+		string result = await ExecuteCommandAsync(query);
+		var jsonResponse = JsonConvert.DeserializeObject<dynamic>(result);
+		var serverList = jsonResponse?.result as IEnumerable<dynamic>;
+
+		return serverList != null
+			? serverList.Select(r => Guid.Parse((string)r.roleId)).ToList()
+			: new List<Guid>();
+	}
+
 
 
 	public async Task<List<Guid>> GetSubscribedServerIdsListAsync(Guid userId)
@@ -992,6 +1054,21 @@ public class OrientDbService
 			: new List<Guid>();
 	}
 
+	public async Task<List<Guid>> GetServerRolesIdsAsync(Guid serverId)
+	{
+		string query = $@"
+			SELECT id AS RoleId
+			FROM Role 
+			WHERE server = '{serverId}'";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var resultList = parsedResult?.result as JArray;
+
+		return resultList != null
+			? resultList.Select(item => Guid.Parse(item.Value<string>("RoleId"))).ToList()
+			: new List<Guid>();
+	}
 
 	public async Task<List<RolesItemDTO>> GetRolesThatCanSeeChannelAsync(Guid channelId)
 	{
@@ -1852,6 +1929,46 @@ public class OrientDbService
 								WHERE in IN (
 									SELECT @rid
 									FROM Channel
+									WHERE id = '{channelId}'
+								)
+							)
+						)
+					)
+				)
+			)";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+		var resultList = parsedResult?.result as JArray;
+
+		return resultList != null
+			? resultList.Select(item => Guid.Parse(item.Value<string>("userId"))).ToList()
+			: new List<Guid>();
+	}
+
+	public async Task<List<Guid>> GetUsersThatCanJoinToChannelAsync(Guid channelId)
+	{
+		string query = $@"
+            SELECT id AS userId    
+            FROM User 
+            WHERE @rid IN (
+				SELECT out 
+				FROM BelongsToSub 
+				WHERE in IN (
+					SELECT @rid
+					FROM Subscription
+					WHERE @rid IN (
+						SELECT out
+						FROM BelongsToRole
+						WHERE in IN (
+							SELECT @rid
+							FROM Role
+							WHERE @rid IN (
+								SELECT out
+								FROM ChannelCanJoin
+								WHERE in IN (
+									SELECT @rid
+									FROM VoiceChannel
 									WHERE id = '{channelId}'
 								)
 							)

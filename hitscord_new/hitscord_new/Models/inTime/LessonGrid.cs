@@ -1,4 +1,6 @@
-﻿namespace hitscord.Models.inTime;
+﻿using hitscord.Models.response;
+
+namespace hitscord.Models.inTime;
 
 public class LessonGrid
 {
@@ -12,4 +14,5 @@ public class LessonGrid
 	public List<Group>? groups { get; set; }
 	public Professor? professor { get; set; }
 	public AudienceWithBuilding? audience { get; set; }
+	public List<PairShortDTO>? Pairs { get; set; }
 }

@@ -90,6 +90,17 @@ public class ChannelService : IChannelService
 		return (VoiceChannelDbModel)channel;
 	}
 
+	public async Task<PairVoiceChannelDbModel> CheckPairVoiceChannelExistAsync(Guid channelId, bool joinedUsers)
+	{
+		var channel = joinedUsers ? await _hitsContext.Channel.Include(c => ((PairVoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.Id == channelId && c is PairVoiceChannelDbModel) :
+			await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is PairVoiceChannelDbModel);
+		if (channel == null)
+		{
+			throw new CustomException("Pair voice channel not found", "Check pair voice channel for existing", "Pair voice channel", 404, "Голосовой канал для пар не найден", "Проверка наличия голосового канала для пар");
+		}
+		return (PairVoiceChannelDbModel)channel;
+	}
+
 	public async Task<ChannelDbModel> CheckNotificationChannelExistAsync(Guid channelId)
 	{
 		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is NotificationChannelDbModel);
@@ -115,6 +126,10 @@ public class ChannelService : IChannelService
 		if (await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is TextChannelDbModel && ((TextChannelDbModel)c).IsMessage == false) != null)
 		{
 			return ChannelTypeEnum.Text;
+		}
+		else if (await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is PairVoiceChannelDbModel) != null)
+		{
+			return ChannelTypeEnum.Pair;
 		}
 		else if (await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && c is VoiceChannelDbModel) != null)
 		{
@@ -160,6 +175,15 @@ public class ChannelService : IChannelService
 				};
 				break;
 
+			case ChannelTypeEnum.Pair:
+				newChannel = new PairVoiceChannelDbModel
+				{
+					Name = name,
+					ServerId = serverId,
+					MaxCount = (int)maxCount
+				};
+				break;
+
 			case ChannelTypeEnum.Notification:
 				newChannel = new NotificationChannelDbModel
 				{
@@ -185,6 +209,10 @@ public class ChannelService : IChannelService
 
 			case ChannelTypeEnum.Voice:
 				await _orientDbService.CreateVoiceChannel(server.Id, newChannel.Id);
+				break;
+
+			case ChannelTypeEnum.Pair:
+				await _orientDbService.CreatePairVoiceChannel(server.Id, newChannel.Id);
 				break;
 
 			case ChannelTypeEnum.Notification:
@@ -215,6 +243,7 @@ public class ChannelService : IChannelService
 		var user = await _authService.GetUserAsync(token);
 		var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
 		await _authenticationService.CheckUserRightsJoinToVoiceChannel(channel.Id, user.Id);
+		var role = await _authenticationService.CheckSubscriptionExistAsync(channel.ServerId, user.Id);
 
 		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.VoiceChannelId == chnnelId);
 		if (userthischannel != null)
@@ -256,6 +285,34 @@ public class ChannelService : IChannelService
 		};
 		_hitsContext.UserVoiceChannel.Add(newUserVoiceChannel);
 		await _hitsContext.SaveChangesAsync();
+
+		var pairChannel = await _hitsContext.PairVoiceChannel.FirstOrDefaultAsync(pvc => pvc.Id == channel.Id);
+		if (pairChannel != null)
+		{
+			var nowUtc = DateTime.UtcNow;
+			var todayDateStr = nowUtc.ToString("yyyy-MM-dd");
+			var secondsSinceMidnightUtc = (long)nowUtc.TimeOfDay.TotalSeconds;
+
+			var pair = await _hitsContext.Pair.FirstOrDefaultAsync(p =>
+				p.PairVoiceChannelId == pairChannel.Id &&
+				p.Date == todayDateStr &&
+				p.Starts <= secondsSinceMidnightUtc &&
+				p.Ends > secondsSinceMidnightUtc &&
+				p.Roles.Contains(role)
+			);
+
+			if (pair != null)
+			{
+				var pairUser = new PairUserDbModel()
+				{
+					UserId = user.Id,
+					PairId = pair.Id,
+					TimeEnter = DateTime.UtcNow,
+				};
+				await _hitsContext.PairUser.AddAsync(pairUser);
+				await _hitsContext.SaveChangesAsync();
+			}
+		}
 
 		var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
 		{
@@ -588,6 +645,20 @@ public class ChannelService : IChannelService
 					Notificated = null
 				};
 				return rolesVoice;
+
+			case ChannelTypeEnum.Pair:
+				var channelPair = await CheckPairVoiceChannelExistAsync(chnnelId, false);
+				await _authenticationService.CheckUserRightsWorkWithChannels(channelPair.ServerId, user.Id);
+				var rolesPair = new ChannelSettingsDTO
+				{
+					CanSee = await _orientDbService.GetRolesThatCanSeeChannelAsync(channelPair.Id),
+					CanJoin = await _orientDbService.GetRolesThatCanJoinVoiceChannelAsync(channelPair.Id),
+					CanWrite = null,
+					CanWriteSub = null,
+					CanUse = null,
+					Notificated = null
+				};
+				return rolesPair;
 
 			case ChannelTypeEnum.Notification:
 				var channelNotification = await CheckNotificationChannelExistAsync(chnnelId);

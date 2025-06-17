@@ -1,4 +1,5 @@
 ﻿using EasyNetQ;
+using Grpc.Core;
 using Grpc.Net.Client.Balancer;
 using hitscord.Contexts;
 using hitscord.IServices;
@@ -38,19 +39,23 @@ public class ScheduleService : IScheduleService
 	private readonly FilesContext _filesContext;
 	private readonly IAuthorizationService _authorizationService;
     private readonly IServices.IAuthenticationService _authenticationService;
-    private readonly OrientDbService _orientDbService;
+	private readonly IChannelService _channelService;
+	private readonly IServerService _serverService;
+	private readonly OrientDbService _orientDbService;
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly nClamService _clamService;
 	private readonly HttpClient _httpClient;
 	private readonly string _baseUrl;
 	private readonly ILogger<ScheduleService> _logger;
 
-	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, ILogger<ScheduleService> logger)
+	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, IChannelService channelService, IServerService serverService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, ILogger<ScheduleService> logger)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
         _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
-        _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
+		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
+		_serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
+		_orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_filesContext = filesContext ?? throw new ArgumentNullException(nameof(filesContext));
@@ -84,7 +89,7 @@ public class ScheduleService : IScheduleService
 		{
 			try
 			{
-				var error = JsonSerializer.Deserialize<Error>(responseContent, new JsonSerializerOptions
+				var error = JsonSerializer.Deserialize<Models.inTime.Error>(responseContent, new JsonSerializerOptions
 				{
 					PropertyNameCaseInsensitive = true
 				});
@@ -294,5 +299,368 @@ public class ScheduleService : IScheduleService
 				throw new CustomException("Failed to parse error response", "GetScheduleAsync", "Deserialization", (int)response.StatusCode, "Ошибка при разборе ответа об ошибке", "Получение расписания");
 			}
 		}
+	}
+
+	public async Task<ScheduleGrid> GetScheduleOnChannelAsync(string token, ScheduleType Type, Guid Id, string dateFrom, string dateTo, Guid pairVoiceChannelId)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+		var pairChannel = await _channelService.CheckPairVoiceChannelExistAsync(pairVoiceChannelId, false);
+		var role = await _authenticationService.CheckSubscriptionExistAsync(pairChannel.ServerId, user.Id);
+		await _authenticationService.CheckUserRightsSeeChannel(pairChannel.Id, user.Id);
+
+		var rights = await _authenticationService.CheckUserRightsCreateLessonsBool(pairChannel.ServerId, user.Id);
+
+		var schedule = await GetScheduleAsync(Type, Id, dateFrom, dateTo);
+		foreach (var gridPair in schedule.grid)
+		{
+			if (gridPair != null && gridPair.lessons != null)
+			{
+				foreach (var schedulePair in gridPair.lessons)
+				{
+					if (schedulePair != null && schedulePair.type == "LESSON")
+					{
+						var pairs = await _hitsContext.Pair
+							.Include(p => p.Server)
+							.Include(p => p.Roles)
+							.Where(p => p.ScheduleId == schedulePair.id
+								&& p.PairVoiceChannelId == pairChannel.Id 
+								&& (rights || p.Roles.Contains(role)))
+							.Select(p => new PairShortDTO
+							{
+								Id = p.Id,
+								ServerId = p.ServerId,
+								ServerName = p.Server.Name,
+								PairVoiceChannelId = p.PairVoiceChannelId,
+								PairVoiceChannelName = p.PairVoiceChannel.Name,
+								Roles = p.Roles,
+								Note = p.Note
+							})
+							.ToListAsync();
+						schedulePair.Pairs = pairs;
+					}
+				}
+			}
+		}
+
+		return schedule;
+	}
+
+	public async Task<ScheduleGrid> GetScheduleOnServerAsync(string token, ScheduleType Type, Guid Id, string dateFrom, string dateTo, Guid serverId)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+		var server = await _serverService.CheckServerExistAsync(serverId, false);
+		var role = await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+
+		var rights = await _authenticationService.CheckUserRightsCreateLessonsBool(server.Id, user.Id);
+
+		var schedule = await GetScheduleAsync(Type, Id, dateFrom, dateTo);
+		foreach (var gridPair in schedule.grid)
+		{
+			if (gridPair != null && gridPair.lessons != null)
+			{
+				foreach (var schedulePair in gridPair.lessons)
+				{
+					if (schedulePair != null && schedulePair.type == "LESSON")
+					{
+						var pairs = await _hitsContext.Pair
+							.Include(p => p.Server)
+							.Include(p => p.Roles)
+							.Where(p => p.ScheduleId == schedulePair.id
+								&& p.PairVoiceChannel.ServerId == server.Id
+								&& (rights || p.Roles.Contains(role)))
+							.Select(p => new PairShortDTO
+							{
+								Id = p.Id,
+								ServerId = p.ServerId,
+								ServerName = p.Server.Name,
+								PairVoiceChannelId = p.PairVoiceChannelId,
+								PairVoiceChannelName = p.PairVoiceChannel.Name,
+								Roles = p.Roles,
+								Note = p.Note
+							})
+							.ToListAsync();
+						schedulePair.Pairs = pairs;
+					}
+				}
+			}
+		}
+
+		return schedule;
+	}
+
+	public async Task<ScheduleGrid> GetScheduleForUserAsync(string token, ScheduleType Type, Guid Id, string dateFrom, string dateTo)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+
+		var roles = await _orientDbService.GetUserRolesAsync(user.Id);
+		if (roles == null)
+		{
+			roles = new List<Guid>();
+		}
+
+		var schedule = await GetScheduleAsync(Type, Id, dateFrom, dateTo);
+		foreach (var gridPair in schedule.grid)
+		{
+			if (gridPair != null && gridPair.lessons != null)
+			{
+				foreach (var schedulePair in gridPair.lessons)
+				{
+					if (schedulePair != null && schedulePair.type == "LESSON")
+					{
+						var pairs = await _hitsContext.Pair
+							.Include(p => p.Server)
+							.Include(p => p.Roles)
+							.Where(p => p.ScheduleId == schedulePair.id
+								&& p.Roles.Any(r => roles.Contains(r.Id)))
+							.Select(p => new PairShortDTO
+							{
+								Id = p.Id,
+								ServerId = p.ServerId,
+								ServerName = p.Server.Name,
+								PairVoiceChannelId = p.PairVoiceChannelId,
+								PairVoiceChannelName = p.PairVoiceChannel.Name,
+								Roles = p.Roles,
+								Note = p.Note
+							})
+							.ToListAsync();
+						schedulePair.Pairs = pairs;
+					}
+				}
+			}
+		}
+
+		return schedule;
+	}
+
+	public async Task CreatePairAsync(string token, Guid scheduleId, Guid pairVoiceChannelId, List<Guid> roleIds, string? note, ScheduleType Type, Guid Id, string date)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+		var pairChannel = await _channelService.CheckPairVoiceChannelExistAsync(pairVoiceChannelId, false);
+		await _authenticationService.CheckUserRightsSeeChannel(pairChannel.Id, user.Id);
+		await _authenticationService.CheckUserRightsCreateLessons(pairChannel.ServerId, user.Id);
+
+		var schedule = await GetScheduleAsync(Type, Id, date, date);
+		var schedulePair = schedule.grid
+			.Where(column => column != null && column.lessons != null)
+			.SelectMany(column => column!.lessons!)
+			.FirstOrDefault(lesson =>
+				lesson.type == "LESSON" &&
+				lesson.id.HasValue &&
+				lesson.id.Value == scheduleId
+			);
+
+		if (schedulePair == null)
+		{
+			throw new CustomException("Pair not found in schedule", "CreatePairAsync", "Schedule id", 404, "Пара не найдена в расписании", "Создание пары");
+		}
+
+		var serverRoles = await _orientDbService.GetServerRolesIdsAsync(pairChannel.ServerId);
+		if (serverRoles != null && serverRoles.Count() > 0)
+		{
+			if (!roleIds.All(roleId => serverRoles.Contains(roleId)))
+			{
+				throw new CustomException("Wrong roles ids list", "CreatePairAsync", "Roles ids", 400, "Неправильный набор ролей", "Создание пары");
+			}
+
+			var channelRoles = await _orientDbService.GetRolesThatCanJoinVoiceChannelAsync(pairChannel.Id);
+			if (channelRoles != null && channelRoles.Count() > 0)
+			{
+				if (!roleIds.All(id => channelRoles.Any(role => role.Id == id)))
+				{
+					throw new CustomException("Wrong roles ids list", "CreatePairAsync", "Roles ids", 400, "Неправильный набор ролей", "Создание пары");
+				}
+			}
+			else
+			{
+				throw new CustomException("Неопознанная ошибка", "CreatePairAsync", "Неопознанная ошибка", 500, "Неопознанная ошибка", "Создание пары");
+			}
+		}
+		else
+		{
+			throw new CustomException("Неопознанная ошибка", "CreatePairAsync", "Неопознанная ошибка", 500, "Неопознанная ошибка", "Создание пары");
+		}
+
+		var roles = await _hitsContext.Role.Where(r => roleIds.Contains(r.Id)).ToListAsync();
+
+		var newPair = new PairDbModel()
+		{
+			ScheduleId = scheduleId,
+			ServerId = pairChannel.ServerId,
+			PairVoiceChannelId = pairChannel.Id,
+			Roles = roles,
+			Note = note,
+			Type = Type,
+			FilterId = Id,
+			Date = date,
+			Starts = schedulePair.starts,
+			Ends = schedulePair.ends,
+			LessonNumber = schedulePair.lessonNumber,
+			Title = schedulePair.title
+		};
+		await _hitsContext.Pair.AddAsync(newPair);
+		await _hitsContext.SaveChangesAsync();
+
+		var pair = await _hitsContext.Pair.Include(p => p.Server).Include(p => p.Roles).FirstOrDefaultAsync(p => p.Id == newPair.Id);
+
+		var newPairResponse = new NewPairResponseDTO
+		{
+			Id = pair.Id,
+			ScheduleId = pair.ScheduleId,
+			ServerName = pair.Server.Name,
+			PairVoiceChannelName = pairChannel.Name,
+			Roles = pair.Roles,
+			Note = pair.Note,
+			Date = pair.Date,
+			LessonNumber = schedulePair.lessonNumber,
+			Title = schedulePair.title
+		};
+
+		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pairChannel.Id);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(newPairResponse, alertedUsers, "New pair on this channel");
+		}
+	}
+
+	public async Task UpdatePairAsync(string token, Guid pairId, List<Guid> roleIds, string? note)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+
+		var nowUtc = DateTime.UtcNow;
+		var currentDateStr = nowUtc.ToString("yyyy-MM-dd");
+		var secondsSinceMidnightUtc = (long)nowUtc.TimeOfDay.TotalSeconds;
+
+		var pair = await _hitsContext.Pair
+			.Include(p => p.Server)
+			.Include(p => p.Roles)
+			.FirstOrDefaultAsync(p => p.Id == pairId
+				 && (
+					string.Compare(p.Date, currentDateStr) > 0 
+					|| (p.Date == currentDateStr && p.Starts > secondsSinceMidnightUtc)
+				)
+			);
+		if (pair == null)
+		{
+			throw new CustomException("Pair not found", "UpdatePairAsync", "Pair id", 404, "Пара не найдена", "Обновление пары");
+		}
+		await _authenticationService.CheckUserRightsSeeChannel(pair.PairVoiceChannelId, user.Id);
+		await _authenticationService.CheckUserRightsCreateLessons(pair.ServerId, user.Id);
+
+		var serverRoles = await _orientDbService.GetServerRolesIdsAsync(pair.ServerId);
+		if (serverRoles != null && serverRoles.Count() > 0)
+		{
+			if (!roleIds.All(roleId => serverRoles.Contains(roleId)))
+			{
+				throw new CustomException("Wrong roles ids list", "UpdatePairAsync", "Roles ids", 400, "Неправильный набор ролей", "Обновление пары");
+			}
+
+			var channelRoles = await _orientDbService.GetRolesThatCanJoinVoiceChannelAsync(pair.PairVoiceChannelId);
+			if (channelRoles != null && channelRoles.Count() > 0)
+			{
+				if (!roleIds.All(id => channelRoles.Any(role => role.Id == id)))
+				{
+					throw new CustomException("Wrong roles ids list", "UpdatePairAsync", "Roles ids", 400, "Неправильный набор ролей", "Обновление пары");
+				}
+			}
+			else
+			{
+				throw new CustomException("Неопознанная ошибка", "UpdatePairAsync", "Неопознанная ошибка", 500, "Неопознанная ошибка", "Обновление пары");
+			}
+		}
+		else
+		{
+			throw new CustomException("Неопознанная ошибка", "UpdatePairAsync", "Неопознанная ошибка", 500, "Неопознанная ошибка", "Обновление пары");
+		}
+
+		var roles = await _hitsContext.Role.Where(r => roleIds.Contains(r.Id)).ToListAsync();
+
+		pair.Roles = roles;
+		pair.Note = note;
+		_hitsContext.Pair.Update(pair);
+		await _hitsContext.SaveChangesAsync();
+
+		var updatedPair = await _hitsContext.Pair.Include(p => p.Server).Include(p => p.Roles).FirstOrDefaultAsync(p => p.Id == pair.Id);
+
+		var newPairResponse = new NewPairResponseDTO
+		{
+			Id = pair.Id,
+			ScheduleId = pair.ScheduleId,
+			ServerName = pair.Server.Name,
+			PairVoiceChannelName = pair.PairVoiceChannel.Name,
+			Roles = pair.Roles,
+			Note = pair.Note,
+			Date = pair.Date,
+			LessonNumber = pair.LessonNumber,
+			Title = pair.Title
+		};
+
+		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pair.PairVoiceChannel.Id);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(newPairResponse, alertedUsers, "Updated pair on this channel");
+		}
+	}
+
+	public async Task DeletePairAsync(string token, Guid pairId)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+
+		var nowUtc = DateTime.UtcNow;
+		var currentDateStr = nowUtc.ToString("yyyy-MM-dd");
+		var secondsSinceMidnightUtc = (long)nowUtc.TimeOfDay.TotalSeconds;
+
+		var pair = await _hitsContext.Pair
+			.FirstOrDefaultAsync(p => p.Id == pairId
+				 && (
+					string.Compare(p.Date, currentDateStr) > 0
+					|| (p.Date == currentDateStr && p.Starts > secondsSinceMidnightUtc)
+				)
+			);
+		if (pair == null)
+		{
+			throw new CustomException("Pair not found", "DeletePairAsync", "Pair id", 404, "Пара не найдена", "Удаление пары");
+		}
+		await _authenticationService.CheckUserRightsSeeChannel(pair.PairVoiceChannelId, user.Id);
+		await _authenticationService.CheckUserRightsCreateLessons(pair.ServerId, user.Id);
+
+		var deletedPairResponse = new NewPairResponseDTO
+		{
+			Id = pair.Id,
+			ScheduleId = pair.ScheduleId,
+			ServerName = pair.Server.Name,
+			PairVoiceChannelName = pair.PairVoiceChannel.Name,
+			Roles = pair.Roles,
+			Note = pair.Note,
+			Date = pair.Date,
+			LessonNumber = pair.LessonNumber,
+			Title = pair.Title
+		};
+
+		_hitsContext.Pair.Remove(pair);
+		await _hitsContext.SaveChangesAsync();
+
+		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pair.PairVoiceChannel.Id);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(deletedPairResponse, alertedUsers, "Deleted pair on this channel");
+		}
+	}
+
+	public async Task<AttendanceListDTO> GetAttendanceAsync(string token, Guid pairId)
+	{
+		var user = await _authorizationService.GetUserAsync(token);
+		var pair = await _hitsContext.Pair.Include(p => p.Server).Include(p => p.PairVoiceChannel).FirstOrDefaultAsync(p => p.Id == pairId);
+		if (pair == null)
+		{
+			throw new CustomException("Pair not found", "GetAttendanceAsync", "Pair id", 404, "Пара не найдена", "Получение посещаемости");
+		}
+		await _authenticationService.CheckUserRightsCheckAttendance(pair.ServerId, user.Id);
+
+		var attendanceList = new AttendanceListDTO
+		{
+			Attendance = await _hitsContext.PairUser.Include(pu => pu.User).Include(pu => pu.Pair).Where(pu => pu.PairId == pair.Id).ToListAsync()
+		};
+
+		return attendanceList;
 	}
 }

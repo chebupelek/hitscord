@@ -6,5 +6,6 @@ public enum ChannelTypeEnum
 	Text,
 	Voice,
 	Notification,
-	Sub
+	Sub,
+	Pair
 }

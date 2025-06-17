@@ -15,6 +15,9 @@ public interface IAuthenticationService
 	Task CheckUserRightsDeleteUsers(Guid ServerId, Guid UserId);
 	Task<bool> CheckUserRightsIgnore(Guid ServerId, Guid UserId);
 	Task CheckUserRightsCreateRoles(Guid ServerId, Guid UserId);
+	Task CheckUserRightsCreateLessons(Guid ServerId, Guid UserId);
+	Task<bool> CheckUserRightsCreateLessonsBool(Guid ServerId, Guid UserId);
+	Task CheckUserRightsCheckAttendance(Guid ServerId, Guid UserId);
 	Task CheckUserRightsJoinToVoiceChannel(Guid channelId, Guid UserId);
 	Task CheckUserRightsWriteInChannel(Guid channelId, Guid UserId);
 	Task CheckUserRightsSeeChannel(Guid channelId, Guid UserId);

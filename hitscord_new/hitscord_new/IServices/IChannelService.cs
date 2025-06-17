@@ -12,6 +12,7 @@ public interface IChannelService
     Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId);
     Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId);
     Task<ChannelDbModel> CheckTextOrNotificationChannelExistAsync(Guid channelId);
+    Task<PairVoiceChannelDbModel> CheckPairVoiceChannelExistAsync(Guid channelId, bool joinedUsers);
 	Task CreateChannelAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType, int? maxCount);
     Task<bool> JoinToVoiceChannelAsync(Guid chnnelId, string token);
     Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, string token);

@@ -173,6 +173,52 @@ public class AuthenticationService : IAuthenticationService
 		}
 	}
 
+	public async Task CheckUserRightsCreateLessons(Guid ServerId, Guid UserId)
+	{
+		await CheckSubscriptionExistAsync(ServerId, UserId);
+		string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(UserId, ServerId);
+		var server = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == ServerId);
+		if (server == null)
+		{
+			throw new CustomException("Server not exist", "Check user rights for create roles", "Server", 404, "Сервер не найден", "Проверка на возможность создавать роли");
+		}
+		if (!result.Contains("ServerCanCreateLessons"))
+		{
+			throw new CustomException("User doesnt has rights to create lessons", "Check user rights for create lessons", "User", 401, "Пользователь не может создавать пары", "Проверка на возможность создавать пары");
+		}
+	}
+
+	public async Task<bool> CheckUserRightsCreateLessonsBool(Guid ServerId, Guid UserId)
+	{
+		await CheckSubscriptionExistAsync(ServerId, UserId);
+		string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(UserId, ServerId);
+		var server = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == ServerId);
+		if (server == null)
+		{
+			throw new CustomException("Server not exist", "Check user rights for create roles", "Server", 404, "Сервер не найден", "Проверка на возможность создавать роли");
+		}
+		if (!result.Contains("ServerCanCreateLessons"))
+		{
+			return false;
+		}
+		return true;
+	}
+
+	public async Task CheckUserRightsCheckAttendance(Guid ServerId, Guid UserId)
+	{
+		await CheckSubscriptionExistAsync(ServerId, UserId);
+		string result = await _orientDbService.GetUserRolePermissionsOnServerAsync(UserId, ServerId);
+		var server = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == ServerId);
+		if (server == null)
+		{
+			throw new CustomException("Server not exist", "Check user rights for create roles", "Server", 404, "Сервер не найден", "Проверка на возможность создавать роли");
+		}
+		if (!result.Contains("ServerCanCheckAttendance"))
+		{
+			throw new CustomException("User doesnt has rights to check attendance", "Check user rights for check attendance", "User", 401, "Пользователь не может проверять посещаемость", "Проверка на возможность проверять посещаемость");
+		}
+	}
+
 	public async Task CheckUserRightsJoinToVoiceChannel(Guid channelId, Guid UserId)
 	{
 		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(s => s.Id == channelId);
