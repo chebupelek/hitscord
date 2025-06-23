@@ -354,7 +354,7 @@ public class ChannelService : IChannelService
             throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400, "Пользователь не находится на этом канале", "Удаление пользователя из голосового канала");
         }
 
-		if ((userSub.Role <= remSub.Role))
+		if ((userSub.Role > remSub.Role))
 		{
 			throw new CustomException("USer lower in ierarchy than removed user", "Remove user from voice channel", "Removed user role", 401, "Пользователь ниже по иерархии чем удаляемый пользователь", "Удаление пользователя из голосового канала");
 		}

@@ -373,7 +373,7 @@ public class ServerService : IServerService
         {
             throw new CustomException("User cant change his role", "Change user role", "User", 400, "Пользователь не может менять свою роль", "Изменение роли пользователя");
         }
-		if ((ownerSub.Role <= userSub.Role))
+		if ((ownerSub.Role > userSub.Role))
 		{
 			throw new CustomException("Owner lower in ierarchy than changed user", "Change user role", "Changed user role", 401, "Пользователь ниже по иерархии чем изменяемый пользователь", "Изменение роли пользователя");
 		}
@@ -588,7 +588,7 @@ public class ServerService : IServerService
 		{
 			throw new CustomException("User cant delete creator of server", "Delete user from server", "User", 400, "Нельзя удалить создателя сервера", "Удаление пользователя с сервера");
 		}
-		if ((ownerSub.Role <= userSub.Role))
+		if ((ownerSub.Role > userSub.Role))
 		{
 			throw new CustomException("Owner lower in ierarchy than deleted user", "Delete user from server", "Changed user role", 401, "Пользователь ниже по иерархии чем удаляемый пользователь", "Удаление пользователя с сервера");
 		}
