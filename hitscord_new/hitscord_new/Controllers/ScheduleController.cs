@@ -237,7 +237,7 @@ public class ScheduleController : ControllerBase
 	}
 
 	[Authorize]
-	[HttpGet]
+	[HttpPut]
 	[Route("pair/update")]
 	public async Task<IActionResult> UpdatePair([FromBody] UpdatePairDTO data)
 	{
@@ -258,7 +258,7 @@ public class ScheduleController : ControllerBase
 	}
 
 	[Authorize]
-	[HttpGet]
+	[HttpDelete]
 	[Route("pair/delete")]
 	public async Task<IActionResult> DeletePair([FromBody] IdRequestDTO data)
 	{
