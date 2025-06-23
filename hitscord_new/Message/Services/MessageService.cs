@@ -118,7 +118,7 @@ public class MessageService : IMessageService
 
 			var messagesFresh = await _messageContext.Messages
 				.Include(m => m.ReplyToMessage)
-				.Where(m => m.TextChannelId == request.channelId)
+				.Where(m => m.TextChannelId == request.channelId && m.DeleteTime == null)
 				.OrderByDescending(m => m.CreatedAt)
 				.Skip(request.fromStart)
 				.Take(request.number)
@@ -482,7 +482,8 @@ public class MessageService : IMessageService
 			{
 				throw new CustomExceptionUser("User hasnt permissions", "Delete normal message", "Channel id", 401, "У пользователя нет прав", "Удаление сообщения", userId);
 			}
-			_messageContext.Messages.Remove(message);
+			message.DeleteTime = DateTime.UtcNow.AddMonths(3);
+			_messageContext.Messages.Update(message);
 			await _messageContext.SaveChangesAsync();
 
 			if (message.NestedChannelId != null)
@@ -532,7 +533,7 @@ public class MessageService : IMessageService
 			}
 
 			var messagesFresh = await _messageContext.Messages
-				.Where(m => m.TextChannelId == request.channelId)
+				.Where(m => m.TextChannelId == request.channelId && m.DeleteTime == null)
 				.OrderByDescending(m => m.CreatedAt)
 				.Skip(request.fromStart)
 				.Take(request.number)
@@ -787,7 +788,8 @@ public class MessageService : IMessageService
 			{
 				throw new CustomExceptionUser("User hasnt permissions", "Delete normal message in chat", "Chat id", 401, "У пользователя нет прав", "Удаление сообщения в чате", userId);
 			}
-			_messageContext.Messages.Remove(message);
+			message.DeleteTime = DateTime.UtcNow.AddMonths(3);
+			_messageContext.Messages.Update(message);
 			await _messageContext.SaveChangesAsync();
 
 
@@ -861,21 +863,40 @@ public class MessageService : IMessageService
 		{
 			var now = DateTime.UtcNow;
 
-			var fileIds = await _messageContext.Messages
-				.Where(m => m.DeleteTime != null && m.DeleteTime <= now)
-				.SelectMany(m => m.FilesId)
+			var filesToDelete = await _fileContext.File
+				.Where(f => _messageContext.Messages
+					.Where(m => m.DeleteTime != null && m.DeleteTime <= now)
+					.SelectMany(m => m.FilesId)
+					.Contains(f.Id))
 				.ToListAsync();
 
-			if (fileIds != null && fileIds.Count() > 0)
+			foreach (var file in filesToDelete)
 			{
-				await _fileContext.File
-					.Where(f => fileIds.Contains(f.Id))
-					.ExecuteDeleteAsync();
+				var filePath = Path.Combine("wwwroot", file.Path.TrimStart('/'));
+
+				if (File.Exists(filePath))
+				{
+					try
+					{
+						File.Delete(filePath);
+					}
+					catch (Exception ex)
+					{
+						_logger.LogWarning(ex, "Не удалось удалить файл {Path}", file.Path);
+					}
+				}
+			}
+
+			if (filesToDelete.Any())
+			{
+				_fileContext.File.RemoveRange(filesToDelete);
 			}
 
 			await _messageContext.Messages
 				.Where(m => m.DeleteTime != null && m.DeleteTime <= now)
 				.ExecuteDeleteAsync();
+
+			await _fileContext.SaveChangesAsync();
 		}
 		catch (Exception ex)
 		{

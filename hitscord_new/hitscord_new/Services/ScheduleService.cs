@@ -17,6 +17,7 @@ using HitscordLibrary.Models.db;
 using HitscordLibrary.Models.other;
 using HitscordLibrary.nClamUtil;
 using HitscordLibrary.SocketsModels;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using nClam;
@@ -515,10 +516,27 @@ public class ScheduleService : IScheduleService
 			Title = schedulePair.title
 		};
 
-		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pairChannel.Id);
-		if (alertedUsers != null && alertedUsers.Count() > 0)
+		var roleUserIds = new HashSet<Guid>();
+
+		foreach (var role in pair.Roles)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newPairResponse, alertedUsers, "New pair on this channel");
+			var usersInRole = await _orientDbService.GetUsersByRoleIdAsync(role.Id);
+			foreach (var userId in usersInRole)
+			{
+				roleUserIds.Add(userId);
+			}
+		}
+
+		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pairChannel.Id);
+
+		if (alertedUsers != null && alertedUsers.Any())
+		{
+			var targetUsers = alertedUsers.Where(user => roleUserIds.Contains(user)).ToList();
+
+			if (targetUsers.Any())
+			{
+				await _webSocketManager.BroadcastMessageAsync(newPairResponse, targetUsers, "New pair on this channel");
+			}
 		}
 	}
 

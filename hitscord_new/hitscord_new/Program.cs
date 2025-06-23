@@ -120,15 +120,26 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddQuartz(q =>
 {
-	var jobKey = new JobKey("DailyJob");
-
-	q.AddJob<DailyJobService>(opts => opts.WithIdentity(jobKey));
-
+	var dailyJobKey = new JobKey("DailyJob");
+	q.AddJob<DailyJobService>(opts => opts.WithIdentity(dailyJobKey));
 	q.AddTrigger(opts => opts
-		.ForJob(jobKey)
+		.ForJob(dailyJobKey)
 		.WithIdentity("DailyTrigger")
-		.WithCronSchedule("0 0 * * * ?")
-	);
+		.WithCronSchedule("0 0 * * * ?"));
+
+	var pairAttendanceJobKey = new JobKey("PairAttendanceTracker");
+	q.AddJob<PairAttendanceTrackerJob>(opts => opts.WithIdentity(pairAttendanceJobKey));
+	q.AddTrigger(opts => opts
+		.ForJob(pairAttendanceJobKey)
+		.WithIdentity("PairAttendanceTracker-trigger")
+		.WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
+
+	var missingPairNotifierKey = new JobKey("MissingPairNotifierJob");
+	q.AddJob<MissingPairNotifierJob>(opts => opts.WithIdentity(missingPairNotifierKey));
+	q.AddTrigger(opts => opts
+		.ForJob(missingPairNotifierKey)
+		.WithIdentity("MissingPairNotifierJob-trigger")
+		.WithCronSchedule("0 0 22 * * ?"));
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

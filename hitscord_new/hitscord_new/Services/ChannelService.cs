@@ -286,34 +286,6 @@ public class ChannelService : IChannelService
 		_hitsContext.UserVoiceChannel.Add(newUserVoiceChannel);
 		await _hitsContext.SaveChangesAsync();
 
-		var pairChannel = await _hitsContext.PairVoiceChannel.FirstOrDefaultAsync(pvc => pvc.Id == channel.Id);
-		if (pairChannel != null)
-		{
-			var nowUtc = DateTime.UtcNow;
-			var todayDateStr = nowUtc.ToString("yyyy-MM-dd");
-			var secondsSinceMidnightUtc = (long)nowUtc.TimeOfDay.TotalSeconds;
-
-			var pair = await _hitsContext.Pair.FirstOrDefaultAsync(p =>
-				p.PairVoiceChannelId == pairChannel.Id &&
-				p.Date == todayDateStr &&
-				p.Starts <= secondsSinceMidnightUtc &&
-				p.Ends > secondsSinceMidnightUtc &&
-				p.Roles.Contains(role)
-			);
-
-			if (pair != null)
-			{
-				var pairUser = new PairUserDbModel()
-				{
-					UserId = user.Id,
-					PairId = pair.Id,
-					TimeEnter = DateTime.UtcNow,
-				};
-				await _hitsContext.PairUser.AddAsync(pairUser);
-				await _hitsContext.SaveChangesAsync();
-			}
-		}
-
 		var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
 		{
 			ServerId = channel.ServerId,

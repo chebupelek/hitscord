@@ -27,4 +27,6 @@ public class PairUserDbModel
 	public PairDbModel Pair { get; set; }
 
 	public required DateTime TimeEnter { get; set; }
+	public DateTime? TimeLeave { get; set; }
+	public DateTime? TimeUpdate { get; set; }
 }

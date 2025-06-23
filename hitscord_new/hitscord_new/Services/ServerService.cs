@@ -778,6 +778,22 @@ public class ServerService : IServerService
 
 		await File.WriteAllBytesAsync(iconPath, fileBytes);
 
+		if (server.IconId != null)
+		{
+			var oldIcon = await _filesContext.File.FirstOrDefaultAsync(f => f.Id == server.IconId);
+			if (oldIcon != null)
+			{
+				var oldIconPath = Path.Combine("wwwroot", oldIcon.Path.TrimStart('/'));
+
+				if (File.Exists(oldIconPath))
+				{
+					File.Delete(oldIconPath);
+				}
+
+				_filesContext.File.Remove(oldIcon);
+			}
+		}
+
 		var file = new FileDbModel
 		{
 			Id = Guid.NewGuid(),

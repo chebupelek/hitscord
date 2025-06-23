@@ -23,6 +23,7 @@ using nClam;
 using Microsoft.AspNetCore.Mvc;
 using Authzed.Api.V0;
 using System.Drawing;
+using Grpc.Core;
 
 namespace hitscord.Services;
 
@@ -339,6 +340,22 @@ public class AuthorizationService : IServices.IAuthorizationService
 		var iconPath = Path.Combine(iconDirectory, originalFileName);
 
 		await File.WriteAllBytesAsync(iconPath, fileBytes);
+
+		if (user.IconId != null)
+		{
+			var oldIcon = await _filesContext.File.FirstOrDefaultAsync(f => f.Id == user.IconId);
+			if (oldIcon != null)
+			{
+				var oldIconPath = Path.Combine("wwwroot", oldIcon.Path.TrimStart('/'));
+
+				if (File.Exists(oldIconPath))
+				{
+					File.Delete(oldIconPath);
+				}
+
+				_filesContext.File.Remove(oldIcon);
+			}
+		}
 
 		var file = new FileDbModel
 		{

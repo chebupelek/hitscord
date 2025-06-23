@@ -1384,6 +1384,37 @@ public class OrientDbService
 		return new List<Guid>();
 	}
 
+	public async Task<List<Guid>> GetUsersByRoleIdAsync(Guid roleId)
+	{
+		string query = $@"
+			SELECT out.id AS userId
+			FROM BelongsToSub 
+			WHERE in IN (
+				SELECT @rid FROM Subscription 
+				WHERE @rid IN (
+					SELECT out FROM BelongsToRole 
+					WHERE in IN (
+						SELECT @rid 
+						FROM Role 
+						WHERE id = '{roleId}'
+					)
+				)
+			)";
+
+		string result = await ExecuteCommandAsync(query);
+		var parsedResult = JsonConvert.DeserializeObject<dynamic>(result);
+
+		var resultList = parsedResult?.result as JArray;
+
+		if (resultList != null)
+		{
+			return resultList
+				.Select(item => Guid.Parse(item.Value<string>("userId")))
+				.ToList();
+		}
+
+		return new List<Guid>();
+	}
 
 	private int ExtractCountFromResult(string result)
 	{

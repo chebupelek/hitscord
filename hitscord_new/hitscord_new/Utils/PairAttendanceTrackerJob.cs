@@ -1,0 +1,94 @@
+﻿using Quartz;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Threading.Tasks;
+using System.Diagnostics;
+using hitscord.IServices;
+using hitscord.Contexts;
+using Microsoft.EntityFrameworkCore;
+using hitscord.Models.db;
+
+namespace hitscord.Utils;
+
+public class PairAttendanceTrackerJob : IJob
+{
+	private readonly IServiceScopeFactory _scopeFactory;
+	private readonly ILogger<PairAttendanceTrackerJob> _logger;
+
+	public PairAttendanceTrackerJob(IServiceScopeFactory scopeFactory, ILogger<PairAttendanceTrackerJob> logger)
+	{
+		_scopeFactory = scopeFactory;
+		_logger = logger;
+	}
+
+	public async Task Execute(IJobExecutionContext context)
+	{
+		try
+		{
+			using var scope = _scopeFactory.CreateScope();
+			var dbContext = scope.ServiceProvider.GetRequiredService<HitsContext>();
+
+			var nowUtc = DateTime.UtcNow;
+			var nowDateStr = nowUtc.ToString("yyyy-MM-dd");
+			var secondsNow = (long)nowUtc.TimeOfDay.TotalSeconds;
+
+			var activePairs = await dbContext.Pair
+				.Include(p => p.PairVoiceChannel)
+				.Where(p => p.Date == nowDateStr && p.Starts <= secondsNow && p.Ends >= secondsNow)
+				.ToListAsync();
+
+			foreach (var pair in activePairs)
+			{
+				var pairStartTime = DateTime.Parse(pair.Date).AddSeconds(pair.Starts);
+				var pairEndTime = DateTime.Parse(pair.Date).AddSeconds(pair.Ends);
+
+				var activeUsers = await dbContext.UserVoiceChannel
+					.Where(uvc => uvc.VoiceChannelId == pair.PairVoiceChannelId)
+					.ToListAsync();
+
+				var activeUserIds = activeUsers.Select(u => u.UserId).ToHashSet();
+
+				var trackedUsers = await dbContext.PairUser
+					.Where(pu => pu.PairId == pair.Id && pu.TimeLeave == null)
+					.ToListAsync();
+
+				foreach (var user in trackedUsers)
+				{
+					if (!activeUserIds.Contains(user.UserId))
+					{
+						var leaveTime = nowUtc > pairEndTime ? pairEndTime : nowUtc;
+						user.TimeLeave = leaveTime;
+					}
+					else
+					{
+						user.TimeUpdate = nowUtc;
+					}
+				}
+
+				foreach (var user in activeUsers)
+				{
+					var alreadyTracked = trackedUsers.Any(u => u.UserId == user.UserId);
+					if (!alreadyTracked)
+					{
+						var joinTime = nowUtc < pairStartTime ? pairStartTime : nowUtc;
+
+						var visit = new PairUserDbModel
+						{
+							PairId = pair.Id,
+							UserId = user.UserId,
+							TimeEnter = joinTime,
+							TimeUpdate = nowUtc
+						};
+						await dbContext.PairUser.AddAsync(visit);
+					}
+				}
+			}
+
+			await dbContext.SaveChangesAsync();
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Ошибка в PairAttendanceTrackerJob");
+		}
+	}
+}
