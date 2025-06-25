@@ -21,4 +21,5 @@ public class ServerDbModel
     public ICollection<RoleDbModel> Roles { get; set; }
     public ICollection<ChannelDbModel> Channels { get; set; }
     public Guid? IconId { get; set; }
+    public required bool IsClosed { get; set; }
 }

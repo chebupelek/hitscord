@@ -32,8 +32,9 @@ public class ChatService : IChatService
     private readonly OrientDbService _orientDbService;
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly IFileService _fileService;
+	private readonly INotificationService _notificationsService;
 
-	public ChatService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, IFileService fileService)
+	public ChatService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -41,6 +42,7 @@ public class ChatService : IChatService
         _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
+		_notificationsService = notificationsService ?? throw new ArgumentNullException(nameof(notificationsService));
 	}
 
 	public async Task<ChatDbModel> CheckChatExist(Guid chatId)
@@ -78,6 +80,8 @@ public class ChatService : IChatService
 		await _hitsContext.SaveChangesAsync();
 
 		await _webSocketManager.BroadcastMessageAsync(newChat, new List<Guid> { user.Id }, "You have been added into a chat");
+
+		await _notificationsService.AddNotificationForUserAsync(user.Id, $"Вы были добавлены в чат пользователем: {owner.AccountName}");
 
 		return (new ChatListItemDTO { ChatId = newChat.Id, ChatName = newChat.Name});
 	}
@@ -253,10 +257,9 @@ public class ChatService : IChatService
 			ChatName = chat.Name,
 			Users = chatUsers
 		};
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(chatInfo, new List<Guid>(){ user.Id} , "You added to chat");
-		}
+		await _webSocketManager.BroadcastMessageAsync(chatInfo, new List<Guid>() { user.Id }, "You added to chat");
+
+		await _notificationsService.AddNotificationForUserAsync(user.Id, $"Вы были добавлены в чат пользователем: {owner.AccountName}");
 	}
 
 	public async Task RemoveUserAsync(string token, Guid chatId)

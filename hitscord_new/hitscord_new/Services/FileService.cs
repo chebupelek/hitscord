@@ -197,13 +197,33 @@ public class FileService : IFileService
 		{
 			var oneHourAgo = DateTime.UtcNow.AddHours(-1);
 
-			await _filesContext.File
+			var filesToDelete = await _filesContext.File
 				.Where(f => !f.IsApproved && f.CreatedAt <= oneHourAgo)
-				.ExecuteDeleteAsync();
+				.ToListAsync();
+
+			foreach (var file in filesToDelete)
+			{
+				try
+				{
+					var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
+
+					if (System.IO.File.Exists(fullPath))
+					{
+						System.IO.File.Delete(fullPath);
+					}
+				}
+				catch (Exception fileEx)
+				{
+					Console.WriteLine($"Ошибка при удалении файла {file.Path}: {fileEx.Message}");
+				}
+			}
+
+			_filesContext.File.RemoveRange(filesToDelete);
+			await _filesContext.SaveChangesAsync();
 		}
 		catch (Exception ex)
 		{
-			throw;
+			Console.WriteLine($"Ошибка при удалении файла");
 		}
 	}
 }

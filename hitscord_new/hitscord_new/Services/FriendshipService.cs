@@ -23,12 +23,14 @@ public class FriendshipService : IFriendshipService
     private readonly HitsContext _hitsContext;
 	private readonly IAuthorizationService _authorizationService;
 	private readonly OrientDbService _orientDbService;
+	private readonly INotificationService _notificationsService;
 
-	public FriendshipService(HitsContext hitsContext, IAuthorizationService authorizationService, OrientDbService orientDbService)
+	public FriendshipService(HitsContext hitsContext, IAuthorizationService authorizationService, OrientDbService orientDbService, INotificationService notificationsService)
 	{
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
+		_notificationsService = notificationsService ?? throw new ArgumentNullException(nameof(notificationsService));
 	}
 
     public async Task CreateApplicationAsync(string token, string userTag)
@@ -67,6 +69,8 @@ public class FriendshipService : IFriendshipService
 
 		await _hitsContext.Friendship.AddAsync(application);
 		await _hitsContext.SaveChangesAsync();
+
+		await _notificationsService.AddNotificationForUserAsync(friend.Id, $"Вам отправил заявку в друзья пользователь: {user.AccountName}");
 	}
 
 	public async Task DeleteApplicationAsync(string token, Guid applicationId)
@@ -111,6 +115,8 @@ public class FriendshipService : IFriendshipService
 		await _hitsContext.SaveChangesAsync();
 
 		await _orientDbService.CreateFriendshipAsync(app.UserIdFrom, app.UserIdTo);
+
+		await _notificationsService.AddNotificationForUserAsync(app.UserIdFrom, $"Вашу заявку в друзья одобрил пользователь: {user.AccountName}");
 	}
 
 	public async Task<ApplicationsList> GetApplicationListTo(string token)

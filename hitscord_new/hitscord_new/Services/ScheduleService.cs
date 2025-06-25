@@ -30,6 +30,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Web;
+using static System.Net.Mime.MediaTypeNames;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace hitscord.Services;
@@ -48,8 +49,9 @@ public class ScheduleService : IScheduleService
 	private readonly HttpClient _httpClient;
 	private readonly string _baseUrl;
 	private readonly ILogger<ScheduleService> _logger;
+	private readonly INotificationService _notificationsService;
 
-	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, IChannelService channelService, IServerService serverService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, ILogger<ScheduleService> logger)
+	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, IChannelService channelService, IServerService serverService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, ILogger<ScheduleService> logger, INotificationService notificationsService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -63,9 +65,10 @@ public class ScheduleService : IScheduleService
 		_httpClient = httpClientFactory.CreateClient();
 		_baseUrl = apiSettings.Value.BaseUrl;
 		_logger = logger;
+		_notificationsService = notificationsService ?? throw new ArgumentNullException(nameof(notificationsService));
 	}
 
-	public async Task<List<Professor>> GetProfessorsAsync()
+	public async Task<ProfessorsListResponseDTO> GetProfessorsAsync()
 	{
 		var uri = new Uri($"{_baseUrl}/professors");
 
@@ -84,7 +87,9 @@ public class ScheduleService : IScheduleService
 				throw new CustomException("Result doesn't exist", "GetProfessorsAsync", "Result", (int)response.StatusCode, "Ответ не получен", "Получение списка профессоров");
 			}
 
-			return result;
+			var professorsList = new ProfessorsListResponseDTO { Professors = result };
+
+			return professorsList;
 		}
 		else
 		{
@@ -104,7 +109,7 @@ public class ScheduleService : IScheduleService
 		}
 	}
 
-	public async Task<List<FacultyDetails>> GetFacultiesAsync()
+	public async Task<FacultyListResponseDTO> GetFacultiesAsync()
 	{
 		var uri = new Uri($"{_baseUrl}/faculties");
 
@@ -123,7 +128,9 @@ public class ScheduleService : IScheduleService
 				throw new CustomException("Result doesn't exist", "GetFacultiesAsync", "Result", (int)response.StatusCode, "Ответ не получен", "Получение списка факультетов");
 			}
 
-			return result;
+			var facultiesList = new FacultyListResponseDTO { Faculties = result };
+
+			return facultiesList;
 		}
 		else
 		{
@@ -143,7 +150,7 @@ public class ScheduleService : IScheduleService
 		}
 	}
 
-	public async Task<List<Models.inTime.Group>> GetGroupsAsync(Guid FacultyId)
+	public async Task<GroupListResponseDTO> GetGroupsAsync(Guid FacultyId)
 	{
 		var uri = new Uri($"{_baseUrl}/faculties/{FacultyId}/groups");
 
@@ -162,7 +169,9 @@ public class ScheduleService : IScheduleService
 				throw new CustomException("Result doesn't exist", "GetGroupsAsync", "Result", (int)response.StatusCode, "Ответ не получен", "Получение списка групп");
 			}
 
-			return result;
+			var groupsList = new GroupListResponseDTO { Groups = result };
+
+			return groupsList;
 		}
 		else
 		{
@@ -182,7 +191,7 @@ public class ScheduleService : IScheduleService
 		}
 	}
 
-	public async Task<List<BuildingDetails>> GetBuildingsAsync()
+	public async Task<BuildingDetailsListResponseDTO> GetBuildingsAsync()
 	{
 		var uri = new Uri($"{_baseUrl}/buildings");
 
@@ -201,7 +210,9 @@ public class ScheduleService : IScheduleService
 				throw new CustomException("Result doesn't exist", "GetBuildingsAsync", "Result", (int)response.StatusCode, "Ответ не получен", "Получение списка зданий");
 			}
 
-			return result;
+			var buildingsList = new BuildingDetailsListResponseDTO { BuildingDetails = result };
+
+			return buildingsList;
 		}
 		else
 		{
@@ -221,7 +232,7 @@ public class ScheduleService : IScheduleService
 		}
 	}
 
-	public async Task<List<Audience>> GetAudiencesAsync(Guid BuildingId)
+	public async Task<AudienceListResponseDTO> GetAudiencesAsync(Guid BuildingId)
 	{
 		var uri = new Uri($"{_baseUrl}/buildings/{BuildingId}/audiences");	
 
@@ -240,7 +251,9 @@ public class ScheduleService : IScheduleService
 				throw new CustomException("Result doesn't exist", "GetAudiencesAsync", "Result", (int)response.StatusCode, "Ответ не получен", "Получение списка аудиенций");
 			}
 
-			return result;
+			var audiencesList = new AudienceListResponseDTO { Audiences = result };
+
+			return audiencesList;
 		}
 		else
 		{
@@ -437,6 +450,7 @@ public class ScheduleService : IScheduleService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 		var pairChannel = await _channelService.CheckPairVoiceChannelExistAsync(pairVoiceChannelId, false);
+		var server = await _serverService.CheckServerExistAsync(pairChannel.ServerId, false);
 		await _authenticationService.CheckUserRightsSeeChannel(pairChannel.Id, user.Id);
 		await _authenticationService.CheckUserRightsCreateLessons(pairChannel.ServerId, user.Id);
 
@@ -536,6 +550,7 @@ public class ScheduleService : IScheduleService
 			if (targetUsers.Any())
 			{
 				await _webSocketManager.BroadcastMessageAsync(newPairResponse, targetUsers, "New pair on this channel");
+				await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Вам назначили пару на сервере: {server.Name}");
 			}
 		}
 	}
@@ -612,10 +627,28 @@ public class ScheduleService : IScheduleService
 			Title = pair.Title
 		};
 
-		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pair.PairVoiceChannel.Id);
-		if (alertedUsers != null && alertedUsers.Count() > 0)
+		var roleUserIds = new HashSet<Guid>();
+
+		foreach (var role in pair.Roles)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newPairResponse, alertedUsers, "Updated pair on this channel");
+			var usersInRole = await _orientDbService.GetUsersByRoleIdAsync(role.Id);
+			foreach (var userId in usersInRole)
+			{
+				roleUserIds.Add(userId);
+			}
+		}
+
+		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pair.PairVoiceChannel.Id);
+
+		if (alertedUsers != null && alertedUsers.Any())
+		{
+			var targetUsers = alertedUsers.Where(user => roleUserIds.Contains(user)).ToList();
+
+			if (targetUsers.Any())
+			{
+				await _webSocketManager.BroadcastMessageAsync(newPairResponse, alertedUsers, "Updated pair on this channel");
+				await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {updatedPair.Server.Name}");
+			}
 		}
 	}
 
@@ -657,10 +690,28 @@ public class ScheduleService : IScheduleService
 		_hitsContext.Pair.Remove(pair);
 		await _hitsContext.SaveChangesAsync();
 
-		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pair.PairVoiceChannel.Id);
-		if (alertedUsers != null && alertedUsers.Count() > 0)
+		var roleUserIds = new HashSet<Guid>();
+
+		foreach (var role in pair.Roles)
 		{
-			await _webSocketManager.BroadcastMessageAsync(deletedPairResponse, alertedUsers, "Deleted pair on this channel");
+			var usersInRole = await _orientDbService.GetUsersByRoleIdAsync(role.Id);
+			foreach (var userId in usersInRole)
+			{
+				roleUserIds.Add(userId);
+			}
+		}
+
+		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pair.PairVoiceChannel.Id);
+
+		if (alertedUsers != null && alertedUsers.Any())
+		{
+			var targetUsers = alertedUsers.Where(user => roleUserIds.Contains(user)).ToList();
+
+			if (targetUsers.Any())
+			{
+				await _webSocketManager.BroadcastMessageAsync(deletedPairResponse, alertedUsers, "Deleted pair on this channel");
+				await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {pair.Server.Name}");
+			}
 		}
 	}
 

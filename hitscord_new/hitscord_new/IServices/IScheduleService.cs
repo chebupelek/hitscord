@@ -7,11 +7,11 @@ namespace hitscord.IServices;
 
 public interface IScheduleService
 {
-	Task<List<Professor>> GetProfessorsAsync();
-	Task<List<FacultyDetails>> GetFacultiesAsync();
-	Task<List<Group>> GetGroupsAsync(Guid FacultyId);
-	Task<List<BuildingDetails>> GetBuildingsAsync();
-	Task<List<Audience>> GetAudiencesAsync(Guid BuildingId);
+	Task<ProfessorsListResponseDTO> GetProfessorsAsync();
+	Task<FacultyListResponseDTO> GetFacultiesAsync();
+	Task<GroupListResponseDTO> GetGroupsAsync(Guid FacultyId);
+	Task<BuildingDetailsListResponseDTO> GetBuildingsAsync();
+	Task<AudienceListResponseDTO> GetAudiencesAsync(Guid BuildingId);
 	Task<ScheduleGrid> GetScheduleAsync(ScheduleType Type, Guid Id, string dateFrom, string dateTo);
 	Task<ScheduleGrid> GetScheduleOnChannelAsync(string token, ScheduleType Type, Guid Id, string dateFrom, string dateTo, Guid pairVoiceChannelId);
 	Task<ScheduleGrid> GetScheduleOnServerAsync(string token, ScheduleType Type, Guid Id, string dateFrom, string dateTo, Guid serverId);

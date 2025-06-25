@@ -1,4 +1,6 @@
-﻿using EasyNetQ;
+﻿using Authzed.Api.V0;
+using EasyNetQ;
+using Grpc.Core;
 using Grpc.Net.Client.Balancer;
 using hitscord.Contexts;
 using hitscord.IServices;
@@ -8,6 +10,7 @@ using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.OrientDb.Service;
 using hitscord.WebSockets;
+using hitscord_new.Migrations;
 using HitscordLibrary.Contexts;
 using HitscordLibrary.Models;
 using HitscordLibrary.Models.db;
@@ -17,8 +20,11 @@ using HitscordLibrary.SocketsModels;
 using Microsoft.EntityFrameworkCore;
 using nClam;
 using NickBuhro.Translit;
+using System;
 using System.Data;
+using System.Drawing;
 using System.Text.RegularExpressions;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace hitscord.Services;
 
@@ -31,8 +37,9 @@ public class ServerService : IServerService
     private readonly OrientDbService _orientDbService;
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly nClamService _clamService;
+	private readonly INotificationService _notificationsService;
 
-	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext)
+	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext, INotificationService notificationsService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -41,12 +48,13 @@ public class ServerService : IServerService
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_filesContext = filesContext ?? throw new ArgumentNullException(nameof(filesContext));
+		_notificationsService = notificationsService ?? throw new ArgumentNullException(nameof(notificationsService));
 	}
 
     public async Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels)
     {
         var server = includeChannels ? await _hitsContext.Server.Include(s => s.Roles).Include(s => s.Channels).FirstOrDefaultAsync(s => s.Id == serverId) :
-            await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == serverId);
+            await _hitsContext.Server.Include(s => s.Roles).FirstOrDefaultAsync(s => s.Id == serverId);
         if (server == null)
         {
             throw new CustomException("Server not found", "Check server for existing", "Server id", 404, "Сервер не найден", "Проверка наличия сервера");
@@ -117,7 +125,8 @@ public class ServerService : IServerService
         var newServer = new ServerDbModel()
         {
             Name = serverName,
-			IconId = null
+			IconId = null,
+			IsClosed = false
         };
         await _hitsContext.Server.AddAsync(newServer);
         await _hitsContext.SaveChangesAsync();
@@ -175,36 +184,58 @@ public class ServerService : IServerService
 		{
 			throw new CustomException("User banned in this server", "Subscribe", "User", 401, "Пользователь забанен на этом сервере", "Подписка");
 		}
-		var newSub = new UserServerDbModel
+		if (server.IsClosed == false)
 		{
-			UserId = user.Id,
-			RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
-			UserServerName = userName != null ? userName : user.AccountName,
-			IsBanned = false
-		};
+			var newSub = new UserServerDbModel
+			{
+				UserId = user.Id,
+				RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
+				UserServerName = userName != null ? userName : user.AccountName,
+				IsBanned = false
+			};
 
-		await _hitsContext.UserServer.AddAsync(newSub);
-		await _hitsContext.SaveChangesAsync();
+			await _hitsContext.UserServer.AddAsync(newSub);
+			await _hitsContext.SaveChangesAsync();
 
-		await _orientDbService.AssignUserToRoleAsync(user.Id, server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain).Id);
+			await _orientDbService.AssignUserToRoleAsync(user.Id, server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain).Id);
 
-		var newSubscriberResponse = new NewSubscribeResponseDTO
+			var newSubscriberResponse = new NewSubscribeResponseDTO
+			{
+				ServerId = serverId,
+				UserId = user.Id,
+				UserName = newSub.UserServerName,
+				RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
+				RoleName = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Name,
+				UserTag = user.AccountTag,
+				Notifiable = user.Notifiable,
+				FriendshipApplication = user.FriendshipApplication,
+				NonFriendMessage = user.NonFriendMessage
+			};
+			var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
+			alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
+			}
+		}
+		else
 		{
-			ServerId = serverId,
-			UserId = user.Id,
-			UserName = newSub.UserServerName,
-			RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
-			RoleName = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Name,
-			UserTag = user.AccountTag,
-			Notifiable = user.Notifiable,
-			FriendshipApplication = user.FriendshipApplication,
-			NonFriendMessage = user.NonFriendMessage
-		};
-		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
-		alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
+			var application = await _hitsContext.ServerApplications.FirstOrDefaultAsync(sa => sa.UserId == user.Id && sa.ServerId == server.Id);
+			if (application != null)
+			{
+				throw new CustomException("Application already exist", "Subscribe", "User", 400, "Заявка на подписку уже существует", "Подписка");
+			}
+
+			var newApplication = new ServerApplicationDbModel
+			{
+				UserId = user.Id,
+				ServerId = server.Id,
+				ServerUserName = userName,
+				CreatedAt = DateTime.UtcNow
+			};
+
+			await _hitsContext.ServerApplications.AddAsync(newApplication);
+			await _hitsContext.SaveChangesAsync();
 		}
 	}
 
@@ -307,7 +338,9 @@ public class ServerService : IServerService
 			pairVoiceChannel.Users.Clear();
 		}
 		var channelsToDelete = server.Channels.ToList();
+		var applications = await _hitsContext.ServerApplications.Where(sa => sa.ServerId == server.Id).ToListAsync();
         _hitsContext.Channel.RemoveRange(channelsToDelete);
+		_hitsContext.ServerApplications.RemoveRange(applications);
         _hitsContext.Server.Remove(server);
         await _hitsContext.SaveChangesAsync();
 
@@ -321,8 +354,9 @@ public class ServerService : IServerService
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 			await _webSocketManager.BroadcastMessageAsync(serverDelete, alertedUsers, "Server deleted");
-        }
-    }
+			await _notificationsService.AddNotificationForUsersListAsync(alertedUsers, $"Сервер {server.Name} был удален");
+		}
+	}
 
     public async Task<ServersListDTO> GetServerListAsync(string token)
     {
@@ -503,6 +537,7 @@ public class ServerService : IServerService
 			ServerId = serverId,
 			ServerName = server.Name,
 			Icon = icon,
+			IsClosed = server.IsClosed,
 			Roles = await _hitsContext.Role
 				.Where(r => r.ServerId == server.Id)
 				.Select(r => new RolesItemDTO
@@ -618,6 +653,7 @@ public class ServerService : IServerService
 		{
 			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
 		}
+		await _notificationsService.AddNotificationForUserAsync(userId, $"Вы были забанены на сервере: {server.Name}");
 	}
 
 	public async Task ChangeServerNameAsync(Guid serverId, string token, string name)
@@ -721,6 +757,8 @@ public class ServerService : IServerService
 
 		_hitsContext.UserServer.Remove(banned);
 		await _hitsContext.SaveChangesAsync();
+
+		await _notificationsService.AddNotificationForUserAsync(banned.UserId, $"Вы были разбанены на сервере: {server.Name}");
 	}
 
 	public async Task ChangeServerIconAsync(string token, Guid serverId, IFormFile iconFile)
@@ -833,5 +871,231 @@ public class ServerService : IServerService
 		{
 			await _webSocketManager.BroadcastMessageAsync(changeIconDto, alertedUsers, "New icon on server");
 		}
+	}
+
+	public async Task ChangeServerClosedAsync(string token, Guid serverId, bool isClosed, bool? isApproved)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckUserCreatorAsync(serverId, owner.Id);
+
+		if (server.IsClosed == isClosed)
+		{
+			throw new CustomException($"Server isClosed is already {isClosed}", "Сhange server isClosed", "isClosed", 400, $"Закрытость сервера уже {isClosed}", "Изменение закрытости сервера");
+		}
+
+		server.IsClosed = isClosed;
+
+		if (isClosed == false)
+		{
+			if (isApproved == null)
+			{
+				throw new CustomException($"isApproved is required", "Сhange server isClosed", "isApproved", 400, $"isApproved необходимо", "Изменение закрытости сервера");
+			}
+
+			var applications = await _hitsContext.ServerApplications.Where(sa => sa.ServerId == server.Id).ToListAsync();
+			if (applications != null && applications.Count() > 0)
+			{
+				if (isApproved == true)
+				{
+					foreach (var application in applications)
+					{
+						var user = await _authorizationService.GetUserAsync(application.UserId);
+						var newSub = new UserServerDbModel
+						{
+							UserId = application.UserId,
+							RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
+							UserServerName = application.ServerUserName != null ? application.ServerUserName : user.AccountName,
+							IsBanned = false
+						};
+
+						await _hitsContext.UserServer.AddAsync(newSub);
+						_hitsContext.ServerApplications.Remove(application);
+						await _hitsContext.SaveChangesAsync();
+						await _orientDbService.AssignUserToRoleAsync(user.Id, server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain).Id);
+
+						var newSubscriberResponse = new NewSubscribeResponseDTO
+						{
+							ServerId = server.Id,
+							UserId = user.Id,
+							UserName = newSub.UserServerName,
+							RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
+							RoleName = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Name,
+							UserTag = user.AccountTag,
+							Notifiable = user.Notifiable,
+							FriendshipApplication = user.FriendshipApplication,
+							NonFriendMessage = user.NonFriendMessage
+						};
+						var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(server.Id);
+						alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
+						if (alertedUsers != null && alertedUsers.Count() > 0)
+						{
+							await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
+						}
+						await _notificationsService.AddNotificationForUserAsync(application.UserId, $"Вашу заявку на присоединение к серверу {server.Name} приняли");
+					}
+				}
+				else
+				{
+					_hitsContext.ServerApplications.RemoveRange(applications);
+					await _hitsContext.SaveChangesAsync();
+					await _notificationsService.AddNotificationForUsersListAsync(applications.Select(a => a.UserId).ToList(), $"Вашу заявку на присоединение к серверу {server.Name} отклонили");
+				}
+			}
+		}
+	}
+
+	public async Task ApproveApplicationAsync(string token, Guid applicationId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var application = await _hitsContext.ServerApplications.FirstOrDefaultAsync(sa => sa.Id == applicationId);
+		if (application == null)
+		{
+			throw new CustomException($"Application not found", "Approve application", "applicationId", 404, $"Заявка не найдена", "Подтверждение заявки");
+		}
+		var user = await _authorizationService.GetUserAsync(application.UserId);
+		var server = await CheckServerExistAsync(application.ServerId, false);
+		await _authenticationService.CheckUserRightsDeleteUsers(application.ServerId, owner.Id);
+		var newSub = new UserServerDbModel
+		{
+			UserId = application.UserId,
+			RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
+			UserServerName = application.ServerUserName != null ? application.ServerUserName : user.AccountName,
+			IsBanned = false
+		};
+
+		await _hitsContext.UserServer.AddAsync(newSub);
+		_hitsContext.ServerApplications.Remove(application);
+		await _hitsContext.SaveChangesAsync();
+		await _orientDbService.AssignUserToRoleAsync(user.Id, server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain).Id);
+
+		var newSubscriberResponse = new NewSubscribeResponseDTO
+		{
+			ServerId = server.Id,
+			UserId = user.Id,
+			UserName = newSub.UserServerName,
+			RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
+			RoleName = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Name,
+			UserTag = user.AccountTag,
+			Notifiable = user.Notifiable,
+			FriendshipApplication = user.FriendshipApplication,
+			NonFriendMessage = user.NonFriendMessage
+		};
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(server.Id);
+		alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
+		}
+		await _notificationsService.AddNotificationForUserAsync(application.UserId, $"Вашу заявку на присоединение к серверу {server.Name} приняли");
+	}
+
+	public async Task RemoveApplicationServerAsync(string token, Guid applicationId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var application = await _hitsContext.ServerApplications.FirstOrDefaultAsync(sa => sa.Id == applicationId);
+		if (application == null)
+		{
+			throw new CustomException($"Application not found", "Remove application server", "applicationId", 404, $"Заявка не найдена", "Отклонение заявки от сервера");
+		}
+		var server = await CheckServerExistAsync(application.ServerId, false);
+		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
+
+		_hitsContext.ServerApplications.Remove(application);
+		await _hitsContext.SaveChangesAsync();
+
+		await _notificationsService.AddNotificationForUserAsync(application.UserId, $"Вашу заявку на присоединение к серверу {server.Name} отклонили");
+	}
+
+	public async Task RemoveApplicationUserAsync(string token, Guid applicationId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var application = await _hitsContext.ServerApplications.FirstOrDefaultAsync(sa => sa.Id == applicationId && sa.UserId == owner.Id);
+		if (application == null)
+		{
+			throw new CustomException($"Application not found", "Remove application user", "applicationId", 404, $"Заявка не найдена", "Отклонение заявки пользователем");
+		}
+
+		_hitsContext.ServerApplications.Remove(application);
+		await _hitsContext.SaveChangesAsync();
+	}
+
+	public async Task<ServerApplicationsListResponseDTO> GetServerApplicationsAsync(string token, Guid serverId, int page, int size)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
+		var applicationsCount = await _hitsContext.ServerApplications.Where(sa => sa.ServerId == server.Id).CountAsync();
+		if (page < 1 || size < 1 || ((page - 1) * size) + 1 < applicationsCount)
+		{
+			throw new CustomException($"Pagination error", "Get server applications", "pagination", 400, $"Проблема с пагинацией", "Получение заявок сервера");
+		}
+		var applications = await _hitsContext.ServerApplications
+			.Where(sa => sa.ServerId == server.Id)
+			.Skip((page - 1) * size)
+			.Take(size)
+			.OrderBy(m => m.CreatedAt)
+			.Include(sa => sa.User)
+			.Select(sa => new ServerApplicationResponseDTO
+			{
+				ApplicationId = sa.Id,
+				ServerId = sa.ServerId,
+				User = new ProfileDTO
+				{
+					Id = sa.User.Id,
+					Name = sa.User.AccountName,
+					Tag = sa.User.AccountTag,
+					Mail = sa.User.Mail,
+					AccontCreateDate = DateOnly.FromDateTime(sa.User.AccountCreateDate),
+					Notifiable = sa.User.Notifiable,
+					FriendshipApplication = sa.User.FriendshipApplication,
+					NonFriendMessage = sa.User.NonFriendMessage,
+					Icon = null
+				},
+				CreatedAt = sa.CreatedAt
+			})
+			.ToListAsync();
+
+		var applicationsList = new ServerApplicationsListResponseDTO
+		{
+			Applications = applications,
+			Page = page,
+			Size = size,
+			Total = applicationsCount
+		};
+		return applicationsList;
+	}
+
+	public async Task<UserApplicationsListResponseDTO> GetUserApplicationsAsync(string token, int page, int size)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var applicationsCount = await _hitsContext.ServerApplications.Where(sa => sa.UserId == owner.Id).CountAsync();
+		if (page < 1 || size < 1 || ((page - 1) * size) + 1 < applicationsCount)
+		{
+			throw new CustomException($"Pagination error", "Get user applications", "pagination", 400, $"Проблема с пагинацией", "Получение заявок пользователя");
+		}
+		var applications = await _hitsContext.ServerApplications
+			.Where(sa => sa.UserId == owner.Id)
+			.OrderBy(sa => sa.CreatedAt)
+			.Skip((page - 1) * size)
+			.Take(size)
+			.Include(sa => sa.Server)
+			.Select(sa => new UserApplicationResponseDTO
+			{
+				ApplicationId = sa.Id,
+				ServerId = sa.ServerId,
+				ServerName = sa.Server.Name,
+				CreatedAt = sa.CreatedAt
+			})
+			.ToListAsync();
+
+		var applicationsList = new UserApplicationsListResponseDTO
+		{
+			Applications = applications,
+			Page = page,
+			Size = size,
+			Total = applicationsCount
+		};
+		return applicationsList;
 	}
 }

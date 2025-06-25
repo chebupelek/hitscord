@@ -109,6 +109,29 @@ namespace hitscord_new.Migrations
                     b.ToTable("Friendship");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.NotificationDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.PairDbModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -220,6 +243,33 @@ namespace hitscord_new.Migrations
                     b.ToTable("Role");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.ServerApplicationDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ServerUserName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ServerApplications");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.ServerDbModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -228,6 +278,9 @@ namespace hitscord_new.Migrations
 
                     b.Property<Guid?>("IconId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -418,6 +471,17 @@ namespace hitscord_new.Migrations
                     b.Navigation("UserTo");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.NotificationDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.UserDbModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.PairDbModel", b =>
                 {
                     b.HasOne("hitscord.Models.db.PairVoiceChannelDbModel", "PairVoiceChannel")
@@ -465,6 +529,25 @@ namespace hitscord_new.Migrations
                         .IsRequired();
 
                     b.Navigation("Server");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ServerApplicationDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.ServerDbModel", "Server")
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.UserDbModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Server");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.UserDbModel", b =>

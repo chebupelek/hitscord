@@ -344,4 +344,130 @@ public class ServerController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("isClosed")]
+	public async Task<IActionResult> ChangeServerIsClosed([FromForm] ChangeServerIsClosedDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _serverService.ChangeServerClosedAsync(jwtToken, data.ServerId, data.IsClosed, data.IsApprove);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("application/approve")]
+	public async Task<IActionResult> ApproveApplication([FromForm] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _serverService.ApproveApplicationAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpDelete]
+	[Route("application/remove/server")]
+	public async Task<IActionResult> RemoveApplicationServer([FromForm] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _serverService.RemoveApplicationServerAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpDelete]
+	[Route("application/remove/user")]
+	public async Task<IActionResult> RemoveApplicationUser([FromForm] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _serverService.RemoveApplicationUserAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("applications/server")]
+	public async Task<IActionResult> GetServerApplications([FromQuery] Guid ServerId, [FromQuery] int Page, [FromQuery] int Size)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var result = await _serverService.GetServerApplicationsAsync(jwtToken, ServerId, Page, Size);
+			return Ok(result);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("applications/user")]
+	public async Task<IActionResult> GetUserApplications([FromQuery] int Page, [FromQuery] int Size)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var result = await _serverService.GetUserApplicationsAsync(jwtToken, Page, Size);
+			return Ok(result);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }

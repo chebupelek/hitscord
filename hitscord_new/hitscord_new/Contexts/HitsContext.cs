@@ -22,7 +22,8 @@ namespace hitscord.Contexts
 		public DbSet<ChatDbModel> Chat { get; set; }
 		public DbSet<PairDbModel> Pair { get; set; }
 		public DbSet<PairUserDbModel> PairUser { get; set; }
-
+		public DbSet<ServerApplicationDbModel> ServerApplications { get; set; }
+		public DbSet<NotificationDbModel> Notifications{ get; set; }
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -120,6 +121,27 @@ namespace hitscord.Contexts
 				entity.HasOne(pu => pu.Pair)
 					.WithMany()
 					.HasForeignKey(pu => pu.PairId)
+					.IsRequired();
+			});
+
+			modelBuilder.Entity<ServerApplicationDbModel>(entity =>
+			{
+				entity.HasOne(sa => sa.User)
+					.WithMany()
+					.HasForeignKey(sa => sa.UserId)
+					.IsRequired();
+
+				entity.HasOne(sa => sa.Server)
+					.WithMany()
+					.HasForeignKey(sa => sa.ServerId)
+					.IsRequired();
+			});
+
+			modelBuilder.Entity<NotificationDbModel>(entity =>
+			{
+				entity.HasOne(sa => sa.User)
+					.WithMany()
+					.HasForeignKey(sa => sa.UserId)
 					.IsRequired();
 			});
 		}
