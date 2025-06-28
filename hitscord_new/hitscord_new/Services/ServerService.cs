@@ -520,6 +520,7 @@ public class ServerService : IServerService
 						  UserTag = u.AccountTag,
 						  Icon = null,
 						  RoleName = us.Role.Name,
+						  RoleType = us.Role.Role,
 						  Mail = u.Mail,
 						  Notifiable = u.Notifiable,
 						  FriendshipApplication = u.FriendshipApplication,
@@ -561,6 +562,7 @@ public class ServerService : IServerService
 				.ToListAsync(),
 			UserRoleId = sub.Id,
 			UserRole = sub.Name,
+			UserRoleType = sub.Role,
 			IsCreator = sub.Role == RoleEnum.Creator,
 			Permissions = new SettingsDTO
 			{
