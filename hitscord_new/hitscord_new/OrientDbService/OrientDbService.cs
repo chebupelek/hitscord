@@ -1074,7 +1074,7 @@ public class OrientDbService
 	public async Task<List<RolesItemDTO>> GetRolesThatCanSeeChannelAsync(Guid channelId)
 	{
 		string query = $@"
-            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor
+            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor, out.type AS roleType
             FROM ChannelCanSee 
             WHERE in IN (SELECT @rid FROM Channel WHERE id = '{channelId}')";
 
@@ -1094,7 +1094,7 @@ public class OrientDbService
 					Name = (string)r.roleName,
 					Tag = (string)r.roleTag,
 					Color = (string)r.roleColor,
-					Type = r
+					Type = r.roleType
 				});
 			}
 		}
@@ -1105,7 +1105,7 @@ public class OrientDbService
 	public async Task<List<RolesItemDTO>> GetRolesThatCanJoinVoiceChannelAsync(Guid channelId)
 	{
 		string query = $@"
-            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor, out.type, AS roleType
+            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor, out.type AS roleType
             FROM ChannelCanJoin 
             WHERE in IN (SELECT @rid FROM VoiceChannel WHERE id = '{channelId}')";
 
