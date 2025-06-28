@@ -407,12 +407,21 @@ public class ServerService : IServerService
         {
             throw new CustomException("User cant change his role", "Change user role", "User", 400, "Пользователь не может менять свою роль", "Изменение роли пользователя");
         }
-		if ((ownerSub.Role > userSub.Role))
+		if (ownerSub.Role > userSub.Role)
 		{
 			throw new CustomException("Owner lower in ierarchy than changed user", "Change user role", "Changed user role", 401, "Пользователь ниже по иерархии чем изменяемый пользователь", "Изменение роли пользователя");
 		}
 
-		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == serverId);
+		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == serverId && r.Role != RoleEnum.Creator);
+
+		if ((role == null) || (await _orientDbService.RoleExistsOnServerAsync(roleId, serverId) == false))
+		{
+			throw new CustomException("Role not found", "Change user role", "Role ID", 404, "Роль не найдена", "Изменение роли пользователя");
+		}
+		if (ownerSub.Role > role.Role)
+		{
+			throw new CustomException("Owner lower in ierarchy than changed role", "Change role", "Changed user role", 401, "Пользователь ниже по иерархии чем назначаемая роль", "Изменение роли пользователя");
+		}
 
         var userServ = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == userId && us.RoleId == userSubRoleId);
         var newUserServ = new UserServerDbModel
@@ -546,7 +555,8 @@ public class ServerService : IServerService
 					Name = r.Name,
 					ServerId = r.ServerId,
 					Tag = r.Tag,
-					Color = r.Color
+					Color = r.Color,
+					Type = r.Role
 				})
 				.ToListAsync(),
 			UserRoleId = sub.Id,

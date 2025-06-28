@@ -449,7 +449,7 @@ public class ChannelService : IChannelService
 			throw new CustomException("Changed user not on this channel", "Change user mute status", "Voice channel - Removed user", 400, "Пользователь которому необходимо изменить статус мута не находится в голосовом канале канале", "Изменение статуса другого пользователя в голосовом канале");
 		}
 
-		if ((userSub.Role <= changedSub.Role))
+		if ((userSub.Role > changedSub.Role))
 		{
 			throw new CustomException("USer lower in ierarchy than changed user", "Change user mute status", "Changed user role", 401, "Пользователь ниже по иерархии чем изменяемый пользователь", "Изменение статуса другого пользователя в голосовом канале");
 		}

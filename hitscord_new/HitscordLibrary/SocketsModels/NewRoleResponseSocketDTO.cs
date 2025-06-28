@@ -1,4 +1,6 @@
-﻿namespace HitscordLibrary.SocketsModels;
+﻿using HitscordLibrary.Models.other;
+
+namespace HitscordLibrary.SocketsModels;
 
 public class NewRoleResponseSocketDTO : NotificationObject
 {

@@ -38,20 +38,18 @@ namespace hitscord.Services;
 public class ScheduleService : IScheduleService
 {
     private readonly HitsContext _hitsContext;
-	private readonly FilesContext _filesContext;
 	private readonly IAuthorizationService _authorizationService;
     private readonly IServices.IAuthenticationService _authenticationService;
 	private readonly IChannelService _channelService;
 	private readonly IServerService _serverService;
 	private readonly OrientDbService _orientDbService;
 	private readonly WebSocketsManager _webSocketManager;
-	private readonly nClamService _clamService;
 	private readonly HttpClient _httpClient;
 	private readonly string _baseUrl;
 	private readonly ILogger<ScheduleService> _logger;
 	private readonly INotificationService _notificationsService;
 
-	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, IChannelService channelService, IServerService serverService, OrientDbService orientDbService, WebSocketsManager webSocketManager, nClamService clamService, FilesContext filesContext, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, ILogger<ScheduleService> logger, INotificationService notificationsService)
+	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, IChannelService channelService, IServerService serverService, OrientDbService orientDbService, WebSocketsManager webSocketManager, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, ILogger<ScheduleService> logger, INotificationService notificationsService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -60,8 +58,6 @@ public class ScheduleService : IScheduleService
 		_serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
 		_orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
-		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
-		_filesContext = filesContext ?? throw new ArgumentNullException(nameof(filesContext));
 		_httpClient = httpClientFactory.CreateClient();
 		_baseUrl = apiSettings.Value.BaseUrl;
 		_logger = logger;

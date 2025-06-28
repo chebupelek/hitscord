@@ -55,7 +55,7 @@ public class RolesService : IRolesService
 		return dbCheck;
 	}
 
-	public async Task<NewRoleResponseSocketDTO> CreateRoleAsync(string token, Guid serverId, string roleName, string color)
+	public async Task<RolesItemDTO> CreateRoleAsync(string token, Guid serverId, string roleName, string color)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
@@ -71,16 +71,17 @@ public class RolesService : IRolesService
 		};
 
 		await _hitsContext.Role.AddAsync(newRole);
-		await _orientDbService.AddRoleAsync(newRole.Id, newRole.Name, newRole.Tag, serverId, newRole.Color);
+		await _orientDbService.AddRoleAsync(newRole.Id, newRole.Name, newRole.Tag, serverId, newRole.Color, (int)newRole.Role);
 		await _hitsContext.SaveChangesAsync();
 
-		var roleResponse = new NewRoleResponseSocketDTO
+		var roleResponse = new RolesItemDTO
 		{
+			Id = newRole.Id,
 			ServerId = newRole.ServerId,
-			RoleId = newRole.Id,
 			Name = newRole.Name,
+			Tag = newRole.Tag,
 			Color = newRole.Color,
-			Tag = newRole.Tag
+			Type = newRole.Role
 		};
 
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
@@ -100,6 +101,10 @@ public class RolesService : IRolesService
 		await _authenticationService.CheckUserRightsCreateRoles(server.Id, owner.Id);
 
 		var users = await _orientDbService.GetUsersSubscribedToRoleAsync(roleId);
+		if (role.Role != RoleEnum.Custom)
+		{
+			throw new CustomException("Cant delete non custom role", "Delete role", "Role id", 400, "Нельзя удалить не пользовательскую роль", "Удаление роли");
+		}
 		if (users != null && users.Count() > 0)
 		{
 			var uncertainRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Role == RoleEnum.Uncertain && r.ServerId == server.Id);
@@ -167,21 +172,30 @@ public class RolesService : IRolesService
 		var role = await CheckRoleAsync(roleId, serverId);
 		await _authenticationService.CheckUserRightsCreateRoles(server.Id, owner.Id);
 
-		role.Name = name;
+		if (!Regex.IsMatch(color, "^#([A-Fa-f0-9]{6})$"))
+		{
+			throw new CustomException("Invalid color format", "UpdateRoleAsync", "Color", 400,"Неверный формат цвета. Используйте шестизначный HEX в формате #RRGGBB","Обновление роли");
+		}
+
+		if (role.Role == RoleEnum.Custom)
+		{
+			role.Name = name;
+			role.Tag = Regex.Replace(Transliteration.CyrillicToLatin(name, Language.Russian), "[^a-zA-Z0-9]", "").ToLower();
+		}
 		role.Color = color;
-		role.Tag = Regex.Replace(Transliteration.CyrillicToLatin(name, Language.Russian), "[^a-zA-Z0-9]", "").ToLower();
 
 		await _orientDbService.UpdateRoleAsync(role.Id, role.Name, role.Tag, role.Color);
 		_hitsContext.Role.Update(role);
 		await _hitsContext.SaveChangesAsync();
 
-		var roleResponse = new NewRoleResponseSocketDTO
+		var roleResponse = new RolesItemDTO
 		{
+			Id = role.Id,
 			ServerId = role.ServerId,
-			RoleId = role.Id,
 			Name = role.Name,
+			Tag = role.Tag,
 			Color = role.Color,
-			Tag = role.Tag
+			Type = role.Role
 		};
 
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
@@ -210,7 +224,8 @@ public class RolesService : IRolesService
 					ServerId = server.Id,
 					Name = role.Name,
 					Tag = role.Tag,
-					Color = role.Color
+					Color = role.Color,
+					Type = role.Role
 				},
 				Settings = new SettingsDTO
 				{
@@ -351,17 +366,29 @@ public class RolesService : IRolesService
 		}
 
 		var permissions = await _orientDbService.GetRolePermissionsOnServerAsync(role.Id, server.Id);
-		var roleResponse = new SettingsDTO
+		var roleResponse = new RoleSettingsDTO
 		{
-			CanChangeRole = permissions.Contains("ServerCanChangeRole"),
-			CanWorkChannels = permissions.Contains("ServerCanWorkChannels"),
-			CanDeleteUsers = permissions.Contains("ServerCanDeleteUsers"),
-			CanMuteOther = permissions.Contains("ServerCanMuteOther"),
-			CanDeleteOthersMessages = permissions.Contains("ServerCanDeleteOthersMessages"),
-			CanIgnoreMaxCount = permissions.Contains("ServerCanIgnoreMaxCount"),
-			CanCreateRoles = permissions.Contains("ServerCanCreateRoles"),
-			CanCreateLessons = permissions.Contains("ServerCanCreateLessons"),
-			CanCheckAttendance = permissions.Contains("ServerCanCheckAttendance")
+			Role = new RolesItemDTO
+			{
+				Id = role.Id,
+				ServerId = server.Id,
+				Name = role.Name,
+				Tag = role.Tag,
+				Color = role.Color,
+				Type = role.Role
+			},
+			Settings = new SettingsDTO
+			{
+				CanChangeRole = permissions.Contains("ServerCanChangeRole"),
+				CanWorkChannels = permissions.Contains("ServerCanWorkChannels"),
+				CanDeleteUsers = permissions.Contains("ServerCanDeleteUsers"),
+				CanMuteOther = permissions.Contains("ServerCanMuteOther"),
+				CanDeleteOthersMessages = permissions.Contains("ServerCanDeleteOthersMessages"),
+				CanIgnoreMaxCount = permissions.Contains("ServerCanIgnoreMaxCount"),
+				CanCreateRoles = permissions.Contains("ServerCanCreateRoles"),
+				CanCreateLessons = permissions.Contains("ServerCanCreateLessons"),
+				CanCheckAttendance = permissions.Contains("ServerCanCheckAttendance")
+			}
 		};
 
 		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);

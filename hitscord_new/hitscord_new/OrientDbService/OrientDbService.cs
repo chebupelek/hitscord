@@ -132,6 +132,7 @@ public class OrientDbService
 			"CREATE PROPERTY Role.tag STRING",
 			"CREATE PROPERTY Role.server STRING",
 			"CREATE PROPERTY Role.color STRING",
+			"CREATE PROPERTY Role.type INTEGER",
 			"CREATE INDEX Role.id UNIQUE",
 
 			"CREATE CLASS Subscription EXTENDS V",
@@ -356,7 +357,7 @@ public class OrientDbService
 
 		foreach (var role in roles)
 		{
-			await AddRoleAsync(role.Id, role.Name, role.Tag, serverId, role.Color);
+			await AddRoleAsync(role.Id, role.Name, role.Tag, serverId, role.Color, (int)role.Role);
 			if (role.Role == RoleEnum.Admin || role.Role == RoleEnum.Creator)
 			{
 				await GrantRolePermissionToServerAsync(role.Id, serverId, "ServerCanChangeRole");
@@ -485,9 +486,9 @@ public class OrientDbService
 		}
 	}
 
-	public async Task AddRoleAsync(Guid roleId, string roleName, string roleTag, Guid serverId, string color)
+	public async Task AddRoleAsync(Guid roleId, string roleName, string roleTag, Guid serverId, string color, int type)
 	{
-		string query = $"INSERT INTO Role SET id = '{roleId}', name = '{roleName}', tag = '{roleTag}', server = '{serverId}', color = '{color}'";
+		string query = $"INSERT INTO Role SET id = '{roleId}', name = '{roleName}', tag = '{roleTag}', server = '{serverId}', color = '{color}', type = '{type}'";
 		await ExecuteCommandAsync(query);
 
 		string linkQuery = $"CREATE EDGE ContainsRole FROM (SELECT FROM Server WHERE id = '{serverId}') TO (SELECT FROM Role WHERE id = '{roleId}')";
@@ -1093,6 +1094,7 @@ public class OrientDbService
 					Name = (string)r.roleName,
 					Tag = (string)r.roleTag,
 					Color = (string)r.roleColor,
+					Type = r
 				});
 			}
 		}
@@ -1103,7 +1105,7 @@ public class OrientDbService
 	public async Task<List<RolesItemDTO>> GetRolesThatCanJoinVoiceChannelAsync(Guid channelId)
 	{
 		string query = $@"
-            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor
+            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor, out.type, AS roleType
             FROM ChannelCanJoin 
             WHERE in IN (SELECT @rid FROM VoiceChannel WHERE id = '{channelId}')";
 
@@ -1122,7 +1124,8 @@ public class OrientDbService
 					ServerId = Guid.Parse((string)r.serverId),
 					Name = (string)r.roleName,
 					Tag = (string)r.roleTag,
-					Color = (string)r.roleColor
+					Color = (string)r.roleColor,
+					Type = r.roleType
 				});
 			}
 		}
@@ -1133,7 +1136,7 @@ public class OrientDbService
 	public async Task<List<RolesItemDTO>> GetRolesThatCanWriteChannelAsync(Guid channelId)
 	{
 		string query = $@"
-            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor
+            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor, out.type AS roleType
             FROM ChannelCanWrite 
             WHERE in IN (SELECT @rid FROM TextChannel WHERE id = '{channelId}')";
 
@@ -1153,6 +1156,7 @@ public class OrientDbService
 					Name = (string)r.roleName,
 					Tag = (string)r.roleTag,
 					Color = (string)r.roleColor,
+					Type = r.roleType
 				});
 			}
 		}
@@ -1163,7 +1167,7 @@ public class OrientDbService
 	public async Task<List<RolesItemDTO>> GetRolesThatCanWriteSubChannelAsync(Guid channelId)
 	{
 		string query = $@"
-            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor  
+            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor, out.type AS roleType
             FROM ChannelCanWriteSub 
             WHERE in IN (SELECT @rid FROM TextChannel WHERE id = '{channelId}')";
 
@@ -1182,7 +1186,8 @@ public class OrientDbService
 					ServerId = Guid.Parse((string)r.serverId),
 					Name = (string)r.roleName,
 					Tag = (string)r.roleTag,
-					Color = (string)r.roleColor
+					Color = (string)r.roleColor,
+					Type = r.roleType
 				});
 			}
 		}
@@ -1193,7 +1198,7 @@ public class OrientDbService
 	public async Task<List<RolesItemDTO>> GetNotificatedRolesChannelAsync(Guid channelId)
 	{
 		string query = $@"
-            SELECT in.id AS roleId, in.server AS serverId, in.name AS roleName, in.tag AS roleTag, in.color AS roleColor    
+            SELECT in.id AS roleId, in.server AS serverId, in.name AS roleName, in.tag AS roleTag, in.color AS roleColor, out.type AS roleType    
             FROM ChannelNotificated 
             WHERE out IN (SELECT @rid FROM AnnouncementChannel WHERE id = '{channelId}')";
 
@@ -1212,7 +1217,8 @@ public class OrientDbService
 					ServerId = Guid.Parse((string)r.serverId),
 					Name = (string)r.roleName,
 					Tag = (string)r.roleTag,
-					Color = (string)r.roleColor
+					Color = (string)r.roleColor,
+					Type = r.roleType
 				});
 			}
 		}
@@ -1223,7 +1229,7 @@ public class OrientDbService
 	public async Task<List<RolesItemDTO>> GetRolesThatCanUseSubChannelAsync(Guid channelId)
 	{
 		string query = $@"
-            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor    
+            SELECT out.id AS roleId, out.server AS serverId, out.name AS roleName, out.tag AS roleTag, out.color AS roleColor, out.type AS roleType    
             FROM ChannelCanUse 
             WHERE in IN (SELECT @rid FROM SubChannel WHERE id = '{channelId}')";
 
@@ -1243,6 +1249,7 @@ public class OrientDbService
 					Name = (string)r.roleName,
 					Tag = (string)r.roleTag,
 					Color = (string)r.roleColor,
+					Type = r.roleType
 				});
 			}
 		}
