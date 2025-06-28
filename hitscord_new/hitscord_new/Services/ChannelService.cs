@@ -737,7 +737,7 @@ public class ChannelService : IChannelService
 				}
 				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
 				{
-					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanJoin");
+					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanSee");
 				}
 				await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanJoin");
 			}
