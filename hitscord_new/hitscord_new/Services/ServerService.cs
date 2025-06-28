@@ -199,18 +199,27 @@ public class ServerService : IServerService
 
 			await _orientDbService.AssignUserToRoleAsync(user.Id, server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain).Id);
 
-			var newSubscriberResponse = new NewSubscribeResponseDTO
+			var newSubscriberResponse = new ServerUserDTO
 			{
 				ServerId = serverId,
 				UserId = user.Id,
-				UserName = newSub.UserServerName,
+				UserName = user.AccountName,
+				UserTag = user.AccountTag,
+				Icon = null,
 				RoleId = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Id,
 				RoleName = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Name,
-				UserTag = user.AccountTag,
+				RoleType = (server.Roles.FirstOrDefault(r => r.Role == RoleEnum.Uncertain)).Role,
+				Mail = user.Mail,
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
 				NonFriendMessage = user.NonFriendMessage
 			};
+			if (user != null && user.IconId != null)
+			{
+				var userIcon = await GetImageAsync((Guid)user.IconId);
+				newSubscriberResponse.Icon = userIcon;
+			}
+
 			var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(serverId);
 			alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
 			if (alertedUsers != null && alertedUsers.Count() > 0)
@@ -515,10 +524,12 @@ public class ServerService : IServerService
 					  u => u.Id,
 					  (us, u) => new ServerUserDTO
 					  {
+						  ServerId = serverId,
 						  UserId = u.Id,
 						  UserName = u.AccountName,
 						  UserTag = u.AccountTag,
 						  Icon = null,
+						  RoleId = us.RoleId,
 						  RoleName = us.Role.Name,
 						  RoleType = us.Role.Role,
 						  Mail = u.Mail,
@@ -531,9 +542,9 @@ public class ServerService : IServerService
 		foreach (var serverUser in serverUsers)
 		{
 			var userEntity = await _hitsContext.User.FindAsync(serverUser.UserId);
-			if (userEntity?.IconId != null)
+			if (userEntity != null && userEntity.IconId != null)
 			{
-				var userIcon = await GetImageAsync(userEntity.IconId.Value);
+				var userIcon = await GetImageAsync((Guid)userEntity.IconId);
 				serverUser.Icon = userIcon;
 			}
 			else
