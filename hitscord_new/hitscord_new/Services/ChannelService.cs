@@ -414,8 +414,8 @@ public class ChannelService : IChannelService
             ChannelId = channel.Id,
             MuteStatus = userVoiceChannel.MuteStatus
         };
-        var alertedUsers = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
-        if (alertedUsers != null && alertedUsers.Count() > 0)
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 			await _webSocketManager.BroadcastMessageAsync(muteStatusResponse, alertedUsers, "User change his mute status");
         }
@@ -473,7 +473,7 @@ public class ChannelService : IChannelService
 			ChannelId = channel.Id,
 			MuteStatus = changedUserthischannel.MuteStatus
 		};
-		var alertedUsers = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
+		var alertedUsers = await _orientDbService.GetUsersByServerIdAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _webSocketManager.BroadcastMessageAsync(muteStatusResponse, alertedUsers, "User mute status is changed");
@@ -743,6 +743,10 @@ public class ChannelService : IChannelService
 				{
 					throw new CustomException("Role already cant see channel", "Change voice channel sttings", "Role", 400, "Роль уже неможет видеть канал", "Изменение настроек голосового канала");
 				}
+				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
+				{
+					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanJoin");
+				}
 				await _orientDbService.RevokeRolePermissionFromChannelAsync(role.Id, channel.Id, "ChannelCanJoin");
 			}
 		}
@@ -825,6 +829,10 @@ public class ChannelService : IChannelService
 				{
 					throw new CustomException("Role already can write in channel", "Change text channel sttings", "Role", 400, "Роль уже может писать в канал", "Изменение настроек текстового канала");
 				}
+				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
+				{
+					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanSee");
+				}
 				await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanWrite");
 			}
 			else
@@ -832,6 +840,10 @@ public class ChannelService : IChannelService
 				if (!await _orientDbService.IsRoleConnectedToChannelForWriteAsync(role.Id, channel.Id))
 				{
 					throw new CustomException("Role already cant write in channel", "Change text channel sttings", "Role", 400, "Роль уже не может писать в канал", "Изменение настроек текстового канала");
+				}
+				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
+				{
+					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanSee");
 				}
 				await _orientDbService.RevokeRolePermissionFromChannelAsync(role.Id, channel.Id, "ChannelCanWrite");
 
@@ -853,6 +865,14 @@ public class ChannelService : IChannelService
 				if (await _orientDbService.IsRoleConnectedToChannelForWriteSubAsync(role.Id, channel.Id))
 				{
 					throw new CustomException("Role already can write subs in channel", "Change text channel sttings", "Role", 400, "Роль уже может писать подчаты в канал", "Изменение настроек текстового канала");
+				}
+				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
+				{
+					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanSee");
+				}
+				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
+				{
+					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanWrite");
 				}
 				await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanWriteSub");
 			}
@@ -935,6 +955,10 @@ public class ChannelService : IChannelService
 				{
 					throw new CustomException("Role already can write in channel", "Change notification channel sttings", "Role", 400, "Роль уже может писать в канал", "Изменение настроек уведомительного канала");
 				}
+				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
+				{
+					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanSee");
+				}
 				await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanWrite");
 			}
 			else
@@ -954,6 +978,10 @@ public class ChannelService : IChannelService
 				if (await _orientDbService.IsRoleConnectedToChannelForNotificationSubAsync(role.Id, channel.Id))
 				{
 					throw new CustomException("Role already notificated in channel", "Change notification channel sttings", "Role", 400, "Роль уже уведомляется в канале", "Изменение настроек уведомительного канала");
+				}
+				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
+				{
+					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanSee");
 				}
 				await _orientDbService.GrantRolePermissionNotificateToNotificationChannelAsync(role.Id, channel.Id);
 			}
