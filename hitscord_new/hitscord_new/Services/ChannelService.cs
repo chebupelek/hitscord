@@ -735,6 +735,10 @@ public class ChannelService : IChannelService
 				{
 					throw new CustomException("Role already can join channel", "Change voice channel sttings", "Role", 400, "Роль уже может присоединиться к каналу", "Изменение настроек голосового канала");
 				}
+				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
+				{
+					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanJoin");
+				}
 				await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanJoin");
 			}
 			else
@@ -742,10 +746,6 @@ public class ChannelService : IChannelService
 				if (!await _orientDbService.IsRoleConnectedToChannelForJoinAsync(role.Id, channel.Id))
 				{
 					throw new CustomException("Role already cant see channel", "Change voice channel sttings", "Role", 400, "Роль уже неможет видеть канал", "Изменение настроек голосового канала");
-				}
-				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
-				{
-					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanJoin");
 				}
 				await _orientDbService.RevokeRolePermissionFromChannelAsync(role.Id, channel.Id, "ChannelCanJoin");
 			}
@@ -840,10 +840,6 @@ public class ChannelService : IChannelService
 				if (!await _orientDbService.IsRoleConnectedToChannelForWriteAsync(role.Id, channel.Id))
 				{
 					throw new CustomException("Role already cant write in channel", "Change text channel sttings", "Role", 400, "Роль уже не может писать в канал", "Изменение настроек текстового канала");
-				}
-				if (!(await _orientDbService.IsRoleConnectedToChannelForSeeAsync(role.Id, channel.Id)))
-				{
-					await _orientDbService.GrantRolePermissionToChannelAsync(role.Id, channel.Id, "ChannelCanSee");
 				}
 				await _orientDbService.RevokeRolePermissionFromChannelAsync(role.Id, channel.Id, "ChannelCanWrite");
 
