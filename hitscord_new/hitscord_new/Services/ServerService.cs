@@ -289,8 +289,20 @@ public class ServerService : IServerService
 		var ownerSubRole = await _authenticationService.CheckUserCreatorAsync(server.Id, owner.Id);
 		var newCreatorSubRole = await _authenticationService.CheckSubscriptionExistAsync(server.Id, newCreator.Id);
 		var ownerSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == ownerSubRole.Id && us.UserId == owner.Id);
-		var newCreatorSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == newCreatorSubRole.Id && us.UserId == newCreator.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner sub not found", "Unsubscribe for creator", "Owner subscription", 404, "Подписка создателя не найдена", "Отписка для создателя");
+		}
+		var newCreatorSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.RoleId == newCreatorSubRole.Id && us.UserId == newCreator.Id && us.IsBanned == false);
+		if (newCreatorSub == null)
+		{
+			throw new CustomException("New creator sub not found", "Unsubscribe for creator", "New creator subscription", 404, "Подписка нового создателя не найдена", "Отписка для создателя");
+		}
 		var creatorRole = server.Roles.FirstOrDefault(s => s.Role == RoleEnum.Creator);
+		if ((creatorRole == null) || (await _orientDbService.RoleExistsOnServerAsync(creatorRole.Id, serverId) == false))
+		{
+			throw new CustomException("Role not found", "Unsubscribe for creator", "Creator role", 404, "Роль создания не найдена", "Отписка для создателя");
+		}
 		var userVoiceChannel = await _hitsContext.UserVoiceChannel
 			.Include(us => us.VoiceChannel)
 			.FirstOrDefaultAsync(us =>
@@ -305,7 +317,16 @@ public class ServerService : IServerService
 		await _orientDbService.UnassignUserFromRoleAsync(newCreator.Id, newCreatorSubRole.Id);
 		await _orientDbService.AssignUserToRoleAsync(newCreator.Id, creatorRole.Id);
 		newCreatorSub.RoleId = creatorRole.Id;
-		_hitsContext.UserServer.Update(newCreatorSub);
+		var newCreatorNewSub = new UserServerDbModel
+		{
+			UserId = newCreatorSub.UserId,
+			RoleId = creatorRole.Id,
+			UserServerName = newCreatorSub.UserServerName,
+			IsBanned = newCreatorSub.IsBanned
+		};
+		_hitsContext.UserServer.Remove(newCreatorSub);
+		await _hitsContext.SaveChangesAsync();
+		_hitsContext.UserServer.Add(newCreatorNewSub);
 		await _hitsContext.SaveChangesAsync();
 
 		var newUnsubscriberResponse = new UnsubscribeResponseDTO
