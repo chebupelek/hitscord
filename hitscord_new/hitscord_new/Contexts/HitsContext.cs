@@ -144,6 +144,13 @@ namespace hitscord.Contexts
 					.HasForeignKey(sa => sa.UserId)
 					.IsRequired();
 			});
+
+			modelBuilder.Entity<ChatDbModel>(entity =>
+			{
+				entity.HasMany(c => c.Users)
+				    .WithMany()
+				    .UsingEntity(j => j.ToTable("UserChat"));
+			});
 		}
     }
 }
