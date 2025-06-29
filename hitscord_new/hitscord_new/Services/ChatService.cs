@@ -47,7 +47,7 @@ public class ChatService : IChatService
 
 	public async Task<ChatDbModel> CheckChatExist(Guid chatId)
 	{
-		var chat = await _hitsContext.Chat.FirstOrDefaultAsync(c => c.Id == chatId);
+		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == chatId);
 		if (chat == null)
 		{
 			throw new CustomException("Chat doesnt exist", "CheckChatExist", "ChatId", 404, "Чат не существует", "Проверка чата");
