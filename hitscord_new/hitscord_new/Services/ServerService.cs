@@ -737,15 +737,22 @@ public class ServerService : IServerService
 		await _orientDbService.ChangeNonNotifiableServer(owner.Id, server.Id);
 	}
 
-	public async Task<BanListDTO> GetBannedListAsync(string token, Guid serverId)
+	public async Task<BanListDTO> GetBannedListAsync(string token, Guid serverId, int page, int size)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
 		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
-
+		var bannedCount = await _hitsContext.UserServer.Where(us => us.Role.ServerId == server.Id && us.IsBanned == true).CountAsync();
+		if (page < 1 || size < 1 || ((page - 1) * size) + 1 > bannedCount)
+		{
+			throw new CustomException($"Pagination error", "Get banned list", "pagination", 400, $"Проблема с пагинацией", "Получение списка забаненных");
+		}
 		var bannedUsers = new BanListDTO
 		{
 			BannedList = await _hitsContext.UserServer
+				.OrderBy(m => m.BanTime)
+				.Skip((page - 1) * size)
+				.Take(size)
 				.Include(us => us.User)
 				.Include(us => us.Role)
 				.Where(us => 
@@ -760,7 +767,10 @@ public class ServerService : IServerService
 					BanReason = us.BanReason,
 					BanTime = (DateTime)us.BanTime
 				})
-				.ToListAsync()
+				.ToListAsync(),
+			Page = page,
+			Size = size,
+			Total = bannedCount
 		};
 
 		return bannedUsers;
@@ -1049,15 +1059,15 @@ public class ServerService : IServerService
 		var server = await CheckServerExistAsync(serverId, false);
 		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
 		var applicationsCount = await _hitsContext.ServerApplications.Where(sa => sa.ServerId == server.Id).CountAsync();
-		if (page < 1 || size < 1 || ((page - 1) * size) + 1 < applicationsCount)
+		if (page < 1 || size < 1 || ((page - 1) * size) + 1 > applicationsCount)
 		{
 			throw new CustomException($"Pagination error", "Get server applications", "pagination", 400, $"Проблема с пагинацией", "Получение заявок сервера");
 		}
 		var applications = await _hitsContext.ServerApplications
 			.Where(sa => sa.ServerId == server.Id)
+			.OrderBy(m => m.CreatedAt)
 			.Skip((page - 1) * size)
 			.Take(size)
-			.OrderBy(m => m.CreatedAt)
 			.Include(sa => sa.User)
 			.Select(sa => new ServerApplicationResponseDTO
 			{

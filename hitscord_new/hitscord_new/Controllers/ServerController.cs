@@ -285,12 +285,12 @@ public class ServerController : ControllerBase
 	[Authorize]
 	[HttpGet]
 	[Route("banned/list")]
-	public async Task<IActionResult> GetBannedList([FromQuery] Guid serverId)
+	public async Task<IActionResult> GetBannedList([FromQuery] Guid serverId, [FromQuery] int Page, [FromQuery] int Size)
 	{
 		try
 		{
 			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var list = await _serverService.GetBannedListAsync(jwtToken, serverId);
+			var list = await _serverService.GetBannedListAsync(jwtToken, serverId, Page, Size);
 			return Ok(list);
 		}
 		catch (CustomException ex)

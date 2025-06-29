@@ -20,8 +20,9 @@ public interface IServerService
     Task ChangeServerNameAsync(Guid serverId, string token, string name);
     Task ChangeUserNameAsync(Guid serverId, string token, string name);
     Task ChangeNonNotifiableServerAsync(string token, Guid serverId);
-    Task<BanListDTO> GetBannedListAsync(string token, Guid serverId);
-    Task UnBanUser(string token, Guid serverId, Guid bannedId);
+    Task<BanListDTO> GetBannedListAsync(string token, Guid serverId, int page, int size);
+
+	Task UnBanUser(string token, Guid serverId, Guid bannedId);
     Task ChangeServerIconAsync(string token, Guid serverId, IFormFile iconFile);
     Task ChangeServerClosedAsync(string token, Guid serverId, bool isClosed, bool? isApproved);
 
