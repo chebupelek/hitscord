@@ -41,7 +41,7 @@ public class UserRegistrationDTO
         {
             throw new CustomException("Account name must be between 6 and 50 characters.", "Account", "AccountName", 400, "Имя пользователя должно быть от 6 до 50 символов", "Валидация регистрации");
         }
-		if (!Regex.IsMatch(AccountName, @"^[a-zA-Zа-яА-ЯёЁ0-9]+$"))
+		if (!Regex.IsMatch(AccountName, @"^[a-zA-Zа-яА-ЯёЁ0-9 ]+$"))
 		{
 			throw new CustomException("Account name must contain only letters and digits.", "Account", "AccountName", 400, "Имя пользователя должно содержать только русские или английские буквы и цифры", "Валидация регистрации");
 		}
