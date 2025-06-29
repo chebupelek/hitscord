@@ -316,7 +316,6 @@ public class ServerService : IServerService
 		_hitsContext.UserServer.Remove(ownerSub);
 		await _orientDbService.UnassignUserFromRoleAsync(newCreator.Id, newCreatorSubRole.Id);
 		await _orientDbService.AssignUserToRoleAsync(newCreator.Id, creatorRole.Id);
-		newCreatorSub.RoleId = creatorRole.Id;
 		var newCreatorNewSub = new UserServerDbModel
 		{
 			UserId = newCreatorSub.UserId,
