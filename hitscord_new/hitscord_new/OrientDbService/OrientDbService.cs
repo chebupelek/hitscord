@@ -671,7 +671,7 @@ public class OrientDbService
 		if (!checkResult.Contains("\"result\":[]"))
 		{
 			string deleteEdgeQuery = $@"
-            DELETE EDGE WHERE out IN (SELECT @rid FROM Role WHERE id = '{roleId}') AND in IN (SELECT @rid FROM Server WHERE id = '{serverId}')";
+            DELETE EDGE {permissionType} WHERE out IN (SELECT @rid FROM Role WHERE id = '{roleId}') AND in IN (SELECT @rid FROM Server WHERE id = '{serverId}')";
 			await ExecuteCommandAsync(deleteEdgeQuery);
 		}
 	}
