@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("HitscordLibrary")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+40d9646191f2609a877273399d8bd6597b83d71b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c9fe5f171a2eea91faa1947d3dfb2d0a799fa48f")]
 [assembly: System.Reflection.AssemblyProductAttribute("HitscordLibrary")]
 [assembly: System.Reflection.AssemblyTitleAttribute("HitscordLibrary")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
