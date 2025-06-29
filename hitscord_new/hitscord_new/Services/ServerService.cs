@@ -743,7 +743,21 @@ public class ServerService : IServerService
 		var server = await CheckServerExistAsync(serverId, false);
 		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
 		var bannedCount = await _hitsContext.UserServer.Where(us => us.Role.ServerId == server.Id && us.IsBanned == true).CountAsync();
-		if (page < 1 || size < 1 || ((page - 1) * size) + 1 > bannedCount)
+		if (page < 1 || size < 1)
+		{
+			throw new CustomException($"Pagination error", "Get banned list", "pagination", 400, $"Проблема с пагинацией", "Получение списка забаненных");
+		}
+		if (bannedCount == 0)
+		{
+			return (new BanListDTO
+			{
+				BannedList = new List<ServerBannedUserDTO>(),
+				Page = page,
+				Size = size,
+				Total = 0
+			});
+		}
+		if (((page - 1) * size) + 1 > bannedCount)
 		{
 			throw new CustomException($"Pagination error", "Get banned list", "pagination", 400, $"Проблема с пагинацией", "Получение списка забаненных");
 		}
@@ -1059,7 +1073,21 @@ public class ServerService : IServerService
 		var server = await CheckServerExistAsync(serverId, false);
 		await _authenticationService.CheckUserRightsDeleteUsers(server.Id, owner.Id);
 		var applicationsCount = await _hitsContext.ServerApplications.Where(sa => sa.ServerId == server.Id).CountAsync();
-		if (page < 1 || size < 1 || ((page - 1) * size) + 1 > applicationsCount)
+		if (page < 1 || size < 1)
+		{
+			throw new CustomException($"Pagination error", "Get server applications", "pagination", 400, $"Проблема с пагинацией", "Получение заявок сервера");
+		}
+		if (applicationsCount == 0)
+		{
+			return (new ServerApplicationsListResponseDTO
+			{
+				Applications = new List<ServerApplicationResponseDTO>(),
+				Page = page,
+				Size = size,
+				Total = 0
+			});
+		}
+		if (((page - 1) * size) + 1 > applicationsCount)
 		{
 			throw new CustomException($"Pagination error", "Get server applications", "pagination", 400, $"Проблема с пагинацией", "Получение заявок сервера");
 		}
