@@ -526,7 +526,7 @@ public class ServerService : IServerService
 					  {
 						  ServerId = serverId,
 						  UserId = u.Id,
-						  UserName = u.AccountName,
+						  UserName = us.UserServerName,
 						  UserTag = u.AccountTag,
 						  Icon = null,
 						  RoleId = us.RoleId,
