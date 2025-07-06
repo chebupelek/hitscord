@@ -43,6 +43,27 @@ public class FilesController : ControllerBase
     }
 
 	[Authorize]
+	[HttpGet]
+	[Route("icon")]
+	public async Task<IActionResult> GetIcon([FromQuery] Guid fileId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var file = await _fileService.GetIconAsync(jwtToken, fileId);
+			return Ok(file);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
 	[HttpPost]
 	[Route("message")]
 	public async Task<IActionResult> UploadFileToMessage([FromForm] UploadFileToMessageDTO data)

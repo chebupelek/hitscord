@@ -68,6 +68,46 @@ public class FileService : IFileService
 		};
 	}
 
+	public async Task<FileResponseDTO> GetIconAsync(string token, Guid fileId)
+	{
+		await _authorizationService.GetUserAsync(token);
+
+		var file = await _filesContext.File.FindAsync(fileId);
+		if (file == null)
+		{
+			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
+		}
+
+		if(((await _hitsContext.Server.FirstOrDefaultAsync(s => s.IconId == fileId)) == null) && ((await _hitsContext.User.FirstOrDefaultAsync(u => u.IconId == fileId)) == null))
+		{
+			throw new CustomException("File is not an icon", "Get file", "Icon", 400, "Файл не является иконкой", "Получение изображения");
+		}
+
+		if (string.IsNullOrWhiteSpace(file.Type) || !file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+		{
+			throw new CustomException("File is not an image", "Get file", "File type", 400, "Файл не является изображением", "Получение изображения");
+		}
+
+		var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
+
+		if (!System.IO.File.Exists(filePath))
+		{
+			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
+		}
+
+		var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+		var base64File = Convert.ToBase64String(fileBytes);
+
+		return new FileResponseDTO
+		{
+			FileId = file.Id,
+			FileName = file.Name,
+			FileType = file.Type,
+			FileSize = file.Size,
+			Base64File = base64File
+		};
+	}
+
 	public async Task<FileResponseDTO> GetFileAsync(string token, Guid textChannelId, Guid fileId)
 	{
 		var user = await _authorizationService.GetUserAsync(token);

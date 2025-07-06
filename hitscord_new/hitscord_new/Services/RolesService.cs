@@ -209,7 +209,7 @@ public class RolesService : IRolesService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, true);
-		await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
+		await _authenticationService.CheckUserRightsCreateRoles(server.Id, user.Id);
 
 		var rolesList = new List<RoleSettingsDTO>();
 

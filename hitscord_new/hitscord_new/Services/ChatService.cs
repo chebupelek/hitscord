@@ -65,7 +65,7 @@ public class ChatService : IChatService
 			throw new CustomException("User cant make chat with himself", "CreateChatAsync", "UserTag", 400, "Нельзя создавать чат для себя самого", "Создание чата");
 		}
 
-		if (!await _orientDbService.AreUsersFriendsAsync(user.Id, user.Id) && user.NonFriendMessage == false)
+		if (!(await _orientDbService.AreUsersFriendsAsync(owner.Id, user.Id)) && user.NonFriendMessage == false)
 		{
 			throw new CustomException("Owner cant make chat with this user", "CreateChatAsync", "UserTag", 401, "Нельзя создавать чат с этим пользователем", "Создание чата");
 		}
@@ -223,7 +223,7 @@ public class ChatService : IChatService
 			throw new CustomException("User alredy in this chat", "AddUserAsync", "ChatId", 401, "Пользователь уже в чате", "Добавление пользователя в чат");
 		}
 
-		if (!await _orientDbService.AreUsersFriendsAsync(user.Id, user.Id) && user.NonFriendMessage == true)
+		if (!await _orientDbService.AreUsersFriendsAsync(user.Id, owner.Id) && user.NonFriendMessage == true)
 		{
 			throw new CustomException("Owner cant add this user in chat", "AddUserAsync", "UserTag", 401, "Нельзя добавлять в чат этого пользователя", "Добавление пользователя в чат");
 		}

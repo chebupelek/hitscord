@@ -11,4 +11,5 @@ public class MessageResponceDTO
     public DateTime? ModifiedAt { get; set; }
     public MessageSubChannelResponceDTO? NestedChannel { get; set; }
     public MessageResponceDTO? ReplyToMessage { get; set; }
+	public List<FileMetaResponseDTO>? Files { get; set; }
 }

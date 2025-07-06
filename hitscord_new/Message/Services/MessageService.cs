@@ -99,6 +99,33 @@ public class MessageService : IMessageService
 		return files.Select(f => f.Id).ToList();
 	}
 
+	private async Task<List<FileMetaResponseDTO>?> GetFilesAsync(List<Guid>? filesId)
+	{
+		if (filesId == null)
+		{
+			return null;
+		}
+		var filesData = await _fileContext.File.Where(f => filesId.Contains(f.Id)).ToListAsync();
+		if (filesData == null || filesData.Count == 0)
+		{
+			return null;
+		}
+
+		var filesList = new List<FileMetaResponseDTO>();
+		foreach (var file in filesData)
+		{
+			filesList.Add(new FileMetaResponseDTO
+			{
+				FileId = file.Id,
+				FileName = file.Name,
+				FileType = file.Type,
+				FileSize = file.Size
+			});
+		}
+
+		return filesList;
+	}
+
 	public async Task<ResponseObject> GetChannelMessagesAsync(ChannelRequestRabbit request)
 	{
 		try
@@ -168,6 +195,11 @@ public class MessageService : IMessageService
 				AllMessagesCount = messagesCount
 			};
 
+			foreach (var message in messages.Messages)
+			{
+				message.Files = await GetFilesAsync(messagesFresh.First(x => x.Id == message.Id).FilesId);
+			}
+
 			return messages;
 		}
 		catch (CustomException ex)
@@ -212,29 +244,6 @@ public class MessageService : IMessageService
 				throw new CustomExceptionUser(((ErrorResponse)addingChannel).Message, ((ErrorResponse)addingChannel).Type, ((ErrorResponse)addingChannel).Object, ((ErrorResponse)addingChannel).Code, ((ErrorResponse)addingChannel).MessageFront, ((ErrorResponse)addingChannel).ObjectFront, userId);
 			}
 		}
-	}
-
-	private async Task<List<FileMetaResponseDTO>?> GetFilesAsync(List<Guid> filesId)
-	{
-		var filesData = await _fileContext.File.Where(f => filesId.Contains(f.Id)).ToListAsync();
-		if (filesData == null || filesData.Count == 0)
-		{
-			return null;
-		}
-
-		var filesList = new List<FileMetaResponseDTO>();
-		foreach (var file in filesData)
-		{
-			filesList.Add(new FileMetaResponseDTO
-			{
-				FileId = file.Id,
-				FileName = file.Name,
-				FileType = file.Type,
-				FileSize = file.Size
-			});
-		}
-
-		return filesList;
 	}
 
 
@@ -343,7 +352,9 @@ public class MessageService : IMessageService
 			var rolesTags = ExtractRolesTags(text);
 
 			var notifiedUsers = await _orientService.GetNotifiableUsersByChannelAsync(channelId, userTags, rolesTags);
-			if (notifiedUsers != null && notifiedUsers.Count() > 0)
+			notifiedUsers = notifiedUsers?.Where(id => id != userId).ToList();
+
+			if (notifiedUsers != null && notifiedUsers.Count > 0)
 			{
 				await _webSocketManager.BroadcastMessageAsync(messageDto, notifiedUsers, "User notified");
 			}
@@ -527,7 +538,7 @@ public class MessageService : IMessageService
 				.Where(m => m.TextChannelId == request.channelId)
 				.CountAsync();
 
-			var messagesList = await Task.WhenAll(messagesFresh.Select(async m => new MessageChatResponceDTO
+			var messagesList = messagesFresh.Select(m => new MessageChatResponceDTO
 			{
 				ChatId = m.TextChannelId,
 				Id = m.Id,
@@ -544,9 +555,13 @@ public class MessageService : IMessageService
 					CreatedAt = m.ReplyToMessage.CreatedAt,
 					ModifiedAt = m.ReplyToMessage.UpdatedAt,
 					ReplyToMessage = null
-				},
-				Files = await GetFilesAsync(m.FilesId)
-			}));
+				}
+			}).ToList();
+
+			foreach (var message in messagesList)
+			{
+				message.Files = await GetFilesAsync(messagesFresh.First(x => x.Id == message.Id).FilesId);
+			}
 
 			var messages = new MessageChatListResponseDTO
 			{
@@ -666,6 +681,7 @@ public class MessageService : IMessageService
 			var userTags = ExtractUserTags(text);
 
 			var notifiedUsers = await _orientService.GetNotifiableUsersByChatAsync(chatId, userTags);
+			notifiedUsers = notifiedUsers?.Where(id => id != userId).ToList();
 			if (notifiedUsers != null && notifiedUsers.Count() > 0)
 			{
 				await _webSocketManager.BroadcastMessageAsync(messageDto, notifiedUsers, "User notified in chat");
