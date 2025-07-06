@@ -32,7 +32,7 @@ public class CreateChannelDTO
             {
 				throw new CustomException("Voice channel must have Max count.", "CreateChannel", "Max count", 400, "Голосовой канал должен иметь максимальное количество", "Валидация канала");
 			}
-			if (MaxCount <= 2 ||MaxCount >= 999)
+			if (MaxCount <= 2 || MaxCount >= 999)
 			{
 				throw new CustomException("Max count mast be between 2 and 999.", "CreateChannel", "Max count", 400, "Максимальное количество должно быть между 2 и 999", "Валидация канала");
 			}
