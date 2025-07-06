@@ -9,5 +9,5 @@ public class MessageChatResponceDTO
     public required DateTime CreatedAt { get; set; }
     public DateTime? ModifiedAt { get; set; }
     public MessageChatResponceDTO? ReplyToMessage { get; set; }
-    public List<FileResponseDTO>? Files { get; set; }
+    public List<FileMetaResponseDTO>? Files { get; set; }
 }

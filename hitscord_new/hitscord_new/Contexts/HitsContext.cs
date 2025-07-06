@@ -85,14 +85,17 @@ namespace hitscord.Contexts
             modelBuilder.Entity<FriendshipApplicationDbModel>(entity =>
             {
                 entity.HasOne(f => f.UserFrom)
-                    .WithOne()
-                    .HasForeignKey<FriendshipApplicationDbModel>(f => f.UserIdFrom)
+                    .WithMany()
+                    .HasForeignKey(f => f.UserIdFrom)
 					.IsRequired();
 
 				entity.HasOne(f => f.UserTo)
-					.WithOne()
-					.HasForeignKey<FriendshipApplicationDbModel>(f => f.UserIdTo)
+					.WithMany()
+					.HasForeignKey(f => f.UserIdTo)
 					.IsRequired();
+
+				entity.HasIndex(f => new { f.UserIdFrom, f.UserIdTo })
+		            .IsUnique();
 			});
 
             modelBuilder.Entity<PairDbModel>(entity =>

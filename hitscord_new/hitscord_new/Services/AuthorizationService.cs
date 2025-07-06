@@ -98,7 +98,7 @@ public class AuthorizationService : IServices.IAuthorizationService
 		return user;
 	}
 
-	public async Task<FileResponseDTO?> GetImageAsync(Guid iconId)
+	public async Task<FileMetaResponseDTO?> GetImageAsync(Guid iconId)
 	{
 		var file = await _filesContext.File.FindAsync(iconId);
 		if (file == null)
@@ -107,21 +107,12 @@ public class AuthorizationService : IServices.IAuthorizationService
 		if (!file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
 			return null;
 
-		var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
-
-		if (!System.IO.File.Exists(filePath))
-			return null;
-
-		var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-		var base64File = Convert.ToBase64String(fileBytes);
-
-		return new FileResponseDTO
+		return new FileMetaResponseDTO
 		{
 			FileId = file.Id,
 			FileName = file.Name,
 			FileType = file.Type,
-			FileSize = file.Size,
-			Base64File = base64File
+			FileSize = file.Size
 		};
 	}
 
@@ -288,7 +279,7 @@ public class AuthorizationService : IServices.IAuthorizationService
         return userData;
 	}
 
-	public async Task<FileResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile)
+	public async Task<FileMetaResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile)
 	{
 		var user = await GetUserAsync(token);
 
@@ -379,13 +370,12 @@ public class AuthorizationService : IServices.IAuthorizationService
 
 		string base64Icon = Convert.ToBase64String(fileBytes);
 
-        return (new FileResponseDTO
-        {
+        return (new FileMetaResponseDTO
+		{
             FileId = file.Id,
             FileName = file.Name,
             FileType = file.Type,
-            FileSize = file.Size,
-            Base64File = base64Icon
+            FileSize = file.Size
         });
 	}
 }

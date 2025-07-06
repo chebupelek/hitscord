@@ -10,7 +10,7 @@ public class ChangeMaxCountRequestDTO
 
     public void Validation()
     {
-		if (MaxCount < 2 && MaxCount > 999)
+		if (MaxCount < 2 || MaxCount > 999)
 		{
 			throw new CustomException("Max count mast be between 2 and 999.", "ChangeMaxCount", "Max count", 400, "Максимальное количество должно быть между 2 и 999", "Изменение максимального количества");
 		}

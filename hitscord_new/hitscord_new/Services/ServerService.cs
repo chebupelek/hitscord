@@ -91,7 +91,7 @@ public class ServerService : IServerService
         return newRole;
     }
 
-	public async Task<FileResponseDTO?> GetImageAsync(Guid iconId)
+	public async Task<FileMetaResponseDTO?> GetImageAsync(Guid iconId)
 	{
 		var file = await _filesContext.File.FindAsync(iconId);
 		if (file == null)
@@ -100,21 +100,12 @@ public class ServerService : IServerService
 		if (!file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
 			return null;
 
-		var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
-
-		if (!System.IO.File.Exists(filePath))
-			return null;
-
-		var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-		var base64File = Convert.ToBase64String(fileBytes);
-
-		return new FileResponseDTO
+		return new FileMetaResponseDTO
 		{
 			FileId = file.Id,
 			FileName = file.Name,
 			FileType = file.Type,
-			FileSize = file.Size,
-			Base64File = base64File
+			FileSize = file.Size
 		};
 	}
 
@@ -212,7 +203,8 @@ public class ServerService : IServerService
 				Mail = user.Mail,
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
-				NonFriendMessage = user.NonFriendMessage
+				NonFriendMessage = user.NonFriendMessage,
+				isFriend = false
 			};
 			if (user != null && user.IconId != null)
 			{
@@ -224,7 +216,11 @@ public class ServerService : IServerService
 			alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
+				foreach (var alertedUser in alertedUsers)
+				{
+					newSubscriberResponse.isFriend = await _orientDbService.AreUsersFriendsAsync(user.Id, alertedUser);
+					await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, new List<Guid> { alertedUser }, "New user on server");
+				}
 			}
 		}
 		else
@@ -495,6 +491,7 @@ public class ServerService : IServerService
 		var channelCanJoin = await _orientDbService.GetJoinableChannelsAsync(user.Id, serverId);
 		var notifiableServersList = await _orientDbService.GetNonNotifiableServersForUserAsync(user.Id);
 		var notifiableChannelsList = await _orientDbService.GetNonNotifiableChannelsForUserAsync(user.Id, serverId);
+		var friendsIds = await _orientDbService.GetFriendsByUserIdAsync(user.Id);
 
 		var icon = server.IconId == null ? null : await GetImageAsync((Guid)server.IconId);
 
@@ -555,7 +552,8 @@ public class ServerService : IServerService
 						  Mail = u.Mail,
 						  Notifiable = u.Notifiable,
 						  FriendshipApplication = u.FriendshipApplication,
-						  NonFriendMessage = u.NonFriendMessage
+						  NonFriendMessage = u.NonFriendMessage,
+						  isFriend = friendsIds.Contains(u.Id)
 					  })
 				.ToListAsync();
 
@@ -923,13 +921,12 @@ public class ServerService : IServerService
 		var changeIconDto = new ServerIconResponseDTO
 		{
 			ServerId = server.Id,
-			Icon = new FileResponseDTO
+			Icon = new FileMetaResponseDTO
 			{
 				FileId = file.Id,
 				FileName = file.Name,
 				FileType = file.Type,
-				FileSize = file.Size,
-				Base64File = base64Icon
+				FileSize = file.Size
 			}
 		};
 

@@ -13,5 +13,5 @@ public class ProfileDTO
 	public required bool Notifiable { get; set; }
 	public required bool FriendshipApplication { get; set; }
 	public required bool NonFriendMessage { get; set; }
-    public FileResponseDTO? Icon { get; set; }
+    public FileMetaResponseDTO? Icon { get; set; }
 }

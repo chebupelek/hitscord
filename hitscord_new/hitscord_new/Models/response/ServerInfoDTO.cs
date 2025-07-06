@@ -8,7 +8,7 @@ public class ServerInfoDTO
 {
 	public required Guid ServerId { get; set; }
 	public required string ServerName { get; set; }
-	public FileResponseDTO? Icon { get; set; }
+	public FileMetaResponseDTO? Icon { get; set; }
 	public required bool IsClosed { get; set; }
 	public required List<RolesItemDTO> Roles { get; set; }
 	public required Guid UserRoleId { get; set; }

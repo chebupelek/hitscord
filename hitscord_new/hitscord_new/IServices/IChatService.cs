@@ -6,7 +6,7 @@ namespace hitscord.IServices;
 
 public interface IChatService
 {
-	Task<ChatListItemDTO> CreateChatAsync(string token, string userTag); 
+	Task<ChatInfoDTO> CreateChatAsync(string token, string userTag); 
 	Task ChangeChatNameAsync(string token, Guid chatId, string newName);
 	Task<ChatListDTO> GetChatsListAsync(string token);
 	Task<ChatInfoDTO> GetChatInfoAsync(string token, Guid chatId);

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using hitscord.Contexts;
@@ -11,9 +12,11 @@ using hitscord.Contexts;
 namespace hitscord_new.Migrations
 {
     [DbContext(typeof(HitsContext))]
-    partial class HitsContextModelSnapshot : ModelSnapshot
+    [Migration("20250706080726_FriendshipApplicationMany")]
+    partial class FriendshipApplicationMany
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -115,10 +118,9 @@ namespace hitscord_new.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserIdTo");
+                    b.HasIndex("UserIdFrom");
 
-                    b.HasIndex("UserIdFrom", "UserIdTo")
-                        .IsUnique();
+                    b.HasIndex("UserIdTo");
 
                     b.ToTable("Friendship");
                 });

@@ -50,7 +50,7 @@ public class FileService : IFileService
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 	}
 
-    public async Task<FileResponseDTO?> GetImageAsync(Guid iconId)
+    public async Task<FileMetaResponseDTO?> GetImageAsync(Guid iconId)
     {
 		var file = await _filesContext.File.FindAsync(iconId);
 		if (file == null)
@@ -59,21 +59,12 @@ public class FileService : IFileService
 		if (!file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
 			return null;
 
-		var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
-
-		if (!System.IO.File.Exists(filePath))
-			return null;
-
-		var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-		var base64File = Convert.ToBase64String(fileBytes);
-
-		return new FileResponseDTO
+		return new FileMetaResponseDTO
 		{
 			FileId = file.Id,
 			FileName = file.Name,
 			FileType = file.Type,
-			FileSize = file.Size,
-			Base64File = base64File
+			FileSize = file.Size
 		};
 	}
 
@@ -109,7 +100,7 @@ public class FileService : IFileService
 		};
 	}
 
-	public async Task<FileResponseDTO> UploadFileToMessageAsync(string token, Guid channelId, IFormFile file)
+	public async Task<FileMetaResponseDTO> UploadFileToMessageAsync(string token, Guid channelId, IFormFile file)
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
@@ -182,7 +173,7 @@ public class FileService : IFileService
 		_filesContext.File.Add(fileModel);
 		await _filesContext.SaveChangesAsync();
 
-		return new FileResponseDTO
+		return new FileMetaResponseDTO
 		{
 			FileId = fileModel.Id,
 			FileName = fileModel.Name,

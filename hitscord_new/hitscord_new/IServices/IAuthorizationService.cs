@@ -22,5 +22,5 @@ public interface IAuthorizationService
     Task ChangeFriendshipAsync(string token);
     Task ChangeNonFriendAsync(string token);
     Task<UserResponseDTO> GetUserDataByIdAsync(string token, Guid userId);
-    Task<FileResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile);
+    Task<FileMetaResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile);
 }

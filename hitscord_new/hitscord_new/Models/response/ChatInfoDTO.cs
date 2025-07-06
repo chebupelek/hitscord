@@ -6,5 +6,5 @@ public class ChatInfoDTO
 {
 	public required Guid ChatId { get; set; }
 	public required string ChatName { get; set; }
-	public required List<UserResponseDTO> Users { get; set; }
+	public required List<UserChatResponseDTO> Users { get; set; }
 }

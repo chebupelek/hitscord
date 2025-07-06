@@ -214,7 +214,7 @@ public class MessageService : IMessageService
 		}
 	}
 
-	private async Task<List<FileResponseDTO>?> GetFilesAsync(List<Guid> filesId)
+	private async Task<List<FileMetaResponseDTO>?> GetFilesAsync(List<Guid> filesId)
 	{
 		var filesData = await _fileContext.File.Where(f => filesId.Contains(f.Id)).ToListAsync();
 		if (filesData == null || filesData.Count == 0)
@@ -222,32 +222,15 @@ public class MessageService : IMessageService
 			return null;
 		}
 
-		var filesList = new List<FileResponseDTO>();
+		var filesList = new List<FileMetaResponseDTO>();
 		foreach (var file in filesData)
 		{
-			string? base64File = null;
-			if (file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && file.Size <= 2 * 1024 * 1024)
-			{
-				var filePath = Path.Combine(
-					Directory.GetCurrentDirectory(),
-					"wwwroot",
-					file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString())
-				);
-
-				if (System.IO.File.Exists(filePath))
-				{
-					var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-					base64File = Convert.ToBase64String(fileBytes);
-				}
-			}
-
-			filesList.Add(new FileResponseDTO
+			filesList.Add(new FileMetaResponseDTO
 			{
 				FileId = file.Id,
 				FileName = file.Name,
 				FileType = file.Type,
-				FileSize = file.Size,
-				Base64File = base64File
+				FileSize = file.Size
 			});
 		}
 

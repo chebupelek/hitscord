@@ -9,7 +9,7 @@ public class UserResponseDTO
 	public required string UserName { get; set; }
 	public required string UserTag { get; set; }
 	public required string Mail { get; set; }
-	public FileResponseDTO? Icon { get; set; }
+	public FileMetaResponseDTO? Icon { get; set; }
 	public required bool Notifiable { get; set; }
 	public required bool FriendshipApplication { get; set; }
 	public required bool NonFriendMessage { get; set; }
