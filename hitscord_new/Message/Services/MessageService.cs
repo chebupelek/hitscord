@@ -173,11 +173,6 @@ public class MessageService : IMessageService
 			var messagesCount = await _messageContext.Messages
 				.CountAsync(m => m.TextChannelId == request.channelId);
 
-			if (request.fromStart + 1 > messagesCount)
-			{
-				throw new CustomException("Messages pagination error", "GetChannelMessagesAsync", "Pagination request", 400, "Проблема с пагинацией", "Получение списка сообщений");
-			}
-
 			var nonNotifiableChannels = await _orientService.GetNonNotifiableChannelsForUserAsync(userId);
 
 			var messagesFresh = await _messageContext.Messages
@@ -649,11 +644,6 @@ public class MessageService : IMessageService
 			var messagesCount = await _messageContext.Messages
 				.Where(m => m.TextChannelId == request.channelId)
 				.CountAsync();
-
-			if (request.fromStart + 1 > messagesCount)
-			{
-				throw new CustomException("Messages pagination error", "GetChatMessagesAsync", "Pagination request", 400, "Проблема с пагинацией", "Получение списка сообщений");
-			}
 
 			var nonNotifiableChannels = await _orientService.GetNonNotifiableChannelsForUserAsync(userId);
 
