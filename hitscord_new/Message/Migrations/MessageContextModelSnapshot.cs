@@ -35,25 +35,16 @@ namespace Message.Migrations
                     b.Property<DateTime?>("DeleteTime")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<List<Guid>>("FilesId")
-                        .HasColumnType("uuid[]");
-
-                    b.Property<Guid?>("NestedChannelId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(21)
+                        .HasColumnType("character varying(21)");
 
                     b.Property<Guid?>("ReplyToMessageId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasMaxLength(5000)
-                        .HasColumnType("character varying(5000)");
-
                     b.Property<Guid>("TextChannelId")
                         .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -63,15 +54,134 @@ namespace Message.Migrations
                     b.HasIndex("ReplyToMessageId");
 
                     b.ToTable("Messages");
+
+                    b.HasDiscriminator<string>("MessageType").HasValue("MessageDbModel");
+
+                    b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("Message.Models.DB.VariantUserDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("VariantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VariantId");
+
+                    b.ToTable("VariantUsers");
+                });
+
+            modelBuilder.Entity("Message.Models.DB.VoteVariantDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("VoteId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VoteId");
+
+                    b.ToTable("VoteVariants");
+                });
+
+            modelBuilder.Entity("Message.Models.DB.ClassicMessageDbModel", b =>
+                {
+                    b.HasBaseType("Message.Models.DB.MessageDbModel");
+
+                    b.Property<List<Guid>>("FilesId")
+                        .HasColumnType("uuid[]");
+
+                    b.Property<Guid?>("NestedChannelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasDiscriminator().HasValue("Classic");
+                });
+
+            modelBuilder.Entity("Message.Models.DB.VoteDbModel", b =>
+                {
+                    b.HasBaseType("Message.Models.DB.MessageDbModel");
+
+                    b.Property<string>("Content")
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<DateTime?>("Deadline")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsAnonimous")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Multiple")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.HasDiscriminator().HasValue("Vote");
                 });
 
             modelBuilder.Entity("Message.Models.DB.MessageDbModel", b =>
                 {
                     b.HasOne("Message.Models.DB.MessageDbModel", "ReplyToMessage")
                         .WithMany()
-                        .HasForeignKey("ReplyToMessageId");
+                        .HasForeignKey("ReplyToMessageId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("ReplyToMessage");
+                });
+
+            modelBuilder.Entity("Message.Models.DB.VariantUserDbModel", b =>
+                {
+                    b.HasOne("Message.Models.DB.VoteVariantDbModel", "Variant")
+                        .WithMany()
+                        .HasForeignKey("VariantId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Variant");
+                });
+
+            modelBuilder.Entity("Message.Models.DB.VoteVariantDbModel", b =>
+                {
+                    b.HasOne("Message.Models.DB.VoteDbModel", "Vote")
+                        .WithMany("Variants")
+                        .HasForeignKey("VoteId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Vote");
+                });
+
+            modelBuilder.Entity("Message.Models.DB.VoteDbModel", b =>
+                {
+                    b.Navigation("Variants");
                 });
 #pragma warning restore 612, 618
         }
