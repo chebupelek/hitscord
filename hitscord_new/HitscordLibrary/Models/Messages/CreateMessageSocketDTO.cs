@@ -6,38 +6,30 @@ public class CreateMessageSocketDTO
 {
     public required string Token { get; set; }
     public required Guid ChannelId { get; set; }
+    public required string Text { get; set; }
+    public required bool NestedChannel { get; set; }
     public Guid? ReplyToMessageId { get; set; }
-    public required MessageTypeEnum MessageType { get; set; }
+	public List<Guid>? Files { get; set; }
 
-
-    public ClassicMessageSocketDTO? Classic { get; set; }
-    public VoteMessageSocketDTO? Vote { get; set; }
-
-	public void Validation(Guid UserId)
+	public void Validation()
     {
         if (ChannelId == Guid.Empty)
         {
-            throw new CustomExceptionUser("ChannelId cannot be empty.", "CreateMessage", "ChannelId", 400, "ChannelId не может быть пустым.", "Валидация сообщения", UserId);
+            throw new CustomException("ChannelId cannot be empty.", "CreateMessage", "ChannelId", 400, "ChannelId не может быть пустым.", "Валидация сообщения");
         }
 
-        if (MessageType == MessageTypeEnum.Classic)
+        if (string.IsNullOrWhiteSpace(Text))
         {
-            if (Classic == null)
+            throw new CustomException("Message text is required.", "CreateMessage", "Text", 400, "Текст сообщения обязателен.", "Валидация сообщения");
+        }
+
+        if (Files != null)
+        {
+            if (Files.Count() > 10 && Files.Count() < 1)
             {
-				throw new CustomExceptionUser("Classic data cannot be empty.", "CreateMessage", "Classic", 400, "Classic не может быть пустым.", "Валидация сообщения", UserId);
+				throw new CustomException("" +
+                    "files count must be between 1 and 10", "CreateMessage", "Text", 400, "Файлов должно быть от 1 до 10", "Валидация сообщения");
 			}
-
-            Classic.ValidationClassic(UserId);
         }
-
-        if (MessageType == MessageTypeEnum.Vote)
-        {
-			if (Vote == null)
-			{
-				throw new CustomExceptionUser("Vote data cannot be empty.", "CreateMessage", "Vote", 400, "Vote не может быть пустым.", "Валидация сообщения", UserId);
-			}
-
-			Vote.ValidationVote(UserId);
-		}
     }
 }

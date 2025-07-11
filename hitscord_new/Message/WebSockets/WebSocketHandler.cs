@@ -4,7 +4,6 @@ using EasyNetQ;
 using Grpc.Gateway.ProtocGenOpenapiv2.Options;
 using HitscordLibrary.Migrations.Files;
 using HitscordLibrary.Models.Messages;
-using HitscordLibrary.Models.other;
 using HitscordLibrary.SocketsModels;
 using Message.IServices;
 using System.ComponentModel.DataAnnotations;
@@ -68,157 +67,69 @@ public class WebSocketHandler
 
         var messageBaseJson = System.Text.Json.JsonSerializer.Serialize(messageBase);
         _logger.LogInformation("Parsed WebSocket message: {MessageBaseJson}", messageBaseJson);
-
-        try
+        switch (messageBase?.Type)
         {
-            switch (messageBase?.Type)
-            {
-                case "New message":
-                    var newMessage = System.Text.Json.JsonSerializer.Deserialize<NewMessageWebsocket>(json);
-                    _logger.LogInformation("new message", newMessage);
-                    if (newMessage != null)
-                    {
-                        var newMesssageData = newMessage.Content;
-                        await _messageService.CreateMessageWebsocketAsync(newMesssageData);
-                    }
-                    break;
+            case "New message":
+                var newMessage = System.Text.Json.JsonSerializer.Deserialize<NewMessageWebsocket>(json);
+                _logger.LogInformation("new message", newMessage);
+                if (newMessage != null)
+                {
+                    var newMesssageData = newMessage.Content;
+                    await _messageService.CreateMessageWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.ReplyToMessageId, newMesssageData.NestedChannel, newMesssageData.Files);
+				}
+				break;
+			case "Delete message":
+				var deleteMessage = System.Text.Json.JsonSerializer.Deserialize<DeleteMessageWebsocket>(json);
+				Console.WriteLine($"User {userId} sent text: {deleteMessage?.Content}");
+				if (deleteMessage != null)
+				{
+					var deleteMesssageData = deleteMessage.Content;
+					await _messageService.DeleteMessageWebsocketAsync(deleteMesssageData.MessageId, deleteMesssageData.Token);
+				}
+				break;
+			case "Update message":
+                var updateMessage = System.Text.Json.JsonSerializer.Deserialize<UpdateMessageWebsocket>(json);
+                Console.WriteLine($"User {userId} sent text: {updateMessage?.Content}");
+                if (updateMessage != null)
+                {
+                    var updateMessageData = updateMessage.Content;
+					await _messageService.UpdateMessageWebsocketAsync(updateMessageData.MessageId, updateMessageData.Token, updateMessageData.Text);
+				}
+                break;
 
-                case "Delete message":
-                    var deleteMessage = System.Text.Json.JsonSerializer.Deserialize<DeleteMessageWebsocket>(json);
-                    Console.WriteLine($"User {userId} sent text: {deleteMessage?.Content}");
-                    if (deleteMessage != null)
-                    {
-                        var deleteMesssageData = deleteMessage.Content;
-                        await _messageService.DeleteMessageWebsocketAsync(deleteMesssageData.MessageId, deleteMesssageData.Token);
-                    }
-                    break;
+			case "New message chat":
+				var newMessagechat = System.Text.Json.JsonSerializer.Deserialize<NewMessageWebsocket>(json);
+				_logger.LogInformation("new message chat", newMessagechat);
+				if (newMessagechat != null)
+				{
+					var newMesssageData = newMessagechat.Content;
+					await _messageService.CreateMessageToChatWebsocketAsync(newMesssageData.ChannelId, newMesssageData.Token, newMesssageData.Text, newMesssageData.ReplyToMessageId, newMesssageData.Files);
+				}
+				break;
+			case "Delete message chat":
+				var deleteMessagechat = System.Text.Json.JsonSerializer.Deserialize<DeleteMessageWebsocket>(json);
+				Console.WriteLine($"User {userId} sent text: {deleteMessagechat?.Content}");
+				if (deleteMessagechat != null)
+				{
+					var deleteMesssageData = deleteMessagechat.Content;
+					await _messageService.DeleteMessageInChatWebsocketAsync(deleteMesssageData.MessageId, deleteMesssageData.Token);
+				}
+				break;
+			case "Update message chat":
+				var updateMessagechat = System.Text.Json.JsonSerializer.Deserialize<UpdateMessageWebsocket>(json);
+				Console.WriteLine($"User {userId} sent text: {updateMessagechat?.Content}");
+				if (updateMessagechat != null)
+				{
+					var updateMessageData = updateMessagechat.Content;
+					await _messageService.UpdateMessageInChatWebsocketAsync(updateMessageData.MessageId, updateMessageData.Token, updateMessageData.Text);
+				}
+				break;
 
-                case "Update message":
-                    var updateMessage = System.Text.Json.JsonSerializer.Deserialize<UpdateMessageWebsocket>(json);
-                    Console.WriteLine($"User {userId} sent text: {updateMessage?.Content}");
-                    if (updateMessage != null)
-                    {
-                        var updateMessageData = updateMessage.Content;
-                        await _messageService.UpdateMessageWebsocketAsync(updateMessageData.MessageId, updateMessageData.Token, updateMessageData.Text);
-                    }
-                    break;
-
-
-
-                case "New message chat":
-                    var newMessagechat = System.Text.Json.JsonSerializer.Deserialize<NewMessageWebsocket>(json);
-                    _logger.LogInformation("new message chat", newMessagechat);
-                    if (newMessagechat != null)
-                    {
-                        var newMesssageData = newMessagechat.Content;
-                        await _messageService.CreateMessageToChatWebsocketAsync(newMesssageData);
-                    }
-                    break;
-
-                case "Delete message chat":
-                    var deleteMessagechat = System.Text.Json.JsonSerializer.Deserialize<DeleteMessageWebsocket>(json);
-                    Console.WriteLine($"User {userId} sent text: {deleteMessagechat?.Content}");
-                    if (deleteMessagechat != null)
-                    {
-                        var deleteMesssageData = deleteMessagechat.Content;
-                        await _messageService.DeleteMessageInChatWebsocketAsync(deleteMesssageData.MessageId, deleteMesssageData.Token);
-                    }
-                    break;
-
-                case "Update message chat":
-                    var updateMessagechat = System.Text.Json.JsonSerializer.Deserialize<UpdateMessageWebsocket>(json);
-                    Console.WriteLine($"User {userId} sent text: {updateMessagechat?.Content}");
-                    if (updateMessagechat != null)
-                    {
-                        var updateMessageData = updateMessagechat.Content;
-                        await _messageService.UpdateMessageInChatWebsocketAsync(updateMessageData.MessageId, updateMessageData.Token, updateMessageData.Text);
-                    }
-                    break;
-
-
-				case "Vote":
-					var vote = System.Text.Json.JsonSerializer.Deserialize<VoteVariantSocket>(json);
-					Console.WriteLine($"User {userId} sent text: {vote?.Content}");
-					if (vote != null)
-					{
-						var voteData = vote.Content;
-						var result = await _messageService.VoteAsync(voteData.Token, voteData.VoteVariantId);
-						await _webSocketManager.SendMessageAsync(userId, new
-						{
-							MessageType = "User voted",
-							Payload = result
-						});
-					}
-					break;
-
-				case "Unvote":
-					var unvote = System.Text.Json.JsonSerializer.Deserialize<VoteVariantSocket>(json);
-					Console.WriteLine($"User {userId} sent text: {unvote?.Content}");
-					if (unvote != null)
-					{
-						var unvoteData = unvote.Content;
-						var result = await _messageService.UnVoteAsync(unvoteData.Token, unvoteData.VoteVariantId);
-						await _webSocketManager.SendMessageAsync(userId, new
-						{
-							MessageType = "User unvoted",
-							Payload = result
-						});
-					}
-					break;
-
-				case "Get vote":
-					var voteget = System.Text.Json.JsonSerializer.Deserialize<VoteSocket>(json);
-					Console.WriteLine($"User {userId} sent text: {voteget?.Content}");
-					if (voteget != null)
-					{
-						var votegetData = voteget.Content;
-						var result = await _messageService.GetVotingAsync(votegetData.Token, votegetData.VoteId);
-						await _webSocketManager.SendMessageAsync(userId, new
-						{
-							MessageType = "Vote data",
-							Payload = result
-						});
-					}
-					break;
-
-
-
-				default:
-                    Console.WriteLine("Unknown message type.");
-                    break;
-            }
+			default:
+                Console.WriteLine("Unknown message type.");
+                break;
         }
-		catch (CustomExceptionUser ex)
-		{
-			_logger.LogError(ex, "Error processing message of type {Type}", messageBase?.Type);
-
-			await _webSocketManager.SendMessageAsync(userId, new
-			{
-				Type = "Custom error",
-				Error = new
-				{
-                    Code = ex.Code,
-					Object = ex.ObjectFront,
-					Message = ex.MessageFront
-				}
-			});
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Error processing message of type {Type}", messageBase?.Type);
-
-			await _webSocketManager.SendMessageAsync(userId, new
-			{
-				Type = "Error",
-				Error = new
-				{
-					Code = 500,
-					Message = ex.Message,
-					InnerExceptionMessage = ex.InnerException != null ? ex.InnerException.Message : null
-				}
-			});
-		}
-	}
+    }
 }
 
 public class WebSocketMessageBase
@@ -239,14 +150,4 @@ public class UpdateMessageWebsocket : WebSocketMessageBase
 public class DeleteMessageWebsocket : WebSocketMessageBase
 {
     public DeleteMessageSocketDTO Content { get; set; } = default!;
-}
-
-public class VoteVariantSocket : WebSocketMessageBase
-{
-	public VoteVariantSocketDTO Content { get; set; } = default!;
-}
-
-public class VoteSocket : WebSocketMessageBase
-{
-	public VoteSocketDTO Content { get; set; } = default!;
 }
