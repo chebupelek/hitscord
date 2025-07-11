@@ -842,6 +842,7 @@ public class ChannelService : IChannelService
 					throw new CustomException("Role already cant write in channel", "Change text channel sttings", "Role", 400, "Роль уже не может писать в канал", "Изменение настроек текстового канала");
 				}
 				await _orientDbService.RevokeRolePermissionFromChannelAsync(role.Id, channel.Id, "ChannelCanWrite");
+				await _orientDbService.RevokeRolePermissionFromChannelAsync(role.Id, channel.Id, "ChannelCanWriteSub");
 
 				var subs = await _orientDbService.GetSubChannelsByTextChannelIdAsync(channel.Id);
 				if (subs != null && subs.Count() > 0)
