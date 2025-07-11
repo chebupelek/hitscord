@@ -3,6 +3,14 @@
   "WorkspaceRootPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\services\\chatservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\services\\chatservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\services\\channelservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\services\\channelservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\controllers\\channelcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\controllers\\channelcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -22,19 +30,19 @@
       "DocumentGroups": [
         {
           "DockedWidth": 99,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 0,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "CreateChannelDTO.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Models\\request\\CreateChannelDTO.cs",
-              "RelativeDocumentMoniker": "hitscord_new\\Models\\request\\CreateChannelDTO.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Models\\request\\CreateChannelDTO.cs",
-              "RelativeToolTip": "hitscord_new\\Models\\request\\CreateChannelDTO.cs",
-              "ViewState": "AgIAAAsAAAAAAAAAAAAIwCIAAAAhAAAAAAAAAA==",
+              "DocumentIndex": 0,
+              "Title": "ChatService.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ChatService.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Services\\ChatService.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ChatService.cs",
+              "RelativeToolTip": "hitscord_new\\Services\\ChatService.cs",
+              "ViewState": "AgIAAMwAAAAAAAAAAAAmwOEAAABqAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-11T06:21:19.387Z",
+              "WhenOpened": "2025-07-11T06:50:08.159Z",
               "EditorCaption": ""
             },
             {
@@ -51,7 +59,32 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
+              "Title": "ChannelService.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ChannelService.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Services\\ChannelService.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ChannelService.cs",
+              "RelativeToolTip": "hitscord_new\\Services\\ChannelService.cs",
+              "ViewState": "AgIAADEDAAAAAAAAAAAIwEwDAABrAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-11T06:36:16.782Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "CreateChannelDTO.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Models\\request\\CreateChannelDTO.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Models\\request\\CreateChannelDTO.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Models\\request\\CreateChannelDTO.cs",
+              "RelativeToolTip": "hitscord_new\\Models\\request\\CreateChannelDTO.cs",
+              "ViewState": "AgIAAAsAAAAAAAAAAAAIwCIAAAAhAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-11T06:21:19.387Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
               "Title": "ChannelController.cs",
               "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\ChannelController.cs",
               "RelativeDocumentMoniker": "hitscord_new\\Controllers\\ChannelController.cs",
@@ -59,12 +92,11 @@
               "RelativeToolTip": "hitscord_new\\Controllers\\ChannelController.cs",
               "ViewState": "AgIAAHYBAAAAAAAAAAAqwIkBAAAbAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-11T06:21:12.785Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-11T06:21:12.785Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 4,
               "Title": "AuthorizationController.cs",
               "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\AuthorizationController.cs",
               "RelativeDocumentMoniker": "hitscord_new\\Controllers\\AuthorizationController.cs",
@@ -72,8 +104,7 @@
               "RelativeToolTip": "hitscord_new\\Controllers\\AuthorizationController.cs",
               "ViewState": "AgIAAAwAAAAAAAAAAAAAACAAAAAnAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-11T05:23:46.679Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-11T05:23:46.679Z"
             }
           ]
         }
