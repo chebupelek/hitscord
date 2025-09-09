@@ -185,12 +185,14 @@ public class MessageService : IMessageService
 				.OrderBy(m => m.CreatedAt)
 				.ToListAsync();
 
+			var variantIds = messagesFresh
+				.OfType<VoteDbModel>()
+				.SelectMany(v => v.Variants)
+				.Select(variant => variant.Id)
+				.ToList();
+
 			var votesByVariantId = await _messageContext.VariantUsers
-				.Where(vu => messagesFresh.OfType<VoteDbModel>()
-										  .SelectMany(v => v.Variants)
-										  .Select(variant => variant.Id)
-										  .Contains(vu.VariantId ?? Guid.Empty))
-				.Where(vu => vu.VariantId.HasValue)
+				.Where(vu => vu.VariantId.HasValue && variantIds.Contains(vu.VariantId.Value))
 				.GroupBy(vu => vu.VariantId!.Value)
 				.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
@@ -657,12 +659,14 @@ public class MessageService : IMessageService
 				.OrderBy(m => m.CreatedAt)
 				.ToListAsync();
 
+			var variantIds = messagesFresh
+				.OfType<VoteDbModel>()
+				.SelectMany(v => v.Variants)
+				.Select(variant => variant.Id)
+				.ToList();
+
 			var votesByVariantId = await _messageContext.VariantUsers
-				.Where(vu => messagesFresh.OfType<VoteDbModel>()
-										  .SelectMany(v => v.Variants)
-										  .Select(variant => variant.Id)
-										  .Contains(vu.VariantId ?? Guid.Empty))
-				.Where(vu => vu.VariantId.HasValue)
+				.Where(vu => vu.VariantId.HasValue && variantIds.Contains(vu.VariantId.Value))
 				.GroupBy(vu => vu.VariantId!.Value)
 				.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
