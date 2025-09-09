@@ -535,7 +535,7 @@ public class ServerService : IServerService
 
 		var serverUsers = await _hitsContext.UserServer
 				.Include(us => us.Role)
-				.Where(us => us.Role.ServerId == serverId)
+				.Where(us => us.Role.ServerId == serverId && us.IsBanned == false)
 				.Join(_hitsContext.User,
 					  us => us.UserId,
 					  u => u.Id,

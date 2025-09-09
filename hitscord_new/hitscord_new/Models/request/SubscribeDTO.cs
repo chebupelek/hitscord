@@ -24,14 +24,14 @@ public class SubscribeDTO
 
         if (!string.IsNullOrWhiteSpace(UserName))
         {
-            if (UserName.Length < 5 || UserName.Length > 50)
+            if (UserName.Length < 6 || UserName.Length > 50)
             {
                 throw new CustomException(
-                    "UserName must be between 5 and 50 characters.",
+                    "UserName must be between 6 and 50 characters.",
                     "Subscribe",
                     "UserName",
                     400,
-                    "Имя пользователя должно содержать от 5 до 50 символов",
+                    "Имя пользователя должно содержать от 6 до 50 символов",
                     "Валидация подписки"
                 );
             }

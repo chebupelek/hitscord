@@ -105,7 +105,8 @@ public class RolesService : IRolesService
 		{
 			throw new CustomException("Cant delete non custom role", "Delete role", "Role id", 400, "Нельзя удалить не пользовательскую роль", "Удаление роли");
 		}
-		if (users != null && users.Count() > 0)
+		var bannedUsers = await _hitsContext.UserServer.Include(us => us.Role).Where(us => us.Role.ServerId == server.Id && us.IsBanned == true).ToListAsync();
+		if ((users != null && users.Count() > 0) || (bannedUsers != null && bannedUsers.Count() > 0))
 		{
 			var uncertainRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Role == RoleEnum.Uncertain && r.ServerId == server.Id);
 			if (uncertainRole == null)
@@ -145,6 +146,22 @@ public class RolesService : IRolesService
 						await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsersUncertain, "Role changed");
 					}
 				}
+			}
+
+			foreach (var bannedUser in bannedUsers)
+			{
+				var newBannedUserServ = new UserServerDbModel
+				{
+					UserId = bannedUser.UserId,
+					RoleId = uncertainRole.Id,
+					UserServerName = bannedUser.UserServerName,
+					IsBanned = bannedUser.IsBanned
+				};
+
+				_hitsContext.UserServer.Remove(bannedUser);
+				await _hitsContext.SaveChangesAsync();
+				_hitsContext.UserServer.Add(newBannedUserServ);
+				await _hitsContext.SaveChangesAsync();
 			}
 		}
 
@@ -329,12 +346,12 @@ public class RolesService : IRolesService
 			case SettingsEnum.CanCreateRole:
 				if (settingsData)
 				{
-					await _orientDbService.GrantRolePermissionToServerAsync(role.Id, server.Id, "ServerCanCreateRole");
-					await _orientDbService.GrantRolePermissionToServerAsync(role.Id, server.Id, "ServerCanChangeRole");
+					await _orientDbService.GrantRolePermissionToServerAsync(role.Id, server.Id, "ServerCanCreateRoles");
+					await _orientDbService.GrantRolePermissionToServerAsync(role.Id, server.Id, "ServerCanCreateRoles");
 				}
 				else
 				{
-					await _orientDbService.RevokeRolePermissionFromServerAsync(role.Id, server.Id, "ServerCanCreateRole");
+					await _orientDbService.RevokeRolePermissionFromServerAsync(role.Id, server.Id, "ServerCanCreateRoles");
 				}
 				break;
 
