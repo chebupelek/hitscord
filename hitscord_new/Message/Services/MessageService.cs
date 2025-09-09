@@ -432,7 +432,7 @@ public class MessageService : IMessageService
 			throw new CustomExceptionUser("Message not found", "Create message", "Messsage", 404, "Сообщение не найдено", "Создание сообщения", userId);
 		}
 
-		MessageResponceDTO response;
+		object response;
 
 		switch (createdMessage)
 		{
@@ -873,7 +873,7 @@ public class MessageService : IMessageService
 			throw new CustomExceptionUser("Message not found", "Create message", "Messsage", 404, "Сообщение не найдено", "Создание сообщения", userId);
 		}
 
-		MessageResponceDTO response;
+		object response;
 
 		switch (createdMessage)
 		{
