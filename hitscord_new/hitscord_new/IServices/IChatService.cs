@@ -12,5 +12,5 @@ public interface IChatService
 	Task<ChatInfoDTO> GetChatInfoAsync(string token, Guid chatId);
 	Task AddUserAsync(string token, string userTag, Guid chatId);
 	Task RemoveUserAsync(string token, Guid chatId);
-	Task<MessageChatListResponseDTO> GetChatMessagesAsync(string token, Guid chatId, int number, int fromStart);
+	Task<MessageListResponseDTO> GetChatMessagesAsync(string token, Guid chatId, int number, int fromStart);
 }

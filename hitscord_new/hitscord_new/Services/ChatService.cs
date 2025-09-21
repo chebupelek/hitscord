@@ -354,7 +354,7 @@ public class ChatService : IChatService
 		}
 	}
 
-	public async Task<MessageChatListResponseDTO> GetChatMessagesAsync(string token, Guid chatId, int number, int fromStart)
+	public async Task<MessageListResponseDTO> GetChatMessagesAsync(string token, Guid chatId, int number, int fromStart)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var chat = await CheckChatExist(chatId);
@@ -367,7 +367,7 @@ public class ChatService : IChatService
 		{
 			var addingChannel = bus.Rpc.Request<ChannelRequestRabbit, ResponseObject>(new ChannelRequestRabbit { channelId = chatId, fromStart = fromStart, number = number, token = token }, x => x.WithQueueName("Get messages from chat"));
 
-			if (addingChannel is MessageChatListResponseDTO messageList)
+			if (addingChannel is MessageListResponseDTO messageList)
 			{
 				return messageList;
 			}
