@@ -858,12 +858,6 @@ public class MessageService : IMessageService
 
 		var nonNotifiableChannels = await _orientService.GetNonNotifiableChannelsForUserAsync(userId);
 
-		var serverId = await _orientService.GetServerIdByChannelIdAsync(Content.ChannelId);
-		if (serverId == null)
-		{
-			throw new CustomExceptionUser("Server not found", "Create message", "Server id", 404, "Сервер не найден", "Создание сообщения", userId);
-		}
-
 		var createdMessage = await _messageContext.Messages
 			.Include(m => m.ReplyToMessage)
 			.Include(m => (m as VoteDbModel)!.Variants!)
@@ -881,14 +875,14 @@ public class MessageService : IMessageService
 				response = new ClassicMessageWithRolesResponceDTO
 				{
 					MessageType = createdMessage.MessageType,
-					ServerId = serverId,
+					ServerId = null,
 					ChannelId = classic.TextChannelId,
 					Id = classic.Id,
 					AuthorId = classic.UserId,
 					CreatedAt = classic.CreatedAt,
 					Text = classic.Text,
 					ModifiedAt = classic.UpdatedAt,
-					ReplyToMessage = MapReplyToMessage((Guid)serverId, createdMessage.ReplyToMessage),
+					ReplyToMessage = MapReplyToMessage(null, createdMessage.ReplyToMessage),
 					NestedChannel = null,
 					Files = await GetFilesAsync(classic.FilesId)
 				};
@@ -905,12 +899,12 @@ public class MessageService : IMessageService
 				response = new VoteResponceDTO
 				{
 					MessageType = vote.MessageType,
-					ServerId = serverId,
+					ServerId = null,
 					ChannelId = vote.TextChannelId,
 					Id = vote.Id,
 					AuthorId = vote.UserId,
 					CreatedAt = vote.CreatedAt,
-					ReplyToMessage = MapReplyToMessage((Guid)serverId, vote.ReplyToMessage),
+					ReplyToMessage = MapReplyToMessage(null, vote.ReplyToMessage),
 					Title = vote.Title,
 					Content = vote.Content,
 					IsAnonimous = vote.IsAnonimous,
