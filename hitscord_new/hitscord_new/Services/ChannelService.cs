@@ -76,7 +76,7 @@ public class ChannelService : IChannelService
 		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId);
 		var notificationChannel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(c => c.Id == channelId);
 		var subChannel = await _hitsContext.SubChannel.FirstOrDefaultAsync(c => c.Id == channelId);
-		if (textChannel != null && textChannel.GetType() == typeof(SubChannelDbModel))
+		if (textChannel != null)
 		{
 			return textChannel;
 		}
