@@ -12,6 +12,6 @@ public class PairShortDTO
 	public required string ServerName { get; set; }
 	public required Guid PairVoiceChannelId { get; set; }
 	public required string PairVoiceChannelName { get; set; }
-	public required List<RoleDbModel> Roles { get; set; }
+	public required List<RolesItemDTO> Roles { get; set; }
 	public string? Note { get; set; }
 }

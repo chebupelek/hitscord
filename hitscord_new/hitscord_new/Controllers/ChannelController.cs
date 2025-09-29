@@ -3,8 +3,6 @@ using hitscord.Models.request;
 using hitscord.Models.other;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
-using HitscordLibrary.Models.other;
 using hitscord.Services;
 using hitscord.Models.response;
 
@@ -91,12 +89,12 @@ public class ChannelController : ControllerBase
 	[Authorize]
     [HttpGet]
     [Route("messages")]
-    public async Task<IActionResult> GetTextChannelMesssages([FromQuery] Guid channelId, [FromQuery] int number, [FromQuery] int fromStart)
+    public async Task<IActionResult> GetTextChannelMesssages([FromQuery] Guid channelId, [FromQuery] int number, [FromQuery] long fromMessageId, [FromQuery] bool down)
     {
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var messages = await _channelService.MessagesListAsync(channelId, jwtToken, number, fromStart);
+            var messages = await _channelService.MessagesListAsync(channelId, jwtToken, number, fromMessageId, down);
             return Ok(messages);
         }
         catch (CustomException ex)

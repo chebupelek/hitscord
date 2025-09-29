@@ -5,10 +5,6 @@ VisualStudioVersion = 17.8.34322.80
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "hitscord_new", "hitscord_new\hitscord_new.csproj", "{286BFF40-A1E9-48C9-B212-CF070E2CF11D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Message", "Message\Message.csproj", "{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HitscordLibrary", "HitscordLibrary\HitscordLibrary.csproj", "{73118563-81E8-42A3-B373-4E2EF6F79071}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,14 +15,6 @@ Global
 		{286BFF40-A1E9-48C9-B212-CF070E2CF11D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{286BFF40-A1E9-48C9-B212-CF070E2CF11D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{286BFF40-A1E9-48C9-B212-CF070E2CF11D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{36628186-E5F9-4E10-AB21-BD0DC5D7D97D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{73118563-81E8-42A3-B373-4E2EF6F79071}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{73118563-81E8-42A3-B373-4E2EF6F79071}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{73118563-81E8-42A3-B373-4E2EF6F79071}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{73118563-81E8-42A3-B373-4E2EF6F79071}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,26 +1,23 @@
 ﻿using Quartz;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Threading.Tasks;
-using System.Diagnostics;
-using hitscord.IServices;
 using hitscord.Contexts;
 using Microsoft.EntityFrameworkCore;
-using hitscord.Models.db;
 using hitscord.Models.response;
 using hitscord.Services;
-using hitscord.OrientDb.Service;
 using hitscord.WebSockets;
+using Microsoft.AspNetCore.Http;
+using System.Data;
 
 namespace hitscord.Utils;
 
 public class MissingPairNotifierJob : IJob
 {
+	private readonly HitsContext _hitsContext;
 	private readonly IServiceScopeFactory _scopeFactory;
 	private readonly ILogger<MissingPairNotifierJob> _logger;
 
-	public MissingPairNotifierJob(IServiceScopeFactory scopeFactory, ILogger<MissingPairNotifierJob> logger)
+	public MissingPairNotifierJob(HitsContext hitsContext, IServiceScopeFactory scopeFactory, ILogger<MissingPairNotifierJob> logger)
 	{
+		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_scopeFactory = scopeFactory;
 		_logger = logger;
 	}
@@ -32,7 +29,6 @@ public class MissingPairNotifierJob : IJob
 			using var scope = _scopeFactory.CreateScope();
 			var dbContext = scope.ServiceProvider.GetRequiredService<HitsContext>();
 			var scheduleService = scope.ServiceProvider.GetRequiredService<ScheduleService>();
-			var orientDbService = scope.ServiceProvider.GetRequiredService<OrientDbService>();
 			var webSocketManager = scope.ServiceProvider.GetRequiredService<WebSocketsManager>();
 
 			var now = DateTime.UtcNow;
@@ -84,14 +80,28 @@ public class MissingPairNotifierJob : IJob
 
 					foreach (var role in pair.Roles)
 					{
-						var usersInRole = await orientDbService.GetUsersByRoleIdAsync(role.Id);
+						var usersInRole = await _hitsContext.UserServer
+							.Include(us => us.SubscribeRoles)
+							.Where(us => us.SubscribeRoles.Any(sr => sr.RoleId == role.Id))
+							.Select(us => us.UserId)
+							.ToListAsync();
 						foreach (var userId in usersInRole)
 						{
 							roleUserIds.Add(userId);
 						}
 					}
 
-					var alertedUsers = await orientDbService.GetUsersThatCanJoinToChannelAsync(pairChannel.Id);
+					var alertedUsers = await _hitsContext.UserServer
+						.Include(us => us.SubscribeRoles)
+							.ThenInclude(sr => sr.Role)
+								.ThenInclude(r => r.ChannelCanJoin)
+						.Where(u =>
+							u.SubscribeRoles.Any(sr =>
+								sr.Role.ChannelCanJoin.Any(ccs => ccs.VoiceChannelId == pairChannel.Id)
+							)
+						)
+						.Select(us => us.UserId)
+						.ToListAsync();
 
 					if (alertedUsers != null && alertedUsers.Any())
 					{

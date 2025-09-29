@@ -3,8 +3,7 @@ using hitscord.Models.request;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using hitscord.Models.DTOModels.request;
-using HitscordLibrary.Models.other;
-using hitscord.Services;
+using hitscord.Models.other;
 
 namespace hitscord.Controllers;
 
@@ -175,14 +174,14 @@ public class ServerController : ControllerBase
 
     [Authorize]
     [HttpPut]
-    [Route("changerole")]
-    public async Task<IActionResult> ChangeRole([FromBody] ChangeUserRoleDTO data)
+    [Route("addrole")]
+    public async Task<IActionResult> AddRole([FromBody] ChangeUserRoleDTO data)
     {
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validation();
-            await _serverService.ChangeUserRoleAsync(jwtToken, data.ServerId, data.UserId, data.Role);
+            await _serverService.AddRoleToUserAsync(jwtToken, data.ServerId, data.UserId, data.Role);
             return Ok();
         }
         catch (CustomException ex)
@@ -195,7 +194,29 @@ public class ServerController : ControllerBase
         }
     }
 
-    [Authorize]
+	[Authorize]
+	[HttpPut]
+	[Route("removerole")]
+	public async Task<IActionResult> RemoveRole([FromBody] ChangeUserRoleDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			data.Validation();
+			await _serverService.RemoveRoleFromUserAsync(jwtToken, data.ServerId, data.UserId, data.Role);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
     [HttpDelete]
     [Route("deleteuser")]
     public async Task<IActionResult> DeleteUser([FromBody] DeleteUserFromServerDTO data)

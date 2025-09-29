@@ -5,24 +5,31 @@ namespace hitscord.Models.db;
 
 public class UserServerDbModel
 {
+	[Key]
+    public required Guid Id { get; set; }
+
     [Required]
     public required Guid UserId { get; set; }
-
     [ForeignKey(nameof(UserId))]
     public UserDbModel User { get; set; }
 
-    [Required]
-    public required Guid RoleId { get; set; }
+	[Required]
+	public required Guid ServerId { get; set; }
+	[ForeignKey(nameof(ServerId))]
+	public ServerDbModel Server { get; set; }
 
-    public required bool IsBanned { get; set; }
+	public required bool IsBanned { get; set; }
+
 	public string? BanReason { get; set; }
+
 	public DateTime? BanTime { get; set; }
 
-	[ForeignKey(nameof(RoleId))]
-    public RoleDbModel Role { get; set; }
-
     [Required]
-    [MaxLength(100)]
+	[MinLength(6)]
+	[MaxLength(100)]
     public required string UserServerName { get; set; }
 
+	public required bool NonNotifiable { get; set; }
+
+	public ICollection<SubscribeRoleDbModel> SubscribeRoles { get; set; }
 }

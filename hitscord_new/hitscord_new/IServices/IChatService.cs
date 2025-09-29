@@ -1,6 +1,5 @@
 ﻿using hitscord.Models.db;
 using hitscord.Models.response;
-using HitscordLibrary.Models;
 
 namespace hitscord.IServices;
 
@@ -12,5 +11,7 @@ public interface IChatService
 	Task<ChatInfoDTO> GetChatInfoAsync(string token, Guid chatId);
 	Task AddUserAsync(string token, string userTag, Guid chatId);
 	Task RemoveUserAsync(string token, Guid chatId);
-	Task<MessageListResponseDTO> GetChatMessagesAsync(string token, Guid chatId, int number, int fromStart);
+	Task<MessageListResponseDTO> GetChatMessagesAsync(string token, Guid chatId, int number, long fromMessageId, bool down);
+	Task ChangeChatIconAsync(string token, Guid chatId, IFormFile iconFile);
+	Task ChangeNonNotifiableChatAsync(string token, Guid chatId);
 }

@@ -7,4 +7,7 @@ public class TextChannelResponseDTO
 	public required bool CanWrite { get; set; }
 	public required bool CanWriteSub { get; set; }
 	public required bool IsNotifiable { get; set; }
+	public required int NonReadedCount { get; set; }
+	public required int NonReadedTaggedCount { get; set; }
+	public required long LastReadedMessageId { get; set; }
 }

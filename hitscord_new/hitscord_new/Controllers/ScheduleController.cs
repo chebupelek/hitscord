@@ -2,13 +2,7 @@
 using hitscord.Models.request;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using hitscord.Models.DTOModels.request;
-using HitscordLibrary.Models.other;
-using hitscord.Services;
-using hitscord.Models.inTime;
 using hitscord.Models.other;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using Newtonsoft.Json.Linq;
 using hitscord.Models.response;
 
 namespace hitscord.Controllers;

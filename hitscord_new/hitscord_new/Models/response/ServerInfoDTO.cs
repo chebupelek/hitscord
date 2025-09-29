@@ -1,8 +1,4 @@
-﻿using hitscord.Models.db;
-using hitscord.Models.other;
-using HitscordLibrary.Models;
-
-namespace hitscord.Models.response;
+﻿namespace hitscord.Models.response;
 
 public class ServerInfoDTO
 {
@@ -11,9 +7,7 @@ public class ServerInfoDTO
 	public FileMetaResponseDTO? Icon { get; set; }
 	public required bool IsClosed { get; set; }
 	public required List<RolesItemDTO> Roles { get; set; }
-	public required Guid UserRoleId { get; set; }
-	public required string UserRole { get; set; }
-	public required RoleEnum UserRoleType { get; set; }
+	public required List<UserServerRoles> UserRoles { get; set; }
 	public required bool IsCreator { get; set; }
 	public required SettingsDTO Permissions { get; set; }
 	public required bool IsNotifiable { get; set; }

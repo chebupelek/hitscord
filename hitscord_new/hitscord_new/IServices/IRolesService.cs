@@ -1,7 +1,6 @@
 ﻿using hitscord.Models.db;
 using hitscord.Models.other;
 using hitscord.Models.response;
-using HitscordLibrary.SocketsModels;
 
 namespace hitscord.IServices;
 

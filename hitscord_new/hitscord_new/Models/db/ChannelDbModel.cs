@@ -20,8 +20,10 @@ public abstract class ChannelDbModel
     public required string Name { get; set; }
 
     [Required]
-    public Guid ServerId { get; set; }
+    public required Guid ServerId { get; set; }
 
     [ForeignKey(nameof(ServerId))]
     public ServerDbModel Server { get; set; }
+
+	public required ICollection<ChannelCanSeeDbModel> ChannelCanSee { get; set; }
 }

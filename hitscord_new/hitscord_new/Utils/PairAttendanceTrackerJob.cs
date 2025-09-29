@@ -1,9 +1,4 @@
 ﻿using Quartz;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Threading.Tasks;
-using System.Diagnostics;
-using hitscord.IServices;
 using hitscord.Contexts;
 using Microsoft.EntityFrameworkCore;
 using hitscord.Models.db;

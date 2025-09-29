@@ -1,6 +1,4 @@
-﻿using HitscordLibrary.Models.other;
-
-namespace hitscord.Models.request;
+﻿namespace hitscord.Models.request;
 
 public class ChangeIconServerDTO
 {

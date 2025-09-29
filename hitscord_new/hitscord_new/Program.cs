@@ -1,31 +1,25 @@
 using hitscord.Contexts;
 using hitscord.IServices;
 using hitscord.Models.other;
-using hitscord.OrientDb.Service;
 using hitscord.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using HitscordLibrary.Contexts;
 using System.Text;
-using HitscordLibrary.Models.other;
 using hitscord.Utils;
 using Microsoft.AspNetCore.HttpOverrides;
 using hitscord.WebSockets;
-using HitscordLibrary.nClamUtil;
 using Quartz;
+using hitscord.nClamUtil;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<HitsContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("RoomContext")));
 
-builder.Services.AddDbContext<HitscordLibrary.Contexts.TokenContext>(options =>
+builder.Services.AddDbContext<hitscord.Contexts.TokenContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("TokenContext")));
-
-builder.Services.AddDbContext<HitscordLibrary.Contexts.FilesContext>(options =>
-	options.UseNpgsql(builder.Configuration.GetConnectionString("FilesContext")));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -35,7 +29,6 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddHttpClient();
 
-builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IChatService, ChatService>();
@@ -46,13 +39,9 @@ builder.Services.AddScoped<IRolesService, RolesService>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 
 builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("ApiSettings"));
-
-builder.Services.AddSingleton<RabbitMQUtil>();
-
-builder.Services.Configure<OrientDbConfig>(builder.Configuration.GetSection("OrientDb"));
-builder.Services.AddSingleton<OrientDbService>();
 
 builder.Services.Configure<ClamAVOptions>(builder.Configuration.GetSection("ClamAV"));
 builder.Services.AddSingleton<nClamService>();
@@ -83,9 +72,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
 
-    c.AddServer(new OpenApiServer { Url = "/api" });
+	c.AddServer(new OpenApiServer { Url = "/api" });
 
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+	c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme",
         Type = SecuritySchemeType.Http,
@@ -141,6 +130,20 @@ builder.Services.AddQuartz(q =>
 		.ForJob(missingPairNotifierKey)
 		.WithIdentity("MissingPairNotifierJob-trigger")
 		.WithCronSchedule("0 0 22 * * ?"));
+
+	var remMesJob = new JobKey("remMesJob");
+	q.AddJob<RemoveMessagesJob>(opts => opts.WithIdentity(remMesJob));
+    q.AddTrigger(opts => opts
+        .ForJob(remMesJob)
+        .WithIdentity("remMesJob-Trigger")
+        .WithCronSchedule("0 0 0 * * ?"));
+
+	var removeOldFilesKey = new JobKey("removeOldFilesJob");
+	q.AddJob<RemoveOldFilesJob>(opts => opts.WithIdentity(removeOldFilesKey));
+	q.AddTrigger(opts => opts
+		.ForJob(removeOldFilesKey)
+		.WithIdentity("removeOldFiles-trigger")
+		.WithCronSchedule("0 0 * * * ?"));
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
@@ -152,17 +155,8 @@ using (var scope = app.Services.CreateScope())
     var HitsContext = scope.ServiceProvider.GetRequiredService<HitsContext>();
     await HitsContext.Database.MigrateAsync();
 
-    var LogContext = scope.ServiceProvider.GetRequiredService<HitscordLibrary.Contexts.TokenContext>();
+    var LogContext = scope.ServiceProvider.GetRequiredService<hitscord.Contexts.TokenContext>();
     await LogContext.Database.MigrateAsync();
-
-	var FileContext = scope.ServiceProvider.GetRequiredService<HitscordLibrary.Contexts.FilesContext>();
-	await FileContext.Database.MigrateAsync();
-
-	var orientDbService = scope.ServiceProvider.GetRequiredService<OrientDbService>();
-    await orientDbService.EnsureSchemaExistsAsync();
-
-    var bus = app.Services.GetRequiredService<RabbitMQUtil>();
-    bus = new RabbitMQUtil(app.Services);
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

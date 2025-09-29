@@ -2,5 +2,7 @@
 
 public class TextChannelDbModel : ChannelDbModel
 {
-    public required bool IsMessage { get; set; }
+    public required ICollection<ChannelMessageDbModel> Messages { get; set; }
+	public required ICollection<ChannelCanWriteDbModel> ChannelCanWrite { get; set; }
+	public required ICollection<ChannelCanWriteSubDbModel> ChannelCanWriteSub { get; set; }
 }

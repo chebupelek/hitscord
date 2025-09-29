@@ -3,8 +3,8 @@ using hitscord.Models.request;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using hitscord.Models.DTOModels.request;
-using HitscordLibrary.Models.other;
 using hitscord.Services;
+using hitscord.Models.other;
 
 namespace hitscord.Controllers;
 
@@ -24,12 +24,12 @@ public class FilesController : ControllerBase
     [Authorize]
     [HttpGet]
     [Route("item")]
-    public async Task<IActionResult> GetFile([FromQuery] Guid channelId, [FromQuery] Guid FileId)
+    public async Task<IActionResult> GetFile([FromQuery] Guid FileId)
     {
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var file = await _fileService.GetFileAsync(jwtToken, channelId, FileId);
+            var file = await _fileService.GetFileAsync(jwtToken, FileId);
             return Ok(file);
         }
         catch (CustomException ex)
@@ -73,6 +73,27 @@ public class FilesController : ControllerBase
 			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			var file = await _fileService.UploadFileToMessageAsync(jwtToken, data.ChannelId, data.File);
 			return Ok(file);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpDelete]
+	[Route("remove")]
+	public async Task<IActionResult> DeleteMesageFile([FromBody] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _fileService.DeleteNotApprovedFileAsync(jwtToken, data.Id);
+			return Ok();
 		}
 		catch (CustomException ex)
 		{

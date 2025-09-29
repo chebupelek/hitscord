@@ -19,5 +19,10 @@ public class ChatDbModel
     [MaxLength(100)]
     public required string Name { get; set; }
 
-	public List<UserDbModel> Users { get; set; }
+	public ICollection<UserChatDbModel> Users { get; set; }
+	public ICollection<ChatMessageDbModel> Messages { get; set; }
+
+	public Guid? IconFileId { get; set; }
+	[ForeignKey(nameof(IconFileId))]
+	public FileDbModel? IconFile { get; set; }
 }

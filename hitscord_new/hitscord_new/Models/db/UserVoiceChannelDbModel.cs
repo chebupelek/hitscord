@@ -1,5 +1,4 @@
 ﻿using hitscord.Models.other;
-using HitscordLibrary.Models.other;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 

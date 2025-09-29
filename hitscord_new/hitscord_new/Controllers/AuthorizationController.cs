@@ -1,11 +1,8 @@
-﻿using hitscord.IServices;
-using hitscord.Models.request;
+﻿using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.Models.other;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
-using HitscordLibrary.Models.other;
 using Newtonsoft.Json;
 using hitscord.Services;
 
@@ -207,6 +204,28 @@ public class AuthorizationController : ControllerBase
 			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			if (jwtToken == null || jwtToken == "") return Unauthorized();
 			await _authService.ChangeNonFriendAsync(jwtToken);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("settings/notification/lifetime")]
+	public async Task<IActionResult> ChangeNotificationlifetime([FromBody] ChangeNotificationLifetimeDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _authService.ChangeNotificationLifetimeAsync(jwtToken, data.Lifetime);
 			return Ok();
 		}
 		catch (CustomException ex)

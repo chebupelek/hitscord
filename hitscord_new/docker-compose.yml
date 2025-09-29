@@ -1,31 +1,12 @@
 version: '3.9'
 
 services:
-  message:
-    build:
-      context: .
-      dockerfile: Message/Dockerfile
-    depends_on:
-      - postgres
-      - orientdb
-      - rabbitmq
-    environment:
-      - RabbitMq__Host=rabbitmq
-      - ASPNETCORE_URLS=http://+:80
-    restart: unless-stopped
-    ports:
-      - "5001:80"
-    networks:
-      - hitscord_network
-
   hitscord:
     build:
       context: .
       dockerfile: hitscord_new/Dockerfile
     depends_on:
       - postgres
-      - orientdb
-      - rabbitmq
     environment:
       - RabbitMq__Host=rabbitmq
       - ASPNETCORE_URLS=http://+:80
@@ -56,38 +37,6 @@ services:
     networks:
       - hitscord_network
 
-  orientdb:
-    image: orientdb:3.2.12
-    restart: always
-    environment:
-      ORIENTDB_ROOT_PASSWORD: 52XoRCFwqLQ8XsE
-    ports:
-      - "2480:2480"
-      - "2424:2424"
-    volumes:
-      - orientdb_data:/orientdb/databases
-      - orientdb_config:/orientdb/config
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:2480"]
-      interval: 10s
-      retries: 5
-      start_period: 30s
-      timeout: 5s
-    networks:
-      - hitscord_network
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    restart: always
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    networks:
-      - hitscord_network
-
   nginx:
     image: nginx:latest
     restart: unless-stopped
@@ -99,14 +48,11 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - hitscord
-      - message
     networks:
       - hitscord_network
 
 volumes:
   pgdata:
-  orientdb_data:
-  orientdb_config:
 
 networks:
   hitscord_network:

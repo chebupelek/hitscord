@@ -1,20 +1,14 @@
-﻿using Authzed.Api.V0;
-using EasyNetQ;
-using Grpc.Net.Client.Balancer;
-using hitscord.Contexts;
+﻿using hitscord.Contexts;
 using hitscord.IServices;
 using hitscord.Models.db;
 using hitscord.Models.other;
-using hitscord.Models.request;
 using hitscord.Models.response;
-using hitscord.OrientDb.Service;
 using hitscord.WebSockets;
-using HitscordLibrary.Models.other;
-using HitscordLibrary.SocketsModels;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using NickBuhro.Translit;
+using System;
 using System.Data;
-using System.Text.RegularExpressions;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace hitscord.Services;
 
@@ -22,15 +16,15 @@ public class FriendshipService : IFriendshipService
 {
     private readonly HitsContext _hitsContext;
 	private readonly IAuthorizationService _authorizationService;
-	private readonly OrientDbService _orientDbService;
+	private readonly WebSocketsManager _webSocketManager;
 	private readonly INotificationService _notificationsService;
 
-	public FriendshipService(HitsContext hitsContext, IAuthorizationService authorizationService, OrientDbService orientDbService, INotificationService notificationsService)
+	public FriendshipService(HitsContext hitsContext, IAuthorizationService authorizationService, INotificationService notificationsService, WebSocketsManager webSocketManager)
 	{
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
-		_orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_notificationsService = notificationsService ?? throw new ArgumentNullException(nameof(notificationsService));
+		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 	}
 
     public async Task CreateApplicationAsync(string token, string userTag)
@@ -43,13 +37,12 @@ public class FriendshipService : IFriendshipService
 			throw new CustomException("User cant be friend to himself", "CreateApplicationAsync", "Application", 400, "Нельзя создавать заявки для себя самого", "Создание заявки на дружбу");
 		}
 
-		var app = await _hitsContext.Friendship.FirstOrDefaultAsync(f => (f.UserIdFrom == user.Id && f.UserIdTo == friend.Id) || (f.UserIdTo == user.Id && f.UserIdFrom == friend.Id));
-		if (app != null)
+		if (await _hitsContext.FriendshipApplication.FirstOrDefaultAsync(f => (f.UserIdFrom == user.Id && f.UserIdTo == friend.Id) || (f.UserIdTo == user.Id && f.UserIdFrom == friend.Id)) != null)
 		{
 			throw new CustomException("Application already exist", "CreateApplicationAsync", "Application", 400, "Заяввка на дружбу уже существует", "Создание заявки на дружбу");
 		}
 
-		if (await _orientDbService.AreUsersFriendsAsync(user.Id, friend.Id))
+		if (await _hitsContext.Friendship.FirstOrDefaultAsync(f => (f.UserIdFrom == user.Id && f.UserIdTo == friend.Id) || (f.UserIdTo == user.Id && f.UserIdFrom == friend.Id)) != null)
 		{
 			throw new CustomException("Users are friends", "CreateApplicationAsync", "Application", 400, "Пользователи - друзья", "Создание заявки на дружбу");
 		}
@@ -67,56 +60,155 @@ public class FriendshipService : IFriendshipService
 			CreatedAt = DateTime.UtcNow,
 		};
 
-		await _hitsContext.Friendship.AddAsync(application);
+		await _hitsContext.FriendshipApplication.AddAsync(application);
 		await _hitsContext.SaveChangesAsync();
 
-		await _notificationsService.AddNotificationForUserAsync(friend.Id, $"Вам отправил заявку в друзья пользователь: {user.AccountName}");
+		await _hitsContext.Notifications.AddAsync(new NotificationDbModel
+		{
+			UserId = friend.Id,
+			Text = $"Вам пришел запрос для добавления в друзья от пользователя: {user.AccountName}",
+			CreatedAt = DateTime.UtcNow,
+			IsReaded = false
+		});
+		await _hitsContext.SaveChangesAsync();
+
+		var response = new ApplicationsListItem
+		{
+			Id = application.Id,
+			User = new UserResponseDTO
+			{
+				UserId = user.Id,
+				UserName = user.AccountName,
+				UserTag = user.AccountTag,
+				Icon = user.IconFile == null ? null : new FileMetaResponseDTO
+				{
+					FileId = user.IconFile.Id,
+					FileName = user.IconFile.Name,
+					FileType = user.IconFile.Type,
+					FileSize = user.IconFile.Size
+				},
+				Notifiable = user.Notifiable,
+				FriendshipApplication = user.FriendshipApplication,
+				NonFriendMessage = user.NonFriendMessage
+			},
+			CreatedAt = application.CreatedAt
+		};
+		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { friend.Id }, "New friendship application");
 	}
 
 	public async Task DeleteApplicationAsync(string token, Guid applicationId)
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
-		var app = await _hitsContext.Friendship.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdFrom == user.Id);
+		var app = await _hitsContext.FriendshipApplication.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdFrom == user.Id);
 		if (app == null)
 		{
 			throw new CustomException("Application doesnt exist", "DeleteApplicationAsync", "Application", 400, "Заяввка на дружбу не существует", "Удаление заявки на дружбу");
 		}
 
-		_hitsContext.Friendship.Remove(app);
+		_hitsContext.FriendshipApplication.Remove(app);
 		await _hitsContext.SaveChangesAsync();
+
+		var response = new ApplicationsListItem
+		{
+			Id = app.Id,
+			User = new UserResponseDTO
+			{
+				UserId = user.Id,
+				UserName = user.AccountName,
+				UserTag = user.AccountTag,
+				Icon = null,
+				Notifiable = user.Notifiable,
+				FriendshipApplication = user.FriendshipApplication,
+				NonFriendMessage = user.NonFriendMessage
+			},
+			CreatedAt = app.CreatedAt
+		};
+		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdTo }, "Friendship application deleted");
 	}
 
 	public async Task DeclineApplicationAsync(string token, Guid applicationId)
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
-		var app = await _hitsContext.Friendship.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdTo == user.Id);
+		var app = await _hitsContext.FriendshipApplication.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdTo == user.Id);
 		if (app == null)
 		{
 			throw new CustomException("Application doesnt exist", "DeclineApplicationAsync", "Application", 400, "Заяввка на дружбу не существует", "Отклонение заявки на дружбу");
 		}
 
-		_hitsContext.Friendship.Remove(app);
+		_hitsContext.FriendshipApplication.Remove(app);
 		await _hitsContext.SaveChangesAsync();
+
+		var response = new ApplicationsListItem
+		{
+			Id = app.Id,
+			User = new UserResponseDTO
+			{
+				UserId = user.Id,
+				UserName = user.AccountName,
+				UserTag = user.AccountTag,
+				Icon = null,
+				Notifiable = user.Notifiable,
+				FriendshipApplication = user.FriendshipApplication,
+				NonFriendMessage = user.NonFriendMessage
+			},
+			CreatedAt = app.CreatedAt
+		};
+		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdFrom }, "Friendship application declined");
 	}
 
 	public async Task ApproveApplicationAsync(string token, Guid applicationId)
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
-		var app = await _hitsContext.Friendship.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdTo == user.Id);
+		var app = await _hitsContext.FriendshipApplication.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdTo == user.Id);
 		if (app == null)
 		{
 			throw new CustomException("Application doesnt exist", "ApproveApplicationAsync", "Application", 400, "Заяввка на дружбу не существует", "Подтверждение заявки на дружбу");
 		}
 
-		_hitsContext.Friendship.Remove(app);
+		_hitsContext.FriendshipApplication.Remove(app);
+		_hitsContext.Friendship.Add( new FriendshipDbModel
+		{
+			Id = Guid.NewGuid(),
+			UserIdFrom = app.UserIdFrom,
+			UserIdTo = app.UserIdTo,
+			CreatedAt = DateTime.UtcNow
+		});
 		await _hitsContext.SaveChangesAsync();
 
-		await _orientDbService.CreateFriendshipAsync(app.UserIdFrom, app.UserIdTo);
+		await _hitsContext.Notifications.AddAsync(new NotificationDbModel
+		{
+			UserId = app.UserIdFrom,
+			Text = $"Ваше заявление о добавлении в друзья принято пользователем: {user.AccountName}",
+			CreatedAt = DateTime.UtcNow,
+			IsReaded = false
+		});
+		await _hitsContext.SaveChangesAsync();
 
-		await _notificationsService.AddNotificationForUserAsync(app.UserIdFrom, $"Вашу заявку в друзья одобрил пользователь: {user.AccountName}");
+		var response = new ApplicationsListItem
+		{
+			Id = app.Id,
+			User = new UserResponseDTO
+			{
+				UserId = user.Id,
+				UserName = user.AccountName,
+				UserTag = user.AccountTag,
+				Icon = user.IconFile == null ? null : new FileMetaResponseDTO
+				{
+					FileId = user.IconFile.Id,
+					FileName = user.IconFile.Name,
+					FileType = user.IconFile.Type,
+					FileSize = user.IconFile.Size
+				},
+				Notifiable = user.Notifiable,
+				FriendshipApplication = user.FriendshipApplication,
+				NonFriendMessage = user.NonFriendMessage
+			},
+			CreatedAt = app.CreatedAt
+		};
+		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdFrom }, "Friendship application approved");
 	}
 
 	public async Task<ApplicationsList> GetApplicationListTo(string token)
@@ -125,8 +217,9 @@ public class FriendshipService : IFriendshipService
 
 		var applicationsList = new ApplicationsList()
 		{
-			Applications = await _hitsContext.Friendship
+			Applications = await _hitsContext.FriendshipApplication
 				.Include(f => f.UserFrom)
+					.ThenInclude(uf => uf.IconFile)
 				.Where(f => f.UserIdTo == user.Id)
 				.Select(f => new ApplicationsListItem
 				{
@@ -136,7 +229,13 @@ public class FriendshipService : IFriendshipService
 						UserId = f.UserFrom.Id,
 						UserName = f.UserFrom.AccountName,
 						UserTag = f.UserFrom.AccountTag,
-						Mail = f.UserFrom.Mail,
+						Icon = f.UserFrom.IconFile == null ? null : new FileMetaResponseDTO
+						{
+							FileId = f.UserFrom.IconFile.Id,
+							FileName = f.UserFrom.IconFile.Name,
+							FileType = f.UserFrom.IconFile.Type,
+							FileSize = f.UserFrom.IconFile.Size
+						},
 						Notifiable = f.UserFrom.Notifiable,
 						FriendshipApplication = f.UserFrom.FriendshipApplication,
 						NonFriendMessage = f.UserFrom.NonFriendMessage
@@ -157,6 +256,7 @@ public class FriendshipService : IFriendshipService
 		{
 			Applications = await _hitsContext.Friendship
 				.Include(f => f.UserTo)
+					.ThenInclude(ut => ut.IconFile)
 				.Where(f => f.UserIdFrom == user.Id)
 				.Select(f => new ApplicationsListItem
 				{
@@ -166,7 +266,13 @@ public class FriendshipService : IFriendshipService
 						UserId = f.UserTo.Id,
 						UserName = f.UserTo.AccountName,
 						UserTag = f.UserTo.AccountTag,
-						Mail = f.UserTo.Mail,
+						Icon = f.UserTo.IconFile == null ? null : new FileMetaResponseDTO
+						{
+							FileId = f.UserTo.IconFile.Id,
+							FileName = f.UserTo.IconFile.Name,
+							FileType = f.UserTo.IconFile.Type,
+							FileSize = f.UserTo.IconFile.Size
+						},
 						Notifiable = f.UserTo.Notifiable,
 						FriendshipApplication = f.UserTo.FriendshipApplication,
 						NonFriendMessage = f.UserTo.NonFriendMessage
@@ -183,18 +289,27 @@ public class FriendshipService : IFriendshipService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
-		var friendIds = await _orientDbService.GetFriendsByUserIdAsync(user.Id);
-
 		var friendsList = new UsersList()
 		{
-			Users = await _hitsContext.User
-				.Where(u => friendIds.Contains(u.Id))
+			Users = await _hitsContext.Friendship
+				.Include(f => f.UserFrom)
+					.ThenInclude(u => u.IconFile)
+				.Include(f => f.UserTo)
+					.ThenInclude(u => u.IconFile)
+				.Where(f => f.UserIdFrom == user.Id || f.UserIdTo == user.Id)
+				.Select(f => f.UserIdFrom == user.Id ? f.UserTo : f.UserFrom)
 				.Select(u => new UserResponseDTO
 				{
 					UserId = u.Id,
 					UserName = u.AccountName,
 					UserTag = u.AccountTag,
-					Mail = u.Mail,
+					Icon = u.IconFile == null ? null : new FileMetaResponseDTO
+					{
+						FileId = u.IconFile.Id,
+						FileName = u.IconFile.Name,
+						FileType = u.IconFile.Type,
+						FileSize = u.IconFile.Size
+					},
 					Notifiable = u.Notifiable,
 					FriendshipApplication = u.FriendshipApplication,
 					NonFriendMessage = u.NonFriendMessage
@@ -209,12 +324,25 @@ public class FriendshipService : IFriendshipService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
-		var isFriends = await _orientDbService.AreUsersFriendsAsync(user.Id, UserId);
-		if (isFriends == false)
+		var friend = await _hitsContext.Friendship.FirstOrDefaultAsync(f => (f.UserIdFrom == user.Id && f.UserIdTo == UserId) || (f.UserIdTo == user.Id && f.UserIdFrom == UserId));
+		if (friend == null)
 		{
 			throw new CustomException("Users are not friends", "DeleteFriendAsync", "UserId", 404, "Пользователи - не друзья", "Удаление из друзей");
 		}
 
-		await _orientDbService.DeleteFriendshipAsync(user.Id, UserId);
+		_hitsContext.Friendship.Remove(friend);
+		await _hitsContext.SaveChangesAsync();
+
+		var response = new UserResponseDTO
+		{
+			UserId = user.Id,
+			UserName = user.AccountName,
+			UserTag = user.AccountTag,
+			Icon = null,
+			Notifiable = user.Notifiable,
+			FriendshipApplication = user.FriendshipApplication,
+			NonFriendMessage = user.NonFriendMessage
+		};
+		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { friend.UserIdFrom == user.Id ? friend.UserIdTo : friend.UserIdFrom }, "Friendship deleted");
 	}
 }

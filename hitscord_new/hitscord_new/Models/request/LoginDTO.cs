@@ -1,4 +1,4 @@
-﻿using HitscordLibrary.Models.other;
+﻿using hitscord.Models.other;
 using System.Text.RegularExpressions;
 
 namespace hitscord.Models.request;

@@ -3,8 +3,8 @@ using hitscord.Models.request;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using hitscord.Models.DTOModels.request;
-using HitscordLibrary.Models.other;
 using hitscord.Services;
+using hitscord.Models.other;
 
 namespace hitscord.Controllers;
 
@@ -151,13 +151,55 @@ public class ChatController : ControllerBase
 	[Authorize]
 	[HttpGet]
 	[Route("messages")]
-	public async Task<IActionResult> GetMessagesList([FromQuery] Guid chatId, [FromQuery] int number, [FromQuery] int fromStart)
+	public async Task<IActionResult> GetMessagesList([FromQuery] Guid chatId, [FromQuery] int number, [FromQuery] long fromMessageId, [FromQuery] bool down)
 	{
 		try
 		{
 			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var messages = await _chatService.GetChatMessagesAsync(jwtToken, chatId, number, fromStart);
+			var messages = await _chatService.GetChatMessagesAsync(jwtToken, chatId, number, fromMessageId, down);
 			return Ok(messages);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("settings/nonnotifiable")]
+	public async Task<IActionResult> ChangeNonNotifiable([FromBody] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _chatService.ChangeNonNotifiableChatAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("icon")]
+	public async Task<IActionResult> ChangeIconChat([FromForm] ChangeIconChatDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _chatService.ChangeChatIconAsync(jwtToken, data.ChatID, data.Icon);
+			return Ok();
 		}
 		catch (CustomException ex)
 		{

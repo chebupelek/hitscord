@@ -9,4 +9,5 @@ public class VoiceChannelDbModel : ChannelDbModel
 
     public List<UserVoiceChannelDbModel> Users { get; set; }
     public required int MaxCount { get; set; }
+	public required ICollection<ChannelCanJoinDbModel> ChannelCanJoin { get; set; }
 }

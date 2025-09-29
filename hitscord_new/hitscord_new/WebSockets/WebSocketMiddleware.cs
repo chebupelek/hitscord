@@ -1,5 +1,6 @@
-﻿using HitscordLibrary.Models.other;
+﻿
 using hitscord.IServices;
+using hitscord.Models.other;
 
 namespace hitscord.WebSockets;
 

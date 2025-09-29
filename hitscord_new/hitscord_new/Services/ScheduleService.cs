@@ -1,36 +1,18 @@
-﻿using EasyNetQ;
-using Grpc.Core;
-using Grpc.Net.Client.Balancer;
+﻿using Grpc.Core;
+using Grpc.Gateway.ProtocGenOpenapiv2.Options;
 using hitscord.Contexts;
 using hitscord.IServices;
 using hitscord.Models.db;
 using hitscord.Models.inTime;
 using hitscord.Models.other;
-using hitscord.Models.request;
 using hitscord.Models.response;
-using hitscord.OrientDb.Service;
-using hitscord.Utils;
 using hitscord.WebSockets;
-using HitscordLibrary.Contexts;
-using HitscordLibrary.Models;
-using HitscordLibrary.Models.db;
-using HitscordLibrary.Models.other;
-using HitscordLibrary.nClamUtil;
-using HitscordLibrary.SocketsModels;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using nClam;
-using NickBuhro.Translit;
-using System;
 using System.Data;
-using System.Net.Http;
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
-using System.Web;
-using static System.Net.Mime.MediaTypeNames;
+using System.Threading.Channels;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace hitscord.Services;
@@ -39,24 +21,20 @@ public class ScheduleService : IScheduleService
 {
     private readonly HitsContext _hitsContext;
 	private readonly IAuthorizationService _authorizationService;
-    private readonly IServices.IAuthenticationService _authenticationService;
 	private readonly IChannelService _channelService;
 	private readonly IServerService _serverService;
-	private readonly OrientDbService _orientDbService;
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly HttpClient _httpClient;
 	private readonly string _baseUrl;
 	private readonly ILogger<ScheduleService> _logger;
 	private readonly INotificationService _notificationsService;
 
-	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IServices.IAuthenticationService authenticationService, IChannelService channelService, IServerService serverService, OrientDbService orientDbService, WebSocketsManager webSocketManager, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, ILogger<ScheduleService> logger, INotificationService notificationsService)
+	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IChannelService channelService, IServerService serverService, WebSocketsManager webSocketManager, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, ILogger<ScheduleService> logger, INotificationService notificationsService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
-        _authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
-		_orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_httpClient = httpClientFactory.CreateClient();
 		_baseUrl = apiSettings.Value.BaseUrl;
@@ -315,10 +293,28 @@ public class ScheduleService : IScheduleService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 		var pairChannel = await _channelService.CheckPairVoiceChannelExistAsync(pairVoiceChannelId, false);
-		var role = await _authenticationService.CheckSubscriptionExistAsync(pairChannel.ServerId, user.Id);
-		await _authenticationService.CheckUserRightsSeeChannel(pairChannel.Id, user.Id);
 
-		var rights = await _authenticationService.CheckUserRightsCreateLessonsBool(pairChannel.ServerId, user.Id);
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.FirstOrDefaultAsync(us => us.ServerId == pairChannel.ServerId && us.UserId == user.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("User is not subscriber of this server", "GetScheduleOnChannelAsync", "User", 404, "Пользователь не является подписчиком сервера", "Получение расписания канала");
+		}
+		var canSee = ownerSub.SubscribeRoles
+			.SelectMany(sr => sr.Role.ChannelCanSee)
+			.Any(ccs => ccs.ChannelId == pairChannel.Id);
+		if (!canSee)
+		{
+			throw new CustomException("User has no access to see this channel", "GetScheduleOnChannelAsync", "Channel permissions", 403, "У пользователя нет доступа к этому каналу", "Получение расписания канала");
+		}
+
+		var rights = ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateLessons);
+		var roles = ownerSub?.SubscribeRoles
+			.Select(sr => sr.Role)
+			.ToList() ?? new List<RoleDbModel>();
 
 		var schedule = await GetScheduleAsync(Type, Id, dateFrom, dateTo);
 		foreach (var gridPair in schedule.grid)
@@ -334,7 +330,7 @@ public class ScheduleService : IScheduleService
 							.Include(p => p.Roles)
 							.Where(p => p.ScheduleId == schedulePair.id
 								&& p.PairVoiceChannelId == pairChannel.Id 
-								&& (rights || p.Roles.Contains(role)))
+								&& (rights || p.Roles.Any(pr => roles.Contains(pr))))
 							.Select(p => new PairShortDTO
 							{
 								Id = p.Id,
@@ -342,7 +338,17 @@ public class ScheduleService : IScheduleService
 								ServerName = p.Server.Name,
 								PairVoiceChannelId = p.PairVoiceChannelId,
 								PairVoiceChannelName = p.PairVoiceChannel.Name,
-								Roles = p.Roles,
+								Roles = p.Roles
+									.Select(r => new RolesItemDTO
+									{
+										Id = r.Id,
+										ServerId = r.ServerId,
+										Name = r.Name,
+										Tag = r.Tag,
+										Color = r.Color,
+										Type = r.Role
+									})
+									.ToList(),
 								Note = p.Note
 							})
 							.ToListAsync();
@@ -359,9 +365,20 @@ public class ScheduleService : IScheduleService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
-		var role = await _authenticationService.CheckSubscriptionExistAsync(server.Id, user.Id);
 
-		var rights = await _authenticationService.CheckUserRightsCreateLessonsBool(server.Id, user.Id);
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == user.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("User is not subscriber of this server", "GetScheduleOnServerAsync", "User", 404, "Пользователь не является подписчиком сервера", "Получение расписания сервера");
+		}
+
+		var rights = ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateLessons);
+		var roles = ownerSub?.SubscribeRoles
+			.Select(sr => sr.Role)
+			.ToList() ?? new List<RoleDbModel>();
 
 		var schedule = await GetScheduleAsync(Type, Id, dateFrom, dateTo);
 		foreach (var gridPair in schedule.grid)
@@ -377,7 +394,7 @@ public class ScheduleService : IScheduleService
 							.Include(p => p.Roles)
 							.Where(p => p.ScheduleId == schedulePair.id
 								&& p.PairVoiceChannel.ServerId == server.Id
-								&& (rights || p.Roles.Contains(role)))
+								&& (rights || p.Roles.Any(pr => roles.Contains(pr))))
 							.Select(p => new PairShortDTO
 							{
 								Id = p.Id,
@@ -385,7 +402,17 @@ public class ScheduleService : IScheduleService
 								ServerName = p.Server.Name,
 								PairVoiceChannelId = p.PairVoiceChannelId,
 								PairVoiceChannelName = p.PairVoiceChannel.Name,
-								Roles = p.Roles,
+								Roles = p.Roles
+									.Select(r => new RolesItemDTO
+									{
+										Id = r.Id,
+										ServerId = r.ServerId,
+										Name = r.Name,
+										Tag = r.Tag,
+										Color = r.Color,
+										Type = r.Role
+									})
+									.ToList(),
 								Note = p.Note
 							})
 							.ToListAsync();
@@ -402,7 +429,12 @@ public class ScheduleService : IScheduleService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
-		var roles = await _orientDbService.GetUserRolesAsync(user.Id);
+		var roles = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+			.Where(us => us.UserId == user.Id)
+			.SelectMany(us => us.SubscribeRoles.Select(sr => sr.RoleId))
+			.ToListAsync();
+
 		if (roles == null)
 		{
 			roles = new List<Guid>();
@@ -429,7 +461,17 @@ public class ScheduleService : IScheduleService
 								ServerName = p.Server.Name,
 								PairVoiceChannelId = p.PairVoiceChannelId,
 								PairVoiceChannelName = p.PairVoiceChannel.Name,
-								Roles = p.Roles,
+								Roles = p.Roles
+									.Select(r => new RolesItemDTO
+									{
+										Id = r.Id,
+										ServerId = r.ServerId,
+										Name = r.Name,
+										Tag = r.Tag,
+										Color = r.Color,
+										Type = r.Role
+									})
+									.ToList(),
 								Note = p.Note
 							})
 							.ToListAsync();
@@ -447,8 +489,27 @@ public class ScheduleService : IScheduleService
 		var user = await _authorizationService.GetUserAsync(token);
 		var pairChannel = await _channelService.CheckPairVoiceChannelExistAsync(pairVoiceChannelId, false);
 		var server = await _serverService.CheckServerExistAsync(pairChannel.ServerId, false);
-		await _authenticationService.CheckUserRightsSeeChannel(pairChannel.Id, user.Id);
-		await _authenticationService.CheckUserRightsCreateLessons(pairChannel.ServerId, user.Id);
+
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.FirstOrDefaultAsync(us => us.ServerId == pairChannel.ServerId && us.UserId == user.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("User is not subscriber of this server", "CreatePairAsync", "User", 404, "Пользователь не является подписчиком сервера", "Создание занятия");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateLessons) == false)
+		{
+			throw new CustomException("User ihas no rights to create pairs", "CreatePairAsync", "User", 403, "У пользователя нет прав создания занятий", "Создание занятия");
+		}
+		var canSee = ownerSub.SubscribeRoles
+			.SelectMany(sr => sr.Role.ChannelCanSee)
+			.Any(ccs => ccs.ChannelId == pairChannel.Id);
+		if (!canSee)
+		{
+			throw new CustomException("User has no access to see this channel", "CreatePairAsync", "Channel permissions", 403, "У пользователя нет доступа к этому каналу", "Создание занятия");
+		}
 
 		var schedule = await GetScheduleAsync(Type, Id, date, date);
 		var schedulePair = schedule.grid
@@ -465,7 +526,8 @@ public class ScheduleService : IScheduleService
 			throw new CustomException("Pair not found in schedule", "CreatePairAsync", "Schedule id", 404, "Пара не найдена в расписании", "Создание пары");
 		}
 
-		var serverRoles = await _orientDbService.GetServerRolesIdsAsync(pairChannel.ServerId);
+		var serverRoles = await _hitsContext.Role.Where(r => r.ServerId == server.Id).Select(r => r.Id).ToListAsync();
+		var channelRoles = await _hitsContext.ChannelCanJoin.Where(ccj => ccj.VoiceChannelId == pairChannel.Id).Select(ccj => ccj.RoleId).ToListAsync();
 		if (serverRoles != null && serverRoles.Count() > 0)
 		{
 			if (!roleIds.All(roleId => serverRoles.Contains(roleId)))
@@ -473,10 +535,9 @@ public class ScheduleService : IScheduleService
 				throw new CustomException("Wrong roles ids list", "CreatePairAsync", "Roles ids", 400, "Неправильный набор ролей", "Создание пары");
 			}
 
-			var channelRoles = await _orientDbService.GetRolesThatCanJoinVoiceChannelAsync(pairChannel.Id);
 			if (channelRoles != null && channelRoles.Count() > 0)
 			{
-				if (!roleIds.All(id => channelRoles.Any(role => role.Id == id)))
+				if (!roleIds.All(id => channelRoles.Any(role => role == id)))
 				{
 					throw new CustomException("Wrong roles ids list", "CreatePairAsync", "Roles ids", 400, "Неправильный набор ролей", "Создание пары");
 				}
@@ -530,14 +591,24 @@ public class ScheduleService : IScheduleService
 
 		foreach (var role in pair.Roles)
 		{
-			var usersInRole = await _orientDbService.GetUsersByRoleIdAsync(role.Id);
+			var usersInRole = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+				.Where(us => us.SubscribeRoles.Any(sr => sr.RoleId == role.Id))
+				.Select(us => us.UserId)
+				.ToListAsync();
 			foreach (var userId in usersInRole)
 			{
 				roleUserIds.Add(userId);
 			}
 		}
 
-		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pairChannel.Id);
+
+
+		var alertedUsers = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+			.Where(us => us.SubscribeRoles.Any(sr => channelRoles.Contains(sr.RoleId)))
+			.Select(us => us.UserId)
+			.ToListAsync();
 
 		if (alertedUsers != null && alertedUsers.Any())
 		{
@@ -546,7 +617,7 @@ public class ScheduleService : IScheduleService
 			if (targetUsers.Any())
 			{
 				await _webSocketManager.BroadcastMessageAsync(newPairResponse, targetUsers, "New pair on this channel");
-				await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Вам назначили пару на сервере: {server.Name}");
+				//await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Вам назначили пару на сервере: {server.Name}");
 			}
 		}
 	}
@@ -572,10 +643,30 @@ public class ScheduleService : IScheduleService
 		{
 			throw new CustomException("Pair not found", "UpdatePairAsync", "Pair id", 404, "Пара не найдена", "Обновление пары");
 		}
-		await _authenticationService.CheckUserRightsSeeChannel(pair.PairVoiceChannelId, user.Id);
-		await _authenticationService.CheckUserRightsCreateLessons(pair.ServerId, user.Id);
 
-		var serverRoles = await _orientDbService.GetServerRolesIdsAsync(pair.ServerId);
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.FirstOrDefaultAsync(us => us.ServerId == pair.ServerId && us.UserId == user.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("User is not subscriber of this server", "UpdatePairAsync", "User", 404, "Пользователь не является подписчиком сервера", "Обновление пары");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateLessons) == false)
+		{
+			throw new CustomException("User ihas no rights to create pairs", "UpdatePairAsync", "User", 403, "У пользователя нет прав создания занятий", "Обновление пары");
+		}
+		var canSee = ownerSub.SubscribeRoles
+			.SelectMany(sr => sr.Role.ChannelCanSee)
+			.Any(ccs => ccs.ChannelId == pair.PairVoiceChannelId);
+		if (!canSee)
+		{
+			throw new CustomException("User has no access to see this channel", "UpdatePairAsync", "Channel permissions", 403, "У пользователя нет доступа к этому каналу", "Обновление пары");
+		}
+
+		var serverRoles = await _hitsContext.Role.Where(r => r.ServerId == pair.ServerId).Select(r => r.Id).ToListAsync();
+		var channelRoles = await _hitsContext.ChannelCanJoin.Where(ccj => ccj.VoiceChannelId == pair.PairVoiceChannelId).Select(ccj => ccj.RoleId).ToListAsync();
 		if (serverRoles != null && serverRoles.Count() > 0)
 		{
 			if (!roleIds.All(roleId => serverRoles.Contains(roleId)))
@@ -583,10 +674,9 @@ public class ScheduleService : IScheduleService
 				throw new CustomException("Wrong roles ids list", "UpdatePairAsync", "Roles ids", 400, "Неправильный набор ролей", "Обновление пары");
 			}
 
-			var channelRoles = await _orientDbService.GetRolesThatCanJoinVoiceChannelAsync(pair.PairVoiceChannelId);
 			if (channelRoles != null && channelRoles.Count() > 0)
 			{
-				if (!roleIds.All(id => channelRoles.Any(role => role.Id == id)))
+				if (!roleIds.All(id => channelRoles.Any(role => role == id)))
 				{
 					throw new CustomException("Wrong roles ids list", "UpdatePairAsync", "Roles ids", 400, "Неправильный набор ролей", "Обновление пары");
 				}
@@ -627,14 +717,22 @@ public class ScheduleService : IScheduleService
 
 		foreach (var role in pair.Roles)
 		{
-			var usersInRole = await _orientDbService.GetUsersByRoleIdAsync(role.Id);
+			var usersInRole = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+				.Where(us => us.SubscribeRoles.Any(sr => sr.RoleId == role.Id))
+				.Select(us => us.UserId)
+				.ToListAsync();
 			foreach (var userId in usersInRole)
 			{
 				roleUserIds.Add(userId);
 			}
 		}
 
-		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pair.PairVoiceChannel.Id);
+		var alertedUsers = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+			.Where(us => us.SubscribeRoles.Any(sr => channelRoles.Contains(sr.RoleId)))
+			.Select(us => us.UserId)
+			.ToListAsync();
 
 		if (alertedUsers != null && alertedUsers.Any())
 		{
@@ -643,7 +741,7 @@ public class ScheduleService : IScheduleService
 			if (targetUsers.Any())
 			{
 				await _webSocketManager.BroadcastMessageAsync(newPairResponse, alertedUsers, "Updated pair on this channel");
-				await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {updatedPair.Server.Name}");
+				//await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {updatedPair.Server.Name}");
 			}
 		}
 	}
@@ -667,8 +765,27 @@ public class ScheduleService : IScheduleService
 		{
 			throw new CustomException("Pair not found", "DeletePairAsync", "Pair id", 404, "Пара не найдена", "Удаление пары");
 		}
-		await _authenticationService.CheckUserRightsSeeChannel(pair.PairVoiceChannelId, user.Id);
-		await _authenticationService.CheckUserRightsCreateLessons(pair.ServerId, user.Id);
+
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.FirstOrDefaultAsync(us => us.ServerId == pair.ServerId && us.UserId == user.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("User is not subscriber of this server", "DeletePairAsync", "User", 404, "Пользователь не является подписчиком сервера", "Удаление пары");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateLessons) == false)
+		{
+			throw new CustomException("User ihas no rights to create pairs", "DeletePairAsync", "User", 403, "У пользователя нет прав создания занятий", "Удаление пары");
+		}
+		var canSee = ownerSub.SubscribeRoles
+			.SelectMany(sr => sr.Role.ChannelCanSee)
+			.Any(ccs => ccs.ChannelId == pair.PairVoiceChannelId);
+		if (!canSee)
+		{
+			throw new CustomException("User has no access to see this channel", "DeletePairAsync", "Channel permissions", 403, "У пользователя нет доступа к этому каналу", "Удаление пары");
+		}
 
 		var deletedPairResponse = new NewPairResponseDTO
 		{
@@ -690,14 +807,23 @@ public class ScheduleService : IScheduleService
 
 		foreach (var role in pair.Roles)
 		{
-			var usersInRole = await _orientDbService.GetUsersByRoleIdAsync(role.Id);
+			var usersInRole = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+				.Where(us => us.SubscribeRoles.Any(sr => sr.RoleId == role.Id))
+				.Select(us => us.UserId)
+				.ToListAsync();
 			foreach (var userId in usersInRole)
 			{
 				roleUserIds.Add(userId);
 			}
 		}
 
-		var alertedUsers = await _orientDbService.GetUsersThatCanJoinToChannelAsync(pair.PairVoiceChannel.Id);
+		var channelRoles = await _hitsContext.ChannelCanJoin.Where(ccj => ccj.VoiceChannelId == pair.PairVoiceChannelId).Select(ccj => ccj.RoleId).ToListAsync();
+		var alertedUsers = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+			.Where(us => us.SubscribeRoles.Any(sr => channelRoles.Contains(sr.RoleId)))
+			.Select(us => us.UserId)
+			.ToListAsync();
 
 		if (alertedUsers != null && alertedUsers.Any())
 		{
@@ -706,7 +832,7 @@ public class ScheduleService : IScheduleService
 			if (targetUsers.Any())
 			{
 				await _webSocketManager.BroadcastMessageAsync(deletedPairResponse, alertedUsers, "Deleted pair on this channel");
-				await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {pair.Server.Name}");
+				//await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {pair.Server.Name}");
 			}
 		}
 	}
@@ -719,7 +845,27 @@ public class ScheduleService : IScheduleService
 		{
 			throw new CustomException("Pair not found", "GetAttendanceAsync", "Pair id", 404, "Пара не найдена", "Получение посещаемости");
 		}
-		await _authenticationService.CheckUserRightsCheckAttendance(pair.ServerId, user.Id);
+
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.FirstOrDefaultAsync(us => us.ServerId == pair.ServerId && us.UserId == user.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("User is not subscriber of this server", "GetAttendanceAsync", "User", 404, "Пользователь не является подписчиком сервера", "Получение посещаемости");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCheckAttendance) == false)
+		{
+			throw new CustomException("User ihas no rights to create pairs", "GetAttendanceAsync", "User", 403, "У пользователя нет прав создания занятий", "Получение посещаемости");
+		}
+		var canSee = ownerSub.SubscribeRoles
+			.SelectMany(sr => sr.Role.ChannelCanSee)
+			.Any(ccs => ccs.ChannelId == pair.PairVoiceChannelId);
+		if (!canSee)
+		{
+			throw new CustomException("User has no access to see this channel", "GetAttendanceAsync", "Channel permissions", 403, "У пользователя нет доступа к этому каналу", "Получение посещаемости");
+		}
 
 		var attendanceList = new AttendanceListDTO
 		{

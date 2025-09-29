@@ -16,10 +16,18 @@ public class NotificationDbModel
 
 	[Required]
 	public Guid UserId { get; set; }
-
 	[ForeignKey(nameof(UserId))]
 	public UserDbModel User { get; set; }
 
+	[MinLength(1)]
 	public required string Text { get; set; }
 	public required DateTime CreatedAt { get; set; }
+
+	public required bool IsReaded { get; set; }
+
+	public Guid? ServerId { get; set; }
+
+	public Guid? TextChannelId { get; set; }
+
+	public Guid? ChatId { get; set; }
 }

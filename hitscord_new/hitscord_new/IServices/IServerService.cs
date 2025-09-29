@@ -14,8 +14,9 @@ public interface IServerService
     Task UnsubscribeForCreatorAsync(Guid serverId, string token, Guid newCreatorId);
     Task DeleteServerAsync(Guid serverId, string token);
     Task<ServersListDTO> GetServerListAsync(string token);
-    Task ChangeUserRoleAsync(string token, Guid serverId, Guid userId, Guid roleId);
-    Task<ServerInfoDTO> GetServerInfoAsync(string token, Guid serverId);
+    Task AddRoleToUserAsync(string token, Guid serverId, Guid userId, Guid roleId);
+	Task RemoveRoleFromUserAsync(string token, Guid serverId, Guid userId, Guid roleId);
+	Task<ServerInfoDTO> GetServerInfoAsync(string token, Guid serverId);
     Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId, string? banReason);
     Task ChangeServerNameAsync(Guid serverId, string token, string name);
     Task ChangeUserNameAsync(Guid serverId, string token, string name);

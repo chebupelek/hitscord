@@ -3,46 +3,32 @@ using hitscord.IServices;
 using hitscord.Models.db;
 using hitscord.Models.request;
 using hitscord.Models.response;
-using hitscord.Models.other;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using NickBuhro.Translit;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
-using hitscord.OrientDb.Service;
-using HitscordLibrary.Models.other;
 using EasyNetQ;
-using HitscordLibrary.Models.Rabbit;
-using HitscordLibrary.Contexts;
-using HitscordLibrary.Models.db;
-using HitscordLibrary.Models;
-using HitscordLibrary.nClamUtil;
-using Microsoft.AspNetCore.Authorization;
 using nClam;
-using Microsoft.AspNetCore.Mvc;
-using Authzed.Api.V0;
-using System.Drawing;
-using Grpc.Core;
+using hitscord.nClamUtil;
+using hitscord.Models.other;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace hitscord.Services;
 
-public class AuthorizationService : IServices.IAuthorizationService
+public class AuthorizationService : IAuthorizationService
 {
     private readonly HitsContext _hitsContext;
-	private readonly FilesContext _filesContext;
 	private readonly PasswordHasher<string> _passwordHasher;
     private readonly ITokenService _tokenService;
-    private readonly OrientDbService _orientDbService;
 	private readonly nClamService _clamService;
 
-	public AuthorizationService(HitsContext hitsContext, FilesContext filesContext, ITokenService tokenService, OrientDbService orientDbService, nClamService clamService)
+	public AuthorizationService(HitsContext hitsContext, ITokenService tokenService, nClamService clamService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
-		_filesContext = filesContext ?? throw new ArgumentNullException(nameof(filesContext));
 		_passwordHasher = new PasswordHasher<string>();
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
-        _orientDbService = orientDbService ?? throw new ArgumentNullException(nameof(orientDbService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 	}
 
@@ -70,7 +56,7 @@ public class AuthorizationService : IServices.IAuthorizationService
             throw new CustomException("UserId not found", "Profile", "Access token", 404, "Не найден подобный Id пользователя", "Получение профиля");
         }
         Guid userIdGuid = Guid.Parse(userId);
-        var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userIdGuid);
+        var user = await _hitsContext.User.Include(u => u.IconFile).FirstOrDefaultAsync(u => u.Id == userIdGuid);
         if (user == null)
         {
             throw new CustomException("User not found", "Profile", "User", 404, "Пользователь не найден", "Получение профиля");
@@ -80,7 +66,7 @@ public class AuthorizationService : IServices.IAuthorizationService
 
     public async Task<UserDbModel> GetUserAsync(Guid userId)
     {
-        var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await _hitsContext.User.Include(u => u.IconFile).FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null)
         {
             throw new CustomException("User not found", "Get user by id", "User", 404, "Пользователь не найден", "Получение пользователя по Id");
@@ -90,7 +76,7 @@ public class AuthorizationService : IServices.IAuthorizationService
 
 	public async Task<UserDbModel> GetUserByTagAsync(string UserTag)
 	{
-		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.AccountTag == UserTag);
+		var user = await _hitsContext.User.Include(u => u.IconFile).FirstOrDefaultAsync(u => u.AccountTag == UserTag);
 		if (user == null)
 		{
 			throw new CustomException("User not found", "Get user by tag", "User", 404, "Пользователь не найден", "Получение пользователя по тегу");
@@ -100,7 +86,7 @@ public class AuthorizationService : IServices.IAuthorizationService
 
 	public async Task<FileMetaResponseDTO?> GetImageAsync(Guid iconId)
 	{
-		var file = await _filesContext.File.FindAsync(iconId);
+		var file = await _hitsContext.File.FindAsync(iconId);
 		if (file == null)
 			return null;
 
@@ -123,23 +109,30 @@ public class AuthorizationService : IServices.IAuthorizationService
             throw new CustomException("Account with this mail already exist", "Account", "Mail", 400, "Аккаунт с такой почтой уже существует", "Регистрация");
         }
 
-        var count = (await _hitsContext.User.CountAsync() + 1).ToString("D6");
+        var count = (await _hitsContext.User.Select(u => (int?)u.AccountNumber).MaxAsync() ?? 0) + 1;
 
-        var newUser = new UserDbModel
+		string formattedNumber = count.ToString("D6");
+
+		if (formattedNumber.Length > 6)
+		{
+			formattedNumber = formattedNumber.Substring(formattedNumber.Length - 6);
+		}
+
+		var newUser = new UserDbModel
         {
             Mail = registrationData.Mail,
             PasswordHash = _passwordHasher.HashPassword(registrationData.Mail, registrationData.Password),
             AccountName = registrationData.AccountName,
-            AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(registrationData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + count,
-            Notifiable = true,
+            AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(registrationData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + formattedNumber,
+			AccountNumber = count,
+			Notifiable = true,
             FriendshipApplication = true,
-            NonFriendMessage = true
-        };
+            NonFriendMessage = true,
+			NotificationLifeTime = 4
+		};
 
         await _hitsContext.User.AddAsync(newUser);
         _hitsContext.SaveChanges();
-
-        await _orientDbService.AddUserAsync(newUser.Id, newUser.AccountTag);
 
         var tokens = _tokenService.CreateTokens(newUser);
         await _tokenService.ValidateTokenAsync(tokens.AccessToken, tokens.RefreshToken, newUser.Id);
@@ -193,7 +186,7 @@ public class AuthorizationService : IServices.IAuthorizationService
     {
         var user = await GetUserAsync(token);
 
-        var icon = user.IconId == null ? null : await GetImageAsync((Guid)user.IconId);
+        var icon = user.IconFileId == null ? null : await GetImageAsync((Guid)user.IconFileId);
 
         var userData = new ProfileDTO
         {
@@ -205,16 +198,27 @@ public class AuthorizationService : IServices.IAuthorizationService
 			Notifiable = user.Notifiable,
             FriendshipApplication = user.FriendshipApplication,
             NonFriendMessage = user.NonFriendMessage,
-            Icon = icon
-        };
+            Icon = icon,
+			NotificationLifeTime = user.NotificationLifeTime
+		};
 		return userData;
     }
 
     public async Task<ProfileDTO> ChangeProfileAsync(string token, ChangeProfileDTO newData)
     {
         var userData = await GetUserAsync(token);
-        userData.AccountName = newData.Name != null ? newData.Name : userData.AccountName;
-        userData.Mail = newData.Mail != null ? newData.Mail : userData.Mail;
+		if (newData.Name != null)
+		{
+			userData.AccountName = newData.Name;
+
+			string formattedNumber = userData.AccountNumber.ToString("D6");
+			if (formattedNumber.Length > 6)
+			{
+				formattedNumber = formattedNumber.Substring(formattedNumber.Length - 6);
+			}
+			userData.AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(userData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + formattedNumber;
+		}
+		userData.Mail = newData.Mail != null ? newData.Mail : userData.Mail;
         _hitsContext.User.Update(userData);
         await _hitsContext.SaveChangesAsync();
         var newUserData = new ProfileDTO
@@ -226,7 +230,8 @@ public class AuthorizationService : IServices.IAuthorizationService
 			AccontCreateDate = DateOnly.FromDateTime(userData.AccountCreateDate),
 			Notifiable = userData.Notifiable,
 			FriendshipApplication = userData.FriendshipApplication,
-			NonFriendMessage = userData.NonFriendMessage
+			NonFriendMessage = userData.NonFriendMessage,
+			NotificationLifeTime = userData.NotificationLifeTime
 		};
 
 		return newUserData;
@@ -238,8 +243,6 @@ public class AuthorizationService : IServices.IAuthorizationService
 		userData.Notifiable = !userData.Notifiable;
         _hitsContext.User.Update(userData);
         await _hitsContext.SaveChangesAsync();
-
-        await _orientDbService.UpdateUserNotifiableAsync(userData.Id, userData.Notifiable);
 	}
 
 	public async Task ChangeFriendshipAsync(string token)
@@ -248,8 +251,6 @@ public class AuthorizationService : IServices.IAuthorizationService
 		userData.FriendshipApplication = !userData.FriendshipApplication;
 		_hitsContext.User.Update(userData);
 		await _hitsContext.SaveChangesAsync();
-
-		await _orientDbService.UpdateUserFriendshipApplicationAsync(userData.Id, userData.FriendshipApplication);
 	}
 
 	public async Task ChangeNonFriendAsync(string token)
@@ -258,11 +259,17 @@ public class AuthorizationService : IServices.IAuthorizationService
 		userData.NonFriendMessage = !userData.NonFriendMessage;
 		_hitsContext.User.Update(userData);
 		await _hitsContext.SaveChangesAsync();
-
-		await _orientDbService.UpdateUserNonFriendMessageAsync(userData.Id, userData.NonFriendMessage);
 	}
 
-    public async Task<UserResponseDTO> GetUserDataByIdAsync(string token, Guid userId)
+	public async Task ChangeNotificationLifetimeAsync(string token, int time)
+	{
+		var userData = await GetUserAsync(token);
+		userData.NotificationLifeTime = time;
+		_hitsContext.User.Update(userData);
+		await _hitsContext.SaveChangesAsync();
+	}
+
+	public async Task<UserResponseDTO> GetUserDataByIdAsync(string token, Guid userId)
     {
 		var user = await GetUserAsync(token);
         var userById = await GetUserAsync(userId);
@@ -271,7 +278,6 @@ public class AuthorizationService : IServices.IAuthorizationService
             UserId = userId,
             UserName = userById.AccountName,
             UserTag = userById.AccountTag,
-            Mail = userById.Mail,
             Notifiable = userById.Notifiable,
             NonFriendMessage = userById.NonFriendMessage,
             FriendshipApplication = userById.FriendshipApplication
@@ -332,9 +338,9 @@ public class AuthorizationService : IServices.IAuthorizationService
 
 		await File.WriteAllBytesAsync(iconPath, fileBytes);
 
-		if (user.IconId != null)
+		if (user.IconFileId != null)
 		{
-			var oldIcon = await _filesContext.File.FirstOrDefaultAsync(f => f.Id == user.IconId);
+			var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == user.IconFileId);
 			if (oldIcon != null)
 			{
 				var oldIconPath = Path.Combine("wwwroot", oldIcon.Path.TrimStart('/'));
@@ -344,7 +350,7 @@ public class AuthorizationService : IServices.IAuthorizationService
 					File.Delete(oldIconPath);
 				}
 
-				_filesContext.File.Remove(oldIcon);
+				_hitsContext.File.Remove(oldIcon);
 			}
 		}
 
@@ -358,12 +364,13 @@ public class AuthorizationService : IServices.IAuthorizationService
             Creator = user.Id,
             IsApproved = true,
             CreatedAt = DateTime.UtcNow,
+			UserId = user.Id
 		};
 
-		_filesContext.File.Add(file);
-		await _filesContext.SaveChangesAsync();
+		_hitsContext.File.Add(file);
+		await _hitsContext.SaveChangesAsync();
 
-		user.IconId = file.Id;
+		user.IconFileId = file.Id;
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
 

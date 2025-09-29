@@ -3529,26 +3529,6 @@
         "runtime": {
           "lib/netstandard1.3/System.Xml.XDocument.dll": {}
         }
-      },
-      "HitscordLibrary/1.0.0": {
-        "type": "project",
-        "framework": ".NETCoreApp,Version=v8.0",
-        "dependencies": {
-          "EasyNetQ": "7.8.0",
-          "Microsoft.AspNetCore.Authentication.OpenIdConnect": "8.0.0",
-          "Microsoft.EntityFrameworkCore": "8.0.14",
-          "Newtonsoft.Json": "13.0.3",
-          "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.11",
-          "OrientDB-NET.binary": "0.2.1",
-          "SixLabors.ImageSharp": "3.1.8",
-          "nClam": "9.0.0"
-        },
-        "compile": {
-          "bin/placeholder/HitscordLibrary.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/HitscordLibrary.dll": {}
-        }
       }
     }
   },
@@ -10415,11 +10395,6 @@
         "system.xml.xdocument.4.3.0.nupkg.sha512",
         "system.xml.xdocument.nuspec"
       ]
-    },
-    "HitscordLibrary/1.0.0": {
-      "type": "project",
-      "path": "../HitscordLibrary/HitscordLibrary.csproj",
-      "msbuildProject": "../HitscordLibrary/HitscordLibrary.csproj"
     }
   },
   "projectFileDependencyGroups": {
@@ -10427,7 +10402,6 @@
       "Authzed.Net >= 1.3.0",
       "EasyNetQ >= 7.8.0",
       "Grpc.Net.Client >= 2.70.0",
-      "HitscordLibrary >= 1.0.0",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 8.0.0",
       "Microsoft.AspNetCore.Authentication.OpenIdConnect >= 8.0.0",
       "Microsoft.AspNetCore.Mvc.NewtonsoftJson >= 8.0.14",
@@ -10459,11 +10433,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
+      "projectUniqueName": "C:\\Users\\misti\\Desktop\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
       "projectName": "hitscord_new",
-      "projectPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
+      "projectPath": "C:\\Users\\misti\\Desktop\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
       "packagesPath": "C:\\Users\\misti\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\obj\\",
+      "outputPath": "C:\\Users\\misti\\Desktop\\hitscord_new\\hitscord_new\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -10484,11 +10458,7 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
-          "projectReferences": {
-            "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj": {
-              "projectPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\HitscordLibrary\\HitscordLibrary.csproj"
-            }
-          }
+          "projectReferences": {}
         }
       },
       "warningProperties": {
@@ -10642,6 +10612,16 @@
     }
   },
   "logs": [
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "У пакета \"SixLabors.ImageSharp\" 3.1.8 есть известная уязвимость https://github.com/advisories/GHSA-rxmq-m78w-7wmc (уровень серьезности: средний уровень)",
+      "libraryId": "SixLabors.ImageSharp",
+      "targetGraphs": [
+        "net8.0"
+      ]
+    },
     {
       "code": "NU1701",
       "level": "Warning",

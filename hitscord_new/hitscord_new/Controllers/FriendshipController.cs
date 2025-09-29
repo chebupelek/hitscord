@@ -3,7 +3,7 @@ using hitscord.Models.request;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using hitscord.Models.DTOModels.request;
-using HitscordLibrary.Models.other;
+using hitscord.Models.other;
 
 namespace hitscord.Controllers;
 

@@ -10,12 +10,12 @@ public class FriendshipApplicationDbModel
 	public required Guid Id { get; set; }
 
 	[Required]
-	public Guid UserIdFrom { get; set; }
+	public required Guid UserIdFrom { get; set; }
 	[ForeignKey(nameof(UserIdFrom))]
 	public UserDbModel UserFrom { get; set; }
 
 	[Required]
-	public Guid UserIdTo { get; set; }
+	public required Guid UserIdTo { get; set; }
 	[ForeignKey(nameof(UserIdTo))]
 	public UserDbModel UserTo { get; set; }
 

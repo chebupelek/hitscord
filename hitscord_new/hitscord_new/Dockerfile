@@ -8,7 +8,6 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["hitscord_new/hitscord_new.csproj", "hitscord_new/"]
-COPY ["HitscordLibrary/HitscordLibrary.csproj", "HitscordLibrary/"]
 RUN dotnet restore "./hitscord_new/./hitscord_new.csproj"
 COPY . .
 WORKDIR "/src/hitscord_new"

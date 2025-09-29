@@ -1,5 +1,4 @@
-﻿using HitscordLibrary.Models.other;
-
+﻿using hitscord.Models.other;
 namespace hitscord.Models.DTOModels.request;
 
 public class DeleteUserFromServerDTO

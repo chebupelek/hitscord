@@ -1,6 +1,4 @@
-﻿using HitscordLibrary.Models;
-
-namespace hitscord.Models.response;
+﻿namespace hitscord.Models.response;
 
 
 public class UserResponseDTO
@@ -8,7 +6,6 @@ public class UserResponseDTO
 	public required Guid UserId { get; set; }
 	public required string UserName { get; set; }
 	public required string UserTag { get; set; }
-	public required string Mail { get; set; }
 	public FileMetaResponseDTO? Icon { get; set; }
 	public required bool Notifiable { get; set; }
 	public required bool FriendshipApplication { get; set; }

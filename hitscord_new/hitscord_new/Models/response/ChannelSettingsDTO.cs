@@ -1,6 +1,4 @@
-﻿using hitscord.Models.response;
-
-namespace hitscord.Models.response;
+﻿namespace hitscord.Models.response;
 
 public class ChannelSettingsDTO
 {

@@ -1,8 +1,4 @@
 ﻿using Quartz;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Threading.Tasks;
-using System.Diagnostics;
 using hitscord.IServices;
 
 namespace hitscord.Utils;
@@ -23,7 +19,7 @@ public class DailyJobService : IJob
         _logger.LogInformation($"Фоновая задача запущена в {DateTime.UtcNow}");
 		try
         {
-            await _fileService.RemoveFilesFromDBAsync();
+            await _fileService.RemoveNotApprovedFilesFromDBAsync();
 		}
         catch (Exception ex)
         {

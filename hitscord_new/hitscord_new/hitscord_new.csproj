@@ -10,6 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Migrations\Token\**" />
+    <Content Remove="Migrations\Token\**" />
+    <EmbeddedResource Remove="Migrations\Token\**" />
+    <None Remove="Migrations\Token\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Authzed.Net" Version="1.3.0" />
     <PackageReference Include="EasyNetQ" Version="7.8.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.70.0" />
@@ -41,14 +48,6 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.8" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     <PackageReference Include="System.Net.Http.Json" Version="8.0.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\HitscordLibrary\HitscordLibrary.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Migrations\Token\" />
   </ItemGroup>
 
 </Project>

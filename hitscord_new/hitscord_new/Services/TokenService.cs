@@ -5,14 +5,9 @@ using hitscord.Contexts;
 using hitscord.Models.db;
 using hitscord.JwtCreation;
 using hitscord.Models.response;
-using Newtonsoft.Json.Linq;
 using hitscord.Models.other;
 using System;
-using HitscordLibrary.Contexts;
-using HitscordLibrary.Models.db;
-using HitscordLibrary.Models.other;
 using System.Security.Claims;
-using hitscord.OrientDb.Service;
 
 namespace hitscord.Services;
 
@@ -21,14 +16,12 @@ public class TokenService: ITokenService
     private readonly IConfiguration _configuration;
     private readonly TokenContext _tokenContext;
     private readonly HitsContext _hitsContext;
-	private readonly OrientDbService _orientService;
 
-	public TokenService(TokenContext tokenContext, HitsContext hitsContext, IConfiguration configuration, OrientDbService orientService)
+	public TokenService(TokenContext tokenContext, HitsContext hitsContext, IConfiguration configuration)
     {
         _tokenContext = tokenContext ?? throw new ArgumentNullException(nameof(tokenContext));
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _configuration = configuration;
-		_orientService = orientService ?? throw new ArgumentNullException(nameof(orientService));
 	}
 
     public TokensDTO CreateTokens(UserDbModel user)
@@ -172,7 +165,7 @@ public class TokenService: ITokenService
 			throw new CustomException("UserId not found", "Profile", "Access token", 404, "Не найден подобный Id пользователя", "Проверка авторизации");
 		}
 		Guid userIdGuid = Guid.Parse(userId);
-		if (!await _orientService.DoesUserExistAsync(userIdGuid))
+		if ((await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userIdGuid)) == null)
 		{
 			throw new CustomException("User not found", "Profile", "User", 404, "Пользователь не найден", "Проверка авторизации");
 		}

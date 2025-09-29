@@ -3,7 +3,7 @@ using hitscord.Models.request;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using hitscord.Models.DTOModels.request;
-using HitscordLibrary.Models.other;
+using hitscord.Models.other;
 using hitscord.Services;
 
 namespace hitscord.Controllers;
@@ -51,6 +51,27 @@ public class NotificationsController : ControllerBase
 		{
 			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			await _notificationService.DeleteNotificationAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("read")]
+	public async Task<IActionResult> ReadNotification([FromBody] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _notificationService.ReadNotificationAsync(jwtToken, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
