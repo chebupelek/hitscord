@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\misti\\Desktop\\hitscord_new\\hitscord_new\\hitscord_new.csproj": {}
+    "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\hitscord_new.csproj": {}
   },
   "projects": {
-    "C:\\Users\\misti\\Desktop\\hitscord_new\\hitscord_new\\hitscord_new.csproj": {
+    "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\hitscord_new.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\misti\\Desktop\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
+        "projectUniqueName": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
         "projectName": "hitscord_new",
-        "projectPath": "C:\\Users\\misti\\Desktop\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
+        "projectPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\hitscord_new.csproj",
         "packagesPath": "C:\\Users\\misti\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\misti\\Desktop\\hitscord_new\\hitscord_new\\obj\\",
+        "outputPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
