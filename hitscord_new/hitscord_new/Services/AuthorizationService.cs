@@ -207,6 +207,11 @@ public class AuthorizationService : IAuthorizationService
     public async Task<ProfileDTO> ChangeProfileAsync(string token, ChangeProfileDTO newData)
     {
         var userData = await GetUserAsync(token);
+		if (newData.Mail != null)
+		{
+			var existEmail = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id != userData.Id && u.Mail == newData.Mail);
+			throw new CustomException("Account with this mail already exist", "Account", "Mail", 400, "Аккаунт с такой почтой уже существует", "Изменение информации о пользователе");
+		}
 		if (newData.Name != null)
 		{
 			userData.AccountName = newData.Name;
