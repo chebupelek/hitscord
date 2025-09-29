@@ -199,18 +199,18 @@ public class ServerService : IServerService
 		};
 		foreach (var item in new[]
 		{
-			new ChannelCanSeeDbModel { ChannelId = newTextChannel.Id, RoleId = creatorRole.Id },
-			new ChannelCanSeeDbModel { ChannelId = newTextChannel.Id, RoleId = adminRole.Id },
-			new ChannelCanSeeDbModel { ChannelId = newTextChannel.Id, RoleId = uncertainRole.Id }
+			new ChannelCanSeeDbModel { ChannelId = newVoiceChannel.Id, RoleId = creatorRole.Id },
+			new ChannelCanSeeDbModel { ChannelId = newVoiceChannel.Id, RoleId = adminRole.Id },
+			new ChannelCanSeeDbModel { ChannelId = newVoiceChannel.Id, RoleId = uncertainRole.Id }
 		})
 		{
 			newVoiceChannel.ChannelCanSee.Add(item);
 		}
 		foreach (var item in new[]
 		{
-			new ChannelCanJoinDbModel { VoiceChannelId = newTextChannel.Id, RoleId = creatorRole.Id },
-			new ChannelCanJoinDbModel { VoiceChannelId = newTextChannel.Id, RoleId = adminRole.Id },
-			new ChannelCanJoinDbModel { VoiceChannelId = newTextChannel.Id, RoleId = uncertainRole.Id }
+			new ChannelCanJoinDbModel { VoiceChannelId = newVoiceChannel.Id, RoleId = creatorRole.Id },
+			new ChannelCanJoinDbModel { VoiceChannelId = newVoiceChannel.Id, RoleId = adminRole.Id },
+			new ChannelCanJoinDbModel { VoiceChannelId = newVoiceChannel.Id, RoleId = uncertainRole.Id }
 		})
 		{
 			newVoiceChannel.ChannelCanJoin.Add(item);
