@@ -171,6 +171,7 @@ public class ChatService : IChatService
 		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
+			//заменить дбшную модель
 			await _webSocketManager.BroadcastMessageAsync(chat, alertedUsers, "New chat name");
 		}
 	}
@@ -178,7 +179,7 @@ public class ChatService : IChatService
 	public async Task<ChatListDTO> GetChatsListAsync(string token)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
-		
+
 		var lastReads = await _hitsContext.LastReadChatMessage
 			.Include(lr => lr.Chat)
 				.ThenInclude(c => c.Users)
@@ -187,42 +188,36 @@ public class ChatService : IChatService
 
 		var lastReadsDict = lastReads.ToDictionary(lr => lr.ChatId, lr => lr.LastReadedMessageId);
 
-		var chatList = new ChatListDTO
-		{
-			ChatsList = await _hitsContext.Chat
-				.Include(c => c.Users)
-					.ThenInclude(uc => uc.User)
-				.Include(c => c.Messages)
-				.Include(c => c.IconFile)
-				.Where(c => c.Users.Any(u => u.UserId == owner.Id))
-				.Select(c => new
-				{
-					Chat = c,
-					LastReadId = lastReadsDict.ContainsKey(c.Id) ? lastReadsDict[c.Id] : 0,
-					Messages = c.Messages
-						.Where(m => m.Id > (lastReadsDict.ContainsKey(c.Id) ? lastReadsDict[c.Id] : 0))
-				})
-				.Select(ch => new ChatListItemDTO
-				{
-					ChatId = ch.Chat.Id,
-					ChatName = ch.Chat.Name,
-					NonReadedCount = ch.Messages.Count(),
-					NonReadedTaggedCount = ch.Messages.Count(m =>
-						m.TaggedUsers.Contains(owner.Id)
-					),
-					LastReadedMessageId = ch.LastReadId,
-					Icon = ch.Chat.IconFile != null ? new FileMetaResponseDTO
-					{
-						FileId = ch.Chat.IconFile.Id,
-						FileName = ch.Chat.IconFile.Name,
-						FileType = ch.Chat.IconFile.Type,
-						FileSize = ch.Chat.IconFile.Size
-					} : null
-				})
-				.ToListAsync()
-		};
+		var chats = await _hitsContext.Chat
+			.Include(c => c.Users).ThenInclude(uc => uc.User)
+			.Include(c => c.Messages)
+			.Include(c => c.IconFile)
+			.Where(c => c.Users.Any(u => u.UserId == owner.Id))
+			.ToListAsync();
 
-		return chatList;
+		var chatListItems = chats.Select(c =>
+		{
+			var lastReadId = lastReadsDict.ContainsKey(c.Id) ? lastReadsDict[c.Id] : 0;
+			var nonReadedMessages = c.Messages.Where(m => m.Id > lastReadId).ToList();
+
+			return new ChatListItemDTO
+			{
+				ChatId = c.Id,
+				ChatName = c.Name,
+				NonReadedCount = nonReadedMessages.Count,
+				NonReadedTaggedCount = nonReadedMessages.Count(m => m.TaggedUsers.Contains(owner.Id)),
+				LastReadedMessageId = lastReadId,
+				Icon = c.IconFile != null ? new FileMetaResponseDTO
+				{
+					FileId = c.IconFile.Id,
+					FileName = c.IconFile.Name,
+					FileType = c.IconFile.Type,
+					FileSize = c.IconFile.Size
+				} : null
+			};
+		}).ToList();
+
+		return new ChatListDTO { ChatsList = chatListItems };
 	}
 
 	public async Task<ChatInfoDTO> GetChatInfoAsync(string token, Guid chatId)
