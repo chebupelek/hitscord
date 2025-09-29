@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using hitscord.Contexts;
@@ -12,9 +13,11 @@ using hitscord.Contexts;
 namespace hitscord_new.Migrations
 {
     [DbContext(typeof(HitsContext))]
-    partial class HitsContextModelSnapshot : ModelSnapshot
+    [Migration("20250929083152_NewWorld")]
+    partial class NewWorld
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -258,12 +261,17 @@ namespace hitscord_new.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("IconFileId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IconFileId");
 
                     b.ToTable("Chat");
                 });
@@ -367,6 +375,9 @@ namespace hitscord_new.Migrations
                     b.Property<long?>("ChannelMessageId")
                         .HasColumnType("bigint");
 
+                    b.Property<Guid?>("ChatIcId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("ChatId")
                         .HasColumnType("uuid");
 
@@ -407,6 +418,8 @@ namespace hitscord_new.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ChatIcId");
 
                     b.HasIndex("ServerId")
                         .IsUnique();
@@ -1206,6 +1219,15 @@ namespace hitscord_new.Migrations
                     b.Navigation("Vote");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.ChatDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.FileDbModel", "IconFile")
+                        .WithMany()
+                        .HasForeignKey("IconFileId");
+
+                    b.Navigation("IconFile");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.ChatMessageDbModel", b =>
                 {
                     b.HasOne("hitscord.Models.db.UserDbModel", "Author")
@@ -1257,6 +1279,10 @@ namespace hitscord_new.Migrations
 
             modelBuilder.Entity("hitscord.Models.db.FileDbModel", b =>
                 {
+                    b.HasOne("hitscord.Models.db.ChatDbModel", "Chat")
+                        .WithMany()
+                        .HasForeignKey("ChatIcId");
+
                     b.HasOne("hitscord.Models.db.ServerDbModel", "Server")
                         .WithOne("IconFile")
                         .HasForeignKey("hitscord.Models.db.FileDbModel", "ServerId")
@@ -1278,6 +1304,8 @@ namespace hitscord_new.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("ChannelMessage");
+
+                    b.Navigation("Chat");
 
                     b.Navigation("ChatMessage");
 

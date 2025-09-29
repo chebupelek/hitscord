@@ -244,14 +244,6 @@ namespace hitscord.Contexts
 					.IsRequired();
 			});
 
-			modelBuilder.Entity<ChatDbModel>(entity =>
-			{
-				entity.HasOne(u => u.IconFile)
-					.WithOne(f => f.Chat)
-					.HasForeignKey<FileDbModel>(f => f.ChatIcId)
-					.OnDelete(DeleteBehavior.Cascade);
-			});
-
 			modelBuilder.Entity<UserChatDbModel>(entity =>
 			{
 				entity.HasKey(e => new { e.UserId, e.ChatId });

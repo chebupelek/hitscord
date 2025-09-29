@@ -13,18 +13,6 @@ namespace hitscord_new.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "Chat",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Chat", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Server",
                 columns: table => new
                 {
@@ -92,42 +80,6 @@ namespace hitscord_new.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ChatMessage",
-                columns: table => new
-                {
-                    Id = table.Column<long>(type: "bigint", nullable: false),
-                    ChatId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    AuthorId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ReplyToMessageId = table.Column<long>(type: "bigint", nullable: true),
-                    DeleteTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    TaggedUsers = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
-                    MessageType = table.Column<string>(type: "character varying(21)", maxLength: 21, nullable: false),
-                    Title = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: true),
-                    Content = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: true),
-                    IsAnonimous = table.Column<bool>(type: "boolean", nullable: true),
-                    Multiple = table.Column<bool>(type: "boolean", nullable: true),
-                    Deadline = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    Text = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: true),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ChatMessage", x => new { x.Id, x.ChatId });
-                    table.ForeignKey(
-                        name: "FK_ChatMessage_Chat_ChatId",
-                        column: x => x.ChatId,
-                        principalTable: "Chat",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_ChatMessage_User_AuthorId",
-                        column: x => x.AuthorId,
-                        principalTable: "User",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Friendship",
                 columns: table => new
                 {
@@ -174,31 +126,6 @@ namespace hitscord_new.Migrations
                     table.ForeignKey(
                         name: "FK_FriendshipApplication_User_UserIdTo",
                         column: x => x.UserIdTo,
-                        principalTable: "User",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "LastReadChatMessage",
-                columns: table => new
-                {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ChatId = table.Column<Guid>(type: "uuid", nullable: false),
-                    LastReadedMessageId = table.Column<long>(type: "bigint", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_LastReadChatMessage", x => new { x.UserId, x.ChatId });
-                    table.ForeignKey(
-                        name: "FK_LastReadChatMessage_Chat_ChatId",
-                        column: x => x.ChatId,
-                        principalTable: "Chat",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_LastReadChatMessage_User_UserId",
-                        column: x => x.UserId,
                         principalTable: "User",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -256,31 +183,6 @@ namespace hitscord_new.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "UserChat",
-                columns: table => new
-                {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ChatId = table.Column<Guid>(type: "uuid", nullable: false),
-                    NonNotifiable = table.Column<bool>(type: "boolean", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UserChat", x => new { x.UserId, x.ChatId });
-                    table.ForeignKey(
-                        name: "FK_UserChat_Chat_ChatId",
-                        column: x => x.ChatId,
-                        principalTable: "Chat",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_UserChat_User_UserId",
-                        column: x => x.UserId,
-                        principalTable: "User",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "UserServer",
                 columns: table => new
                 {
@@ -311,27 +213,6 @@ namespace hitscord_new.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ChatVoteVariant",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Number = table.Column<int>(type: "integer", nullable: false),
-                    Content = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: false),
-                    VoteId = table.Column<long>(type: "bigint", nullable: false),
-                    ChatId = table.Column<Guid>(type: "uuid", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ChatVoteVariant", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_ChatVoteVariant_ChatMessage_VoteId_ChatId",
-                        columns: x => new { x.VoteId, x.ChatId },
-                        principalTable: "ChatMessage",
-                        principalColumns: new[] { "Id", "ChatId" },
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "SubscribeRole",
                 columns: table => new
                 {
@@ -351,31 +232,6 @@ namespace hitscord_new.Migrations
                         name: "FK_SubscribeRole_UserServer_UserServerId",
                         column: x => x.UserServerId,
                         principalTable: "UserServer",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "ChatVariantUser",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    VariantId = table.Column<Guid>(type: "uuid", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ChatVariantUser", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_ChatVariantUser_ChatVoteVariant_VariantId",
-                        column: x => x.VariantId,
-                        principalTable: "ChatVoteVariant",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_ChatVariantUser_User_UserId",
-                        column: x => x.UserId,
-                        principalTable: "User",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -715,54 +571,6 @@ namespace hitscord_new.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "File",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Path = table.Column<string>(type: "text", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    Type = table.Column<string>(type: "text", nullable: false),
-                    Size = table.Column<long>(type: "bigint", nullable: false),
-                    Creator = table.Column<Guid>(type: "uuid", nullable: false),
-                    IsApproved = table.Column<bool>(type: "boolean", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: true),
-                    ServerId = table.Column<Guid>(type: "uuid", nullable: true),
-                    ChannelMessageId = table.Column<long>(type: "bigint", nullable: true),
-                    TextChannelId = table.Column<Guid>(type: "uuid", nullable: true),
-                    ChatMessageId = table.Column<long>(type: "bigint", nullable: true),
-                    ChatId = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_File", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_File_ChannelMessage_ChannelMessageId_TextChannelId",
-                        columns: x => new { x.ChannelMessageId, x.TextChannelId },
-                        principalTable: "ChannelMessage",
-                        principalColumns: new[] { "Id", "TextChannelId" },
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_File_ChatMessage_ChatMessageId_ChatId",
-                        columns: x => new { x.ChatMessageId, x.ChatId },
-                        principalTable: "ChatMessage",
-                        principalColumns: new[] { "Id", "ChatId" },
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_File_Server_ServerId",
-                        column: x => x.ServerId,
-                        principalTable: "Server",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_File_User_UserId",
-                        column: x => x.UserId,
-                        principalTable: "User",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "PairDbModelRoleDbModel",
                 columns: table => new
                 {
@@ -839,6 +647,205 @@ namespace hitscord_new.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "Chat",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    IconFileId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Chat", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ChatMessage",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false),
+                    ChatId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    AuthorId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ReplyToMessageId = table.Column<long>(type: "bigint", nullable: true),
+                    DeleteTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    TaggedUsers = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
+                    MessageType = table.Column<string>(type: "character varying(21)", maxLength: 21, nullable: false),
+                    Title = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: true),
+                    Content = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: true),
+                    IsAnonimous = table.Column<bool>(type: "boolean", nullable: true),
+                    Multiple = table.Column<bool>(type: "boolean", nullable: true),
+                    Deadline = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Text = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatMessage", x => new { x.Id, x.ChatId });
+                    table.ForeignKey(
+                        name: "FK_ChatMessage_Chat_ChatId",
+                        column: x => x.ChatId,
+                        principalTable: "Chat",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_ChatMessage_User_AuthorId",
+                        column: x => x.AuthorId,
+                        principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LastReadChatMessage",
+                columns: table => new
+                {
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ChatId = table.Column<Guid>(type: "uuid", nullable: false),
+                    LastReadedMessageId = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LastReadChatMessage", x => new { x.UserId, x.ChatId });
+                    table.ForeignKey(
+                        name: "FK_LastReadChatMessage_Chat_ChatId",
+                        column: x => x.ChatId,
+                        principalTable: "Chat",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_LastReadChatMessage_User_UserId",
+                        column: x => x.UserId,
+                        principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserChat",
+                columns: table => new
+                {
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ChatId = table.Column<Guid>(type: "uuid", nullable: false),
+                    NonNotifiable = table.Column<bool>(type: "boolean", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserChat", x => new { x.UserId, x.ChatId });
+                    table.ForeignKey(
+                        name: "FK_UserChat_Chat_ChatId",
+                        column: x => x.ChatId,
+                        principalTable: "Chat",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UserChat_User_UserId",
+                        column: x => x.UserId,
+                        principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ChatVoteVariant",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Number = table.Column<int>(type: "integer", nullable: false),
+                    Content = table.Column<string>(type: "character varying(5000)", maxLength: 5000, nullable: false),
+                    VoteId = table.Column<long>(type: "bigint", nullable: false),
+                    ChatId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatVoteVariant", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ChatVoteVariant_ChatMessage_VoteId_ChatId",
+                        columns: x => new { x.VoteId, x.ChatId },
+                        principalTable: "ChatMessage",
+                        principalColumns: new[] { "Id", "ChatId" },
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "File",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Path = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    Type = table.Column<string>(type: "text", nullable: false),
+                    Size = table.Column<long>(type: "bigint", nullable: false),
+                    Creator = table.Column<Guid>(type: "uuid", nullable: false),
+                    IsApproved = table.Column<bool>(type: "boolean", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: true),
+                    ServerId = table.Column<Guid>(type: "uuid", nullable: true),
+                    ChannelMessageId = table.Column<long>(type: "bigint", nullable: true),
+                    TextChannelId = table.Column<Guid>(type: "uuid", nullable: true),
+                    ChatMessageId = table.Column<long>(type: "bigint", nullable: true),
+                    ChatId = table.Column<Guid>(type: "uuid", nullable: true),
+                    ChatIcId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_File", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_File_ChannelMessage_ChannelMessageId_TextChannelId",
+                        columns: x => new { x.ChannelMessageId, x.TextChannelId },
+                        principalTable: "ChannelMessage",
+                        principalColumns: new[] { "Id", "TextChannelId" },
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_File_ChatMessage_ChatMessageId_ChatId",
+                        columns: x => new { x.ChatMessageId, x.ChatId },
+                        principalTable: "ChatMessage",
+                        principalColumns: new[] { "Id", "ChatId" },
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_File_Chat_ChatIcId",
+                        column: x => x.ChatIcId,
+                        principalTable: "Chat",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_File_Server_ServerId",
+                        column: x => x.ServerId,
+                        principalTable: "Server",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_File_User_UserId",
+                        column: x => x.UserId,
+                        principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ChatVariantUser",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    VariantId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatVariantUser", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ChatVariantUser_ChatVoteVariant_VariantId",
+                        column: x => x.VariantId,
+                        principalTable: "ChatVoteVariant",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ChatVariantUser_User_UserId",
+                        column: x => x.UserId,
+                        principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_Channel_ChannelMessageId_TextChannelId",
                 table: "Channel",
@@ -906,6 +913,11 @@ namespace hitscord_new.Migrations
                 columns: new[] { "VoteId", "TextChannelId" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Chat_IconFileId",
+                table: "Chat",
+                column: "IconFileId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ChatMessage_AuthorId",
                 table: "ChatMessage",
                 column: "AuthorId");
@@ -934,6 +946,11 @@ namespace hitscord_new.Migrations
                 name: "IX_File_ChannelMessageId_TextChannelId",
                 table: "File",
                 columns: new[] { "ChannelMessageId", "TextChannelId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_File_ChatIcId",
+                table: "File",
+                column: "ChatIcId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_File_ChatMessageId_ChatId",
@@ -1072,6 +1089,13 @@ namespace hitscord_new.Migrations
                 principalTable: "ChannelMessage",
                 principalColumns: new[] { "Id", "TextChannelId" },
                 onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Chat_File_IconFileId",
+                table: "Chat",
+                column: "IconFileId",
+                principalTable: "File",
+                principalColumn: "Id");
         }
 
         /// <inheritdoc />
@@ -1080,6 +1104,26 @@ namespace hitscord_new.Migrations
             migrationBuilder.DropForeignKey(
                 name: "FK_Channel_ChannelMessage_ChannelMessageId_TextChannelId",
                 table: "Channel");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_File_ChannelMessage_ChannelMessageId_TextChannelId",
+                table: "File");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_File_Server_ServerId",
+                table: "File");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_ChatMessage_User_AuthorId",
+                table: "ChatMessage");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_File_User_UserId",
+                table: "File");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Chat_File_IconFileId",
+                table: "Chat");
 
             migrationBuilder.DropTable(
                 name: "ChannelCanJoin");
@@ -1104,9 +1148,6 @@ namespace hitscord_new.Migrations
 
             migrationBuilder.DropTable(
                 name: "ChatVariantUser");
-
-            migrationBuilder.DropTable(
-                name: "File");
 
             migrationBuilder.DropTable(
                 name: "Friendship");
@@ -1157,12 +1198,6 @@ namespace hitscord_new.Migrations
                 name: "Role");
 
             migrationBuilder.DropTable(
-                name: "ChatMessage");
-
-            migrationBuilder.DropTable(
-                name: "Chat");
-
-            migrationBuilder.DropTable(
                 name: "ChannelMessage");
 
             migrationBuilder.DropTable(
@@ -1176,6 +1211,15 @@ namespace hitscord_new.Migrations
 
             migrationBuilder.DropTable(
                 name: "User");
+
+            migrationBuilder.DropTable(
+                name: "File");
+
+            migrationBuilder.DropTable(
+                name: "ChatMessage");
+
+            migrationBuilder.DropTable(
+                name: "Chat");
         }
     }
 }
