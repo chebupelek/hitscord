@@ -911,59 +911,68 @@ public class ServerService : IServerService
 			})
 			.ToListAsync();
 
-		var textChannelResponses = await _hitsContext.TextChannel
+		var textChannels = await _hitsContext.TextChannel
 			.Include(t => t.ChannelCanSee)
 			.Include(t => t.ChannelCanWrite)
 			.Include(t => t.ChannelCanWriteSub)
-			.Select(t => new
-			{
-				Channel = t,
-				LastReadId = lastReadsDict.ContainsKey(t.Id) ? lastReadsDict[t.Id] : 0,
-				Messages = t.Messages
-					.Where(m => m.Id > (lastReadsDict.ContainsKey(t.Id) ? lastReadsDict[t.Id] : 0))
-			})
-			.Select(tc => new TextChannelResponseDTO
-			{
-				ChannelName = tc.Channel.Name,
-				ChannelId = tc.Channel.Id,
-				CanWrite = tc.Channel.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
-				CanWriteSub = tc.Channel.ChannelCanWriteSub.Any(ccws => userRoleIds.Contains(ccws.RoleId)),
-				IsNotifiable = nonNotifiableChannelsList.Contains(tc.Channel.Id),
-				NonReadedCount = tc.Messages.Count(),
-				NonReadedTaggedCount = tc.Messages.Count(m =>
-					m.TaggedUsers.Contains(user.Id) ||
-					m.TaggedRoles.Any(rid => userRoleIds.Contains(rid))
-				),
-				LastReadedMessageId = tc.LastReadId
-			})
+			.Include(t => t.Messages)
+			.Where(t => t.ServerId == server.Id)
 			.ToListAsync();
 
-		var notificationChannelResponses = await _hitsContext.NotificationChannel
+		var textChannelResponses = textChannels
+			.Select(t =>
+			{
+				var lastReadId = lastReadsDict.TryGetValue(t.Id, out var lr) ? lr : 0;
+				var messages = t.Messages.Where(m => m.Id > lastReadId);
+
+				return new TextChannelResponseDTO
+				{
+					ChannelName = t.Name,
+					ChannelId = t.Id,
+					CanWrite = t.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
+					CanWriteSub = t.ChannelCanWriteSub.Any(ccws => userRoleIds.Contains(ccws.RoleId)),
+					IsNotifiable = nonNotifiableChannelsList.Contains(t.Id),
+					NonReadedCount = messages.Count(),
+					NonReadedTaggedCount = messages.Count(m =>
+						m.TaggedUsers.Contains(user.Id) ||
+						m.TaggedRoles.Any(rid => userRoleIds.Contains(rid))
+					),
+					LastReadedMessageId = lastReadId
+				};
+			})
+			.ToList();
+
+
+		var notificationChannels = await _hitsContext.NotificationChannel
 			.Include(n => n.ChannelCanSee)
 			.Include(n => n.ChannelCanWrite)
 			.Include(n => n.ChannelNotificated)
-			.Select(t => new
-			{
-				Channel = t,
-				LastReadId = lastReadsDict.ContainsKey(t.Id) ? lastReadsDict[t.Id] : 0,
-				Messages = t.Messages
-					.Where(m => m.Id > (lastReadsDict.ContainsKey(t.Id) ? lastReadsDict[t.Id] : 0))
-			})
-			.Select(tc => new NotificationChannelResponseDTO
-			{
-				ChannelName = tc.Channel.Name,
-				ChannelId = tc.Channel.Id,
-				CanWrite = tc.Channel.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
-				IsNotificated = tc.Channel.ChannelNotificated.Any(cn => userRoleIds.Contains(cn.RoleId)),
-				IsNotifiable = nonNotifiableChannelsList.Contains(tc.Channel.Id),
-				NonReadedCount = tc.Messages.Count(),
-				NonReadedTaggedCount = tc.Messages.Count(m =>
-					m.TaggedUsers.Contains(user.Id) ||
-					m.TaggedRoles.Any(rid => userRoleIds.Contains(rid))
-				),
-				LastReadedMessageId = tc.LastReadId
-			})
+			.Include(n => n.Messages)
+			.Where(n => n.ServerId == server.Id)
 			.ToListAsync();
+
+		var notificationChannelResponses = notificationChannels
+			.Select(n =>
+			{
+				var lastReadId = lastReadsDict.TryGetValue(n.Id, out var lr) ? lr : 0;
+				var messages = n.Messages.Where(m => m.Id > lastReadId);
+
+				return new NotificationChannelResponseDTO
+				{
+					ChannelName = n.Name,
+					ChannelId = n.Id,
+					CanWrite = n.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
+					IsNotificated = n.ChannelNotificated.Any(cn => userRoleIds.Contains(cn.RoleId)),
+					IsNotifiable = nonNotifiableChannelsList.Contains(n.Id),
+					NonReadedCount = messages.Count(),
+					NonReadedTaggedCount = messages.Count(m =>
+						m.TaggedUsers.Contains(user.Id) ||
+						m.TaggedRoles.Any(rid => userRoleIds.Contains(rid))
+					),
+					LastReadedMessageId = lastReadId
+				};
+			})
+			.ToList();
 
 		var serverUsers = await _hitsContext.UserServer
 			.Include(us => us.User)
