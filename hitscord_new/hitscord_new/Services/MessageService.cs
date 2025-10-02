@@ -501,6 +501,23 @@ public class MessageService : IMessageService
 		{
 			await _webSocketManager.BroadcastMessageAsync(response, notifiedUsers, "User notified");
 		}
+
+		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Id && lr.UserId == user.Id);
+		if (lastRead == null)
+		{
+			await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
+			{
+				UserId = user.Id,
+				TextChannelId = channel.Id,
+				LastReadedMessageId = newMessage.Id
+			});
+		}
+		else
+		{
+			lastRead.LastReadedMessageId = newMessage.Id;
+			_hitsContext.LastReadChannelMessage.Update(lastRead);
+			await _hitsContext.SaveChangesAsync();
+		}
 	}
 
 	public async Task UpdateMessageWebsocketAsync(long messageId, Guid channelId, string token, string text)
@@ -879,6 +896,23 @@ public class MessageService : IMessageService
 		if (notifiedUsers != null && notifiedUsers.Count() > 0)
 		{
 			await _webSocketManager.BroadcastMessageAsync(response, notifiedUsers, "User notified in chat");
+		}
+
+		var lastRead = await _hitsContext.LastReadChatMessage.FirstOrDefaultAsync(lr => lr.ChatId == chat.Id && lr.UserId == user.Id);
+		if (lastRead == null)
+		{
+			await _hitsContext.LastReadChatMessage.AddAsync(new LastReadChatMessageDbModel
+			{
+				UserId = user.Id,
+				ChatId = chat.Id,
+				LastReadedMessageId = newMessage.Id
+			});
+		}
+		else
+		{
+			lastRead.LastReadedMessageId = newMessage.Id;
+			_hitsContext.LastReadChatMessage.Update(lastRead);
+			await _hitsContext.SaveChangesAsync();
 		}
 	}
 
