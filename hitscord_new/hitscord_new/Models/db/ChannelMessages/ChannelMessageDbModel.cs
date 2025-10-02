@@ -15,7 +15,7 @@ public class ChannelMessageDbModel
 
 	public Guid AuthorId { get; set; }
 	[ForeignKey(nameof(AuthorId))]
-	public UserServerDbModel Author { get; set; }
+	public UserDbModel Author { get; set; }
 
 	[Required]
 	public required Guid TextChannelId { get; set; }

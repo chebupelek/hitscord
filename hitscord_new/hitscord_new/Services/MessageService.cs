@@ -148,7 +148,7 @@ public class MessageService : IMessageService
 				ServerId = serverId,
 				ChannelId = replyedMessage.TextChannelId,
 				Id = replyedMessage.Id,
-				AuthorId = replyedMessage.Author.UserId,
+				AuthorId = replyedMessage.Author.Id,
 				CreatedAt = replyedMessage.CreatedAt,
 				Text = text
 			};
