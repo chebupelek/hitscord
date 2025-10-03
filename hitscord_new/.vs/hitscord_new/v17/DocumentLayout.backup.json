@@ -3,8 +3,20 @@
   "WorkspaceRootPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\websockets\\websocketsmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\websockets\\websocketsmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\services\\messageservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\services\\messageservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\websockets\\websocketmiddleware.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\websockets\\websocketmiddleware.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\websockets\\websockethandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\websockets\\websockethandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -14,8 +26,21 @@
       "DocumentGroups": [
         {
           "DockedWidth": 25,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 0,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "WebSocketsManager.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\WebSockets\\WebSocketsManager.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\WebSockets\\WebSocketsManager.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\WebSockets\\WebSocketsManager.cs",
+              "RelativeToolTip": "hitscord_new\\WebSockets\\WebSocketsManager.cs",
+              "ViewState": "AgIAAB0AAAAAAAAAAAAIwCsAAAAqAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-03T11:09:52.275Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Bookmark",
               "Name": "ST:1:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
@@ -30,13 +55,39 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 3,
+              "Title": "WebSocketHandler.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\WebSockets\\WebSocketHandler.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\WebSockets\\WebSocketHandler.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\WebSockets\\WebSocketHandler.cs",
+              "RelativeToolTip": "hitscord_new\\WebSockets\\WebSocketHandler.cs",
+              "ViewState": "AgIAAIAAAAAAAAAAAAAQwK8AAAAsAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-03T11:08:13.026Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "WebSocketMiddleware.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\WebSockets\\WebSocketMiddleware.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\WebSockets\\WebSocketMiddleware.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\WebSockets\\WebSocketMiddleware.cs",
+              "RelativeToolTip": "hitscord_new\\WebSockets\\WebSocketMiddleware.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-03T11:08:10.432Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
               "Title": "MessageService.cs",
               "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\MessageService.cs",
               "RelativeDocumentMoniker": "hitscord_new\\Services\\MessageService.cs",
               "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\MessageService.cs",
               "RelativeToolTip": "hitscord_new\\Services\\MessageService.cs",
-              "ViewState": "AgIAAHQDAAAAAAAAAAAQwIoDAAARAAAAAAAAAA==",
+              "ViewState": "AgIAALYBAAAAAAAAAAAYwNgBAABBAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-10-02T14:43:18.155Z",
               "EditorCaption": ""
