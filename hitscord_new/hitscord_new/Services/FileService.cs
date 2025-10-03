@@ -244,7 +244,7 @@ public class FileService : IFileService
 			canUse = true;
 		}
 
-		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(nc => nc.Id == channelId);
+		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(nc => nc.Id == channelId && EF.Property<string>(nc, "ChannelType") == "Text");
 		if (textChannel != null)
 		{
 			var userServer = await _hitsContext.UserServer

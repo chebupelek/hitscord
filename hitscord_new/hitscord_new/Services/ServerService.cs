@@ -570,7 +570,7 @@ public class ServerService : IServerService
 			var userRoleIdsForServer = sub.SubscribeRoles.Select(sr => sr.RoleId).ToHashSet();
 
 			var channelIds = await _hitsContext.TextChannel
-				.Where(c => c.ServerId == sub.ServerId)
+				.Where(c => c.ServerId == sub.ServerId && EF.Property<string>(c, "ChannelType") == "Text")
 				.Select(c => c.Id)
 				.ToListAsync();
 
@@ -872,7 +872,7 @@ public class ServerService : IServerService
 			.Include(vc => vc.ChannelCanSee)
 			.Include(vc => vc.ChannelCanJoin)
 			.Where(vc => vc.ServerId == server.Id
-				&& vc.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)))
+				&& vc.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)) && EF.Property<string>(vc, "ChannelType") == "Voice")
 			.Select(vc => new VoiceChannelResponseDTO
 			{
 				ChannelName = vc.Name,
@@ -916,7 +916,7 @@ public class ServerService : IServerService
 			.Include(t => t.ChannelCanWrite)
 			.Include(t => t.ChannelCanWriteSub)
 			.Include(t => t.Messages)
-			.Where(t => t.ServerId == server.Id)
+			.Where(t => t.ServerId == server.Id && EF.Property<string>(t, "ChannelType") == "Text")
 			.ToListAsync();
 
 		var textChannelResponses = textChannels

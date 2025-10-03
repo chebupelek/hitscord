@@ -42,7 +42,7 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId)
 	{
-		var channel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId);
+		var channel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text");
 		if (channel == null || channel.GetType() == typeof(NotificationChannelDbModel) || channel.GetType() == typeof(SubChannelDbModel))
 		{
 			throw new CustomException("Text channel not found", "Check text channel for existing", "Text channel", 404, "Текстовый канал не найден", "Проверка наличия текстового канала");
@@ -52,7 +52,7 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckTextOrNotificationChannelExistAsync(Guid channelId)
 	{
-		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId);
+		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text");
 		var notificationChannel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(c => c.Id == channelId);
 		if (textChannel != null && textChannel.GetType() == typeof(SubChannelDbModel))
 		{
@@ -73,7 +73,7 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckTextOrNotificationOrSubChannelExistAsync(Guid channelId)
 	{
-		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId);
+		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text");
 		var notificationChannel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(c => c.Id == channelId);
 		var subChannel = await _hitsContext.SubChannel.FirstOrDefaultAsync(c => c.Id == channelId);
 		if (textChannel != null)
@@ -102,8 +102,14 @@ public class ChannelService : IChannelService
 
 	public async Task<VoiceChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers)
 	{
-		var channel = joinedUsers ? await _hitsContext.VoiceChannel.Include(c => ((VoiceChannelDbModel)c).Users).FirstOrDefaultAsync(c => c.Id == channelId) :
-			await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId);
+		var channel = joinedUsers
+			? await _hitsContext.VoiceChannel
+				.Where(c => EF.Property<string>(c, "ChannelType") == "Voice")
+				.Include(c => c.Users)
+				.FirstOrDefaultAsync(c => c.Id == channelId)
+			: await _hitsContext.Channel
+				.Where(c => EF.Property<string>(c, "ChannelType") == "Voice")
+				.FirstOrDefaultAsync(c => c.Id == channelId);
 		if (channel == null)
 		{
 			throw new CustomException("Voice channel not found", "Check voice channel for existing", "Voice channel", 404, "Голосовой не найден", "Проверка наличия голосового канала");
@@ -876,7 +882,7 @@ public class ChannelService : IChannelService
 						.ThenInclude(ccw => ccw.Role)
 					.Include(tc => tc.ChannelCanWriteSub)
 						.ThenInclude(ccws => ccws.Role)
-					.Where(tc => tc.Id == channel.Id)
+					.Where(tc => tc.Id == channel.Id && EF.Property<string>(tc, "ChannelType") == "Text")
 					.Select(tc => new ChannelSettingsDTO
 					{
 						CanSee = tc.ChannelCanSee.Select(ccs => new RolesItemDTO
@@ -923,7 +929,7 @@ public class ChannelService : IChannelService
 						.ThenInclude(ccs => ccs.Role)
 					.Include(vc => vc.ChannelCanJoin)
 						.ThenInclude(ccj => ccj.Role)
-					.Where(vc => vc.Id == channel.Id)
+					.Where(vc => vc.Id == channel.Id && EF.Property<string>(vc, "ChannelType") == "Voice")
 					.Select(vc => new ChannelSettingsDTO
 					{
 						CanSee = vc.ChannelCanSee.Select(ccs => new RolesItemDTO

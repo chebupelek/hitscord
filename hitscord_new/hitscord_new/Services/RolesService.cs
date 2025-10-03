@@ -153,7 +153,7 @@ public class RolesService : IRolesService
 			}
 			var textChannels = await _hitsContext.TextChannel
 				.Include(tc => tc.ChannelCanSee)
-				.Where(tc => tc.ChannelCanSee.Any(ccs => ccs.RoleId == uncertainRole.Id))
+				.Where(tc => tc.ChannelCanSee.Any(ccs => ccs.RoleId == uncertainRole.Id) && EF.Property<string>(tc, "ChannelType") == "Text")
 				.Select(tc => tc.Id)
 				.ToListAsync();
 			var notificationsChannels = await _hitsContext.NotificationChannel
