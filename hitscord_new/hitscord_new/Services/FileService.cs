@@ -19,14 +19,16 @@ public class FileService : IFileService
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly IChannelService _channelService;
 	private readonly nClamService _clamService;
+	private readonly ILogger<FileService> _logger;
 
-	public FileService(HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IChannelService channelService, nClamService clamService)
+	public FileService(HitsContext hitsContext, ILogger<FileService> logger, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IChannelService channelService, nClamService clamService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
+		_logger = logger;
 	}
 
 	public async Task<FileResponseDTO> GetIconAsync(string token, Guid fileId)
@@ -73,17 +75,23 @@ public class FileService : IFileService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
+		_logger.LogInformation("1");
+
 		var file = await _hitsContext.File.Include(f => f.ChannelMessage).Include(f => f.ChatMessage).FirstOrDefaultAsync(f => f.Id == fileId);
+		_logger.LogInformation("2 {file}", file);
 		if (file == null)
 		{
+			_logger.LogInformation("3");
 			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
 		}
+		_logger.LogInformation("4");
 
 		if (file.ChatMessageId == null && file.ChannelMessageId == null)
 		{
+			_logger.LogInformation("5");
 			throw new CustomException("File not 'file'", "Get file", "File id", 400, "Файл не является приложенным к сообщению файлом", "Получение файла");
 		}
-
+		_logger.LogInformation("6");
 		if (file.ChatMessageId != null && file.ChatMessage != null)
 		{
 			var isInChat = await _hitsContext.UserChat
