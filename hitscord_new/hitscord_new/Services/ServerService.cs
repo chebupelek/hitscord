@@ -191,7 +191,7 @@ public class ServerService : IServerService
 
 		var newVoiceChannel = new VoiceChannelDbModel
         {
-			Name = "Основной текстовый",
+			Name = "Основной голосовой",
 			ServerId = newServer.Id,
 			ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 			MaxCount = 999,

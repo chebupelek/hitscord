@@ -25,12 +25,10 @@ public class FileDbModel
 
 	public long? ChannelMessageId { get; set; }
 	public Guid? TextChannelId { get; set; }
-	[ForeignKey(nameof(ChannelMessageId) + "," + nameof(TextChannelId))]
 	public ClassicChannelMessageDbModel? ChannelMessage { get; set; }
 
 	public long? ChatMessageId { get; set; }
 	public Guid? ChatId { get; set; }
-	[ForeignKey(nameof(ChatMessageId) + "," + nameof(ChatId))]
 	public ClassicChatMessageDbModel? ChatMessage { get; set; }
 
 	public Guid? ChatIcId { get; set; }

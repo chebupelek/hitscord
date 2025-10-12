@@ -9,7 +9,6 @@ public class SubChannelDbModel : TextChannelDbModel
 	public required long ChannelMessageId { get; set; }
 	[Required]
 	public required Guid TextChannelId { get; set; }
-	[ForeignKey(nameof(ChannelMessageId) + "," + nameof(TextChannelId))]
 	public ClassicChannelMessageDbModel ChannelMessage { get; set; }
 	public required ICollection<ChannelCanUseDbModel> ChannelCanUse { get; set; }
 }
