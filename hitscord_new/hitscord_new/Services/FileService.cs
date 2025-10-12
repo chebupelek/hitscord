@@ -94,6 +94,8 @@ public class FileService : IFileService
 		_logger.LogInformation("6");
 		if (file.ChatMessageId != null && file.ChatMessage != null)
 		{
+			_logger.LogInformation("7 {file.ChatMessage}", file.ChatMessage);
+			_logger.LogInformation("8 {file.ChatMessageId}", file.ChatMessageId);
 			var isInChat = await _hitsContext.UserChat
 				.AnyAsync(uc => uc.ChatId == file.ChatMessage.ChatId && uc.UserId == user.Id);
 
@@ -102,9 +104,12 @@ public class FileService : IFileService
 				throw new CustomException("User is not participant of this chat", "Get file", "User rights", 403, "Пользователь не является участником чата", "Получение файла");
 			}
 		}
-
+		_logger.LogInformation("9");
 		if (file.ChannelMessageId != null && file.ChannelMessage != null)
 		{
+			_logger.LogInformation("9 {file.ChannelMessage}", file.ChannelMessage);
+			_logger.LogInformation("10 {file.ChannelMessageId}", file.ChannelMessageId);
+
 			var channelId = file.ChannelMessage.TextChannelId;
 
 			var userSub = await _hitsContext.UserServer
