@@ -77,7 +77,11 @@ public class FileService : IFileService
 
 		_logger.LogInformation("1");
 
-		var file = await _hitsContext.File.Include(f => f.ChannelMessage).Include(f => f.ChatMessage).FirstOrDefaultAsync(f => f.Id == fileId);
+		var file = await _hitsContext.File
+			.Include(f => f.ChannelMessage)
+				.ThenInclude(cm => cm.TextChannel)
+			.Include(f => f.ChatMessage)
+			.FirstOrDefaultAsync(f => f.Id == fileId);
 		_logger.LogInformation("2 {file}", file);
 		if (file == null)
 		{
