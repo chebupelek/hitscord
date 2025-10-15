@@ -220,7 +220,7 @@ namespace hitscord.Contexts
 				entity.HasOne(m => m.TextChannel)
 					.WithMany(e => e.Messages)
 					.HasForeignKey(m => m.TextChannelId)
-					.OnDelete(DeleteBehavior.ClientNoAction);
+					.OnDelete(DeleteBehavior.SetNull);
 			});
 
 			modelBuilder.Entity<ChannelVoteVariantDbModel>(entity =>
@@ -275,7 +275,7 @@ namespace hitscord.Contexts
 				entity.HasOne(m => m.Chat)
 					.WithMany(e => e.Messages)
 					.HasForeignKey(m => m.ChatId)
-					.OnDelete(DeleteBehavior.ClientNoAction);
+					.OnDelete(DeleteBehavior.SetNull);
 			});
 
 			modelBuilder.Entity<ClassicChatMessageDbModel>(entity =>

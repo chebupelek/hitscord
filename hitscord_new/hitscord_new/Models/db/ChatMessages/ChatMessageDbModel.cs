@@ -22,6 +22,8 @@ public class ChatMessageDbModel
 	[ForeignKey(nameof(ChatId))]
 	public ChatDbModel? Chat { get; set; }
 
+	public required Guid ChatIdDouble { get; set; }
+
 	public long? ReplyToMessageId { get; set; }
 
     public DateTime? DeleteTime { get; set; }

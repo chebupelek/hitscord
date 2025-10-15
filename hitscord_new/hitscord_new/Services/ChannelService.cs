@@ -73,9 +73,9 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckTextOrNotificationOrSubChannelExistAsync(Guid channelId)
 	{
-		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text");
-		var notificationChannel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(c => c.Id == channelId);
-		var subChannel = await _hitsContext.SubChannel.FirstOrDefaultAsync(c => c.Id == channelId);
+		var textChannel = await _hitsContext.TextChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text");
+		var notificationChannel = await _hitsContext.NotificationChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId);
+		var subChannel = await _hitsContext.SubChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId);
 		if (textChannel != null)
 		{
 			return textChannel;
@@ -215,7 +215,9 @@ public class ChannelService : IChannelService
 			throw new CustomException("Owner does not have rights to work with channels", "Create channel", "Owner", 403, "Владелец не имеет права работать с каналами", "Создание канала");
 		}
 
-		var serverRolesId = await _hitsContext.Role.Where(r => r.ServerId == server.Id).Select(r => r.Id).ToListAsync();
+		var serverRolesId = await _hitsContext.Role.Where(r => r.ServerId == server.Id && (r.Role == RoleEnum.Admin || r.Role == RoleEnum.Creator)).Select(r => r.Id).ToListAsync();
+		var neededRole = ownerSub.SubscribeRoles.FirstOrDefault(sr => sr.Role.ServerCanWorkChannels == true);
+		serverRolesId.Add(neededRole.RoleId);
 
 		Guid channelId = new Guid();
 		string channelName = "";

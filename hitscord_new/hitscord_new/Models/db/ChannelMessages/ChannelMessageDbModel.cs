@@ -22,6 +22,8 @@ public class ChannelMessageDbModel
 	[ForeignKey(nameof(TextChannelId))]
 	public TextChannelDbModel? TextChannel { get; set; }
 
+	public required Guid TextChannelIdDouble { get; set; }
+
 	public long? ReplyToMessageId { get; set; }
 
     public DateTime? DeleteTime { get; set; }

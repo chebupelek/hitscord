@@ -13,6 +13,7 @@ using hitscord.WebSockets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -308,6 +309,7 @@ public class MessageService : IMessageService
 					Id = newId,
 					AuthorId = user.Id,
 					TextChannelId = Content.ChannelId,
+					TextChannelIdDouble = Content.ChannelId,
 					ReplyToMessageId = Content.ReplyToMessageId,
 					DeleteTime = null,
 					TaggedUsers = taggedUsers,
@@ -337,6 +339,7 @@ public class MessageService : IMessageService
 					Id = newId,
 					AuthorId = user.Id,
 					TextChannelId = Content.ChannelId,
+					TextChannelIdDouble = Content.ChannelId,
 					ReplyToMessageId = Content.ReplyToMessageId,
 					DeleteTime = null,
 					TaggedUsers = taggedUsers,
@@ -386,7 +389,9 @@ public class MessageService : IMessageService
 				{
 					MessageType = createdMessage.MessageType,
 					ServerId = channel.ServerId,
+					ServerName = channel.Server.Name,
 					ChannelId = classic.TextChannelId,
+					ChannelName = channel.Name,
 					Id = classic.Id,
 					AuthorId = classic.AuthorId,
 					CreatedAt = classic.CreatedAt,
@@ -420,7 +425,9 @@ public class MessageService : IMessageService
 				{
 					MessageType = createdMessage.MessageType,
 					ServerId = channel.ServerId,
+					ServerName = channel.Server.Name,
 					ChannelId = vote.TextChannelId,
+					ChannelName = channel.Name,
 					Id = vote.Id,
 					AuthorId = vote.AuthorId,
 					CreatedAt = vote.CreatedAt,
@@ -585,7 +592,9 @@ public class MessageService : IMessageService
 		{
 			MessageType = message.MessageType,
 			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
 			ChannelId = message.TextChannelId,
+			ChannelName = channel.Name,
 			Id = message.Id,
 			AuthorId = message.AuthorId,
 			CreatedAt = message.CreatedAt,
@@ -751,6 +760,7 @@ public class MessageService : IMessageService
 					Id = newId,
 					AuthorId = user.Id,
 					ChatId = Content.ChannelId,
+					ChatIdDouble = Content.ChannelId,
 					ReplyToMessageId = Content.ReplyToMessageId,
 					DeleteTime = null,
 					TaggedUsers = taggedUsers,
@@ -774,6 +784,7 @@ public class MessageService : IMessageService
 					Id = newId,
 					AuthorId = user.Id,
 					ChatId = Content.ChannelId,
+					ChatIdDouble = Content.ChannelId,
 					ReplyToMessageId = Content.ReplyToMessageId,
 					DeleteTime = null,
 					TaggedUsers = taggedUsers,
@@ -820,7 +831,9 @@ public class MessageService : IMessageService
 				{
 					MessageType = createdMessage.MessageType,
 					ServerId = null,
+					ServerName = null,
 					ChannelId = classic.ChatId,
+					ChannelName = chat.Name,
 					Id = classic.Id,
 					AuthorId = classic.AuthorId,
 					CreatedAt = classic.CreatedAt,
@@ -850,7 +863,9 @@ public class MessageService : IMessageService
 				{
 					MessageType = createdMessage.MessageType,
 					ServerId = null,
+					ServerName = null,
 					ChannelId = vote.ChatId,
+					ChannelName = chat.Name,
 					Id = vote.Id,
 					AuthorId = vote.AuthorId,
 					CreatedAt = vote.CreatedAt,
@@ -953,7 +968,9 @@ public class MessageService : IMessageService
 		{
 			MessageType = message.MessageType,
 			ServerId = null,
+			ServerName = null,
 			ChannelId = chat.Id,
+			ChannelName = chat.Name,
 			Id = message.Id,
 			AuthorId = message.AuthorId,
 			CreatedAt = message.CreatedAt,
@@ -1429,7 +1446,9 @@ public class MessageService : IMessageService
 			{
 				MessageType = vote.MessageType,
 				ServerId = null,
+				ServerName = null,
 				ChannelId = vote.TextChannelId,
+				ChannelName = vote.TextChannel.Name,
 				Id = vote.Id,
 				AuthorId = vote.AuthorId,
 				CreatedAt = vote.CreatedAt,
@@ -1487,7 +1506,9 @@ public class MessageService : IMessageService
 			{
 				MessageType = vote.MessageType,
 				ServerId = null,
+				ServerName = null,
 				ChannelId = vote.ChatId,
+				ChannelName = vote.Chat.Name,
 				Id = vote.Id,
 				AuthorId = vote.AuthorId,
 				CreatedAt = vote.CreatedAt,

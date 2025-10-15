@@ -284,7 +284,7 @@ public class ServerService : IServerService
 					{
 						UserId = user.Id,
 						TextChannelId = channel,
-						LastReadedMessageId = (await _hitsContext.ChannelMessage.Select(m => (long?)m.Id).MaxAsync() ?? 0)
+						LastReadedMessageId = (await _hitsContext.ChannelMessage.Where(cm => cm.TextChannelId == channel).Select(m => (long?)m.Id).MaxAsync() ?? 0)
 					});
 				}
 			}
@@ -633,16 +633,12 @@ public class ServerService : IServerService
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
+				.ThenInclude(us => us.Role)
 			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == user.Id);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Check user", "User", 404, "Пользователь не найден", "Добавление роли пользователю");
 		}
-		
-        if (user.Id == owner.Id)
-        {
-            throw new CustomException("User cant add role to himself", "Change user role", "User", 401, "Пользователь не может добавлять роль себе", "Добавление роли пользователю");
-        }
 
 		if(ownerSub.SubscribeRoles.Min(sr => sr.Role.Role) > userSub.SubscribeRoles.Min(sr => sr.Role.Role))
 		{
@@ -662,6 +658,80 @@ public class ServerService : IServerService
 		if (userSub.SubscribeRoles.FirstOrDefault(usr => usr.RoleId == role.Id) != null)
 		{
 			throw new CustomException("User already has this role", "Change role", "Changed user role", 401, "Пользователь уже имеет эту роль", "Добавление роли пользователю");
+		}
+
+		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+
+		if (role.Role == RoleEnum.Uncertain)
+		{
+			var rolesIds = userSub.SubscribeRoles.Select(sr => sr.RoleId).ToList();
+
+			var removedChannels = await _hitsContext.ChannelCanSee
+				.Where(ccs => rolesIds.Contains(ccs.RoleId))
+				.Select(ccs => ccs.ChannelId)
+				.ToListAsync();
+
+			var lastRead = await _hitsContext.LastReadChannelMessage
+				.Where(lr => lr.UserId == user.Id && removedChannels.Contains(lr.TextChannelId))
+				.ToListAsync();
+
+			if (lastRead != null)
+			{
+				_hitsContext.LastReadChannelMessage.RemoveRange(lastRead);
+				await _hitsContext.SaveChangesAsync();
+			}
+
+			_hitsContext.SubscribeRole.RemoveRange(userSub.SubscribeRoles);
+			await _hitsContext.SaveChangesAsync();
+
+			foreach (var remRole in userSub.SubscribeRoles)
+			{
+				var oldUserRole = new NewUserRoleResponseDTO
+				{
+					ServerId = serverId,
+					UserId = userId,
+					RoleId = remRole.RoleId,
+				};
+				if (alertedUsers != null && alertedUsers.Count() > 0)
+				{
+					await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+				}
+			}
+		}
+		else
+		{
+			var unc = userSub.SubscribeRoles.FirstOrDefault(sr => sr.Role.Role == RoleEnum.Uncertain);
+			if (unc != null)
+			{
+				var removedChannels = await _hitsContext.ChannelCanSee
+					.Where(ccs => ccs.RoleId == unc.RoleId)
+					.Select(ccs => ccs.ChannelId)
+					.ToListAsync();
+
+				var lastRead = await _hitsContext.LastReadChannelMessage
+					.Where(lr => lr.UserId == user.Id && removedChannels.Contains(lr.TextChannelId))
+					.ToListAsync();
+
+				if (lastRead != null)
+				{
+					_hitsContext.LastReadChannelMessage.RemoveRange(lastRead);
+					await _hitsContext.SaveChangesAsync();
+				}
+
+				_hitsContext.SubscribeRole.Remove(unc);
+				await _hitsContext.SaveChangesAsync();
+
+				var oldUserRole = new NewUserRoleResponseDTO
+				{
+					ServerId = serverId,
+					UserId = userId,
+					RoleId = unc.RoleId,
+				};
+				if (alertedUsers != null && alertedUsers.Count() > 0)
+				{
+					await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+				}
+			}
 		}
 
 		userSub.SubscribeRoles.Add(new SubscribeRoleDbModel
@@ -703,12 +773,11 @@ public class ServerService : IServerService
 		await _hitsContext.SaveChangesAsync();
 
 		var newUserRole = new NewUserRoleResponseDTO
-        {
-            ServerId = serverId,
-            UserId = userId,
-            RoleId = role.Id,
-        };
-		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+		{
+			ServerId = serverId,
+			UserId = userId,
+			RoleId = role.Id,
+		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
         {
 			await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role added to user");
@@ -741,11 +810,6 @@ public class ServerService : IServerService
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Check user sub", "User sub", 404, "Пользователь не является подписчиком сервера", "Удаление роли у пользователя");
-		}
-
-		if (user.Id == owner.Id)
-		{
-			throw new CustomException("User cant remove role from himself", "User and Owner comparasion", "User and Owner", 400, "Пользователь не может удалять роли у себя", "Удаление роли у пользователя");
 		}
 
 		if (ownerSub.SubscribeRoles.Min(sr => sr.Role.Role) > userSub.SubscribeRoles.Min(sr => sr.Role.Role))
