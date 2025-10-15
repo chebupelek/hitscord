@@ -440,20 +440,21 @@ public class ChatService : IChatService
 		}
 		await _hitsContext.SaveChangesAsync();
 
-		if (chat.Users.Count() - 1 == 0)
+		if (chat.Users.Count() == 0)
 		{
 			var lastReads = await _hitsContext.LastReadChatMessage.Where(lrcm => lrcm.ChatId == chat.Id).ToListAsync();
 			if (lastReads != null && lastReads.Count() > 0)
 			{
 				_hitsContext.LastReadChatMessage.RemoveRange(lastReads);
 			}
-			_hitsContext.Chat.Remove(chat);
-			await _hitsContext.SaveChangesAsync();
 
 			await _hitsContext.ChatMessage
 				.Where(m => m.ChatId == chat.Id)
 				.ExecuteUpdateAsync(setters => setters
-					.SetProperty(m => m.DeleteTime, _ => DateTime.UtcNow.AddDays(21)));
+					.SetProperty(m => m.DeleteTime, _ => DateTime.UtcNow.AddMonths(3)));
+
+			_hitsContext.Chat.Remove(chat);
+			await _hitsContext.SaveChangesAsync();
 		}
 		else
 		{
