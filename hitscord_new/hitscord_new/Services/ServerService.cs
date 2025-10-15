@@ -916,7 +916,7 @@ public class ServerService : IServerService
 			.Include(t => t.ChannelCanWrite)
 			.Include(t => t.ChannelCanWriteSub)
 			.Include(t => t.Messages)
-			.Where(t => t.ServerId == server.Id && EF.Property<string>(t, "ChannelType") == "Text")
+			.Where(t => t.ServerId == server.Id && t.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)) && EF.Property<string>(t, "ChannelType") == "Text")
 			.ToListAsync();
 
 		var textChannelResponses = textChannels
@@ -948,7 +948,7 @@ public class ServerService : IServerService
 			.Include(n => n.ChannelCanWrite)
 			.Include(n => n.ChannelNotificated)
 			.Include(n => n.Messages)
-			.Where(n => n.ServerId == server.Id)
+			.Where(n => n.ServerId == server.Id && n.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)))
 			.ToListAsync();
 
 		var notificationChannelResponses = notificationChannels

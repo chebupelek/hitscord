@@ -371,7 +371,7 @@ public class MessageService : IMessageService
 			.Include(m => (m as ClassicChannelMessageDbModel)!.NestedChannel!)
 				.ThenInclude(c => c.ChannelCanUse)
 			.Include(m => (m as ClassicChannelMessageDbModel)!.Files!)
-			.FirstOrDefaultAsync(m => m.Id == newMessage.Id);
+			.FirstOrDefaultAsync(m => m.Id == newMessage.Id && m.TextChannelId == channel.Id);
 		if (createdMessage == null)
 		{
 			throw new CustomException("Message not found", "Create message", "Messsage", 404, "Сообщение не найдено", "Создание сообщения");
@@ -671,6 +671,10 @@ public class MessageService : IMessageService
 			throw new CustomException("User not cant delete this message", "Delete normal message", "User", 401, "Пользователь не может удалить это сообщение", "Удаление сообщения");
 		}
 
+		message.DeleteTime = DateTime.UtcNow.AddMonths(3);
+		_hitsContext.ChannelMessage.Update(message);
+		await _hitsContext.SaveChangesAsync();
+
 		var alertedUsers = await _hitsContext.UserServer
 			.Include(u => u.User)
 			.Include(u => u.SubscribeRoles)
@@ -697,6 +701,8 @@ public class MessageService : IMessageService
 		{
 			await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Deleted message");
 		}
+
+		
 	}
 
 	public async Task CreateMessageToChatWebsocketAsync(CreateMessageSocketDTO Content)
@@ -799,7 +805,7 @@ public class MessageService : IMessageService
 		var createdMessage = await _hitsContext.ChatMessage
 			.Include(m => (m as ChatVoteDbModel)!.Variants!)
 			.Include(m => (m as ClassicChatMessageDbModel)!.Files!)
-			.FirstOrDefaultAsync(m => m.Id == newMessage.Id);
+			.FirstOrDefaultAsync(m => m.Id == newMessage.Id && m.ChatId == chat.Id);
 		if (createdMessage == null)
 		{
 			throw new CustomException("Message not found", "Create message", "Messsage", 404, "Сообщение не найдено", "Создание сообщения");
@@ -930,7 +936,7 @@ public class MessageService : IMessageService
 			throw new CustomException("User not in chat", "Update normal message in chat", "User Id", 401, "Пользователь не состоит в чате", "Обновление сообщения в чате");
 		}
 
-		var message = await _hitsContext.ClassicChatMessage.FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
+		var message = await _hitsContext.ClassicChatMessage.Include(m => m.Files).FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
 		if (message == null)
 		{
 			throw new CustomException("Message not found", "Update normal message in chat", "Normal message", 404, "Сообщение не найдено", "Обновление сообщения в чате");
