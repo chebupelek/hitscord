@@ -495,11 +495,11 @@ public class MessageService : IMessageService
 			.Include(u => u.User)
 			.Include(u => u.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.Where(u => (taggedUsers.Contains(u.Id) 
+			.Where(u => (taggedUsers.Contains(u.UserId) 
 				|| u.SubscribeRoles.Any(sr => taggedRoles.Contains(sr.RoleId))
 				|| u.SubscribeRoles.Any(sr => notificatedRoles.Contains(sr.RoleId)))
 				&& (u.UserId != user.Id)
-				&& (u.NonNotifiable == true)
+				&& (u.NonNotifiable == false)
 				&& (!nonNotified.Contains(u.Id)))
 			.Select(u => u.UserId)
 			.ToListAsync();
