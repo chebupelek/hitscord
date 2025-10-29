@@ -32,4 +32,5 @@ public interface IChannelService
     Task ChangeVoiceChannelMaxCount(string token, Guid voiceChannelId, int maxCount);
     Task<UsersIdList> GetUserThatCanSeeChannelAsync(string token, Guid channelId);
     Task<ChannelTypeEnum> GetChannelType(Guid channelId);
+    Task RemoveChannels();
 }

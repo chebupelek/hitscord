@@ -9,6 +9,7 @@ using hitscord.Models.other;
 using hitscord.Models.response;
 using hitscord.Models.Sockets;
 using hitscord.nClamUtil;
+using hitscord.Utils;
 using hitscord.WebSockets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -33,9 +34,10 @@ public class MessageService : IMessageService
 	private readonly nClamService _clamService;
 	private readonly IChannelService _channelService;
 	private readonly WebSocketsManager _webSocketManager;
+	private readonly MinioService _minioService;
 
 
-	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, ILogger<MessageService> logger, nClamService clamService, IChannelService channelService, WebSocketsManager webSocketManager)
+	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, ILogger<MessageService> logger, nClamService clamService, IChannelService channelService, WebSocketsManager webSocketManager, MinioService minioService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -43,6 +45,7 @@ public class MessageService : IMessageService
 		_logger = logger;
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
 	private async Task<List<Guid>> ExtractChannelUsersAsync(string input, Guid textChannelId)
@@ -408,7 +411,8 @@ public class MessageService : IMessageService
 						FileId = f.Id,
 						FileName = f.Name,
 						FileType = f.Type,
-						FileSize = f.Size
+						FileSize = f.Size,
+						Deleted = f.Deleted
 					}).ToList()
 				};
 				break;
@@ -611,7 +615,8 @@ public class MessageService : IMessageService
 				FileId = f.Id,
 				FileName = f.Name,
 				FileType = f.Type,
-				FileSize = f.Size
+				FileSize = f.Size,
+				Deleted = f.Deleted
 			}).ToList()
 		};
 
@@ -846,7 +851,8 @@ public class MessageService : IMessageService
 						FileId = f.Id,
 						FileName = f.Name,
 						FileType = f.Type,
-						FileSize = f.Size
+						FileSize = f.Size,
+						Deleted = f.Deleted
 					}).ToList()
 				};
 				break;
@@ -982,7 +988,8 @@ public class MessageService : IMessageService
 				FileId = f.Id,
 				FileName = f.Name,
 				FileType = f.Type,
-				FileSize = f.Size
+				FileSize = f.Size,
+				Deleted = f.Deleted
 			}).ToList()
 		};
 
@@ -1561,18 +1568,13 @@ public class MessageService : IMessageService
 
 			foreach (var file in filesToDelete)
 			{
-				var filePath = Path.Combine("wwwroot", file.Path.TrimStart('/'));
-
-				if (File.Exists(filePath))
+				try
 				{
-					try
-					{
-						File.Delete(filePath);
-					}
-					catch (Exception ex)
-					{
-						_logger.LogWarning(ex, "Не удалось удалить файл {Path}", file.Path);
-					}
+					await _minioService.DeleteFileAsync(file.Path.TrimStart('/'));
+				}
+				catch (Exception ex)
+				{
+					_logger.LogWarning(ex, "Не удалось удалить файл из MinIO: {Path}", file.Path);
 				}
 			}
 

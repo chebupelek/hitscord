@@ -46,6 +46,9 @@ builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("ApiSet
 builder.Services.Configure<ClamAVOptions>(builder.Configuration.GetSection("ClamAV"));
 builder.Services.AddSingleton<nClamService>();
 
+builder.Services.Configure<MinioSettings>(builder.Configuration.GetSection("Minio"));
+builder.Services.AddSingleton<MinioService>();
+
 builder.Services.AddSingleton<WebSocketConnectionStore>();
 builder.Services.AddScoped<WebSocketsManager>();
 builder.Services.AddScoped<WebSocketHandler>();

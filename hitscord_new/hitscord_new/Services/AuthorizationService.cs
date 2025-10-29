@@ -14,6 +14,8 @@ using nClam;
 using hitscord.nClamUtil;
 using hitscord.Models.other;
 using Microsoft.EntityFrameworkCore.Query;
+using Grpc.Core;
+using hitscord.Utils;
 
 namespace hitscord.Services;
 
@@ -23,13 +25,15 @@ public class AuthorizationService : IAuthorizationService
 	private readonly PasswordHasher<string> _passwordHasher;
     private readonly ITokenService _tokenService;
 	private readonly nClamService _clamService;
+	private readonly MinioService _minioService;
 
-	public AuthorizationService(HitsContext hitsContext, ITokenService tokenService, nClamService clamService)
+	public AuthorizationService(HitsContext hitsContext, ITokenService tokenService, nClamService clamService, MinioService minioService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_passwordHasher = new PasswordHasher<string>();
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
+		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
     public async Task<bool> CheckUserAuthAsync(string token)
@@ -98,7 +102,8 @@ public class AuthorizationService : IAuthorizationService
 			FileId = file.Id,
 			FileName = file.Name,
 			FileType = file.Type,
-			FileSize = file.Size
+			FileSize = file.Size,
+			Deleted = file.Deleted,
 		};
 	}
 
@@ -334,27 +339,23 @@ public class AuthorizationService : IAuthorizationService
 		}
 
 		var originalFileName = Path.GetFileName(iconFile.FileName);
-		originalFileName = Path.GetFileName(originalFileName);
-		var iconDirectory = Path.Combine("wwwroot", "icons");
+		var safeFileName = $"{Guid.NewGuid()}{Path.GetExtension(originalFileName)}";
+		var objectName = $"icons/{safeFileName}";
 
-		Directory.CreateDirectory(iconDirectory);
-
-		var iconPath = Path.Combine(iconDirectory, originalFileName);
-
-		await File.WriteAllBytesAsync(iconPath, fileBytes);
+		await _minioService.UploadFileAsync(objectName, fileBytes, iconFile.ContentType);
 
 		if (user.IconFileId != null)
 		{
 			var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == user.IconFileId);
 			if (oldIcon != null)
 			{
-				var oldIconPath = Path.Combine("wwwroot", oldIcon.Path.TrimStart('/'));
-
-				if (File.Exists(oldIconPath))
+				try
 				{
-					File.Delete(oldIconPath);
+					await _minioService.DeleteFileAsync(oldIcon.Path);
 				}
-
+				catch
+				{
+				}
 				_hitsContext.File.Remove(oldIcon);
 			}
 		}
@@ -362,13 +363,14 @@ public class AuthorizationService : IAuthorizationService
 		var file = new FileDbModel
 		{
 			Id = Guid.NewGuid(),
-			Path = $"/icons/{originalFileName}",
+			Path = objectName,
 			Name = originalFileName,
 			Type = iconFile.ContentType,
 			Size = iconFile.Length,
             Creator = user.Id,
             IsApproved = true,
             CreatedAt = DateTime.UtcNow,
+			Deleted = false,
 			UserId = user.Id
 		};
 
@@ -387,7 +389,8 @@ public class AuthorizationService : IAuthorizationService
             FileId = file.Id,
             FileName = file.Name,
             FileType = file.Type,
-            FileSize = file.Size
+            FileSize = file.Size,
+			Deleted = file.Deleted,
         });
 	}
 }

@@ -7,6 +7,7 @@ using hitscord.Models.db;
 using hitscord.Models.other;
 using hitscord.Models.response;
 using hitscord.nClamUtil;
+using hitscord.Utils;
 using hitscord.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using nClam;
@@ -23,14 +24,16 @@ public class ChatService : IChatService
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly IFileService _fileService;
 	private readonly nClamService _clamService;
+	private readonly MinioService _minioService;
 
-	public ChatService(HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService)
+	public ChatService(HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
+		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
 	public async Task<ChatDbModel> CheckChatExist(Guid chatId)
@@ -142,7 +145,8 @@ public class ChatService : IChatService
 						FileId = user.IconFile.Id,
 						FileName = user.IconFile.Name,
 						FileType = user.IconFile.Type,
-						FileSize = user.IconFile.Size
+						FileSize = user.IconFile.Size,
+						Deleted = false,
 					},
 					Notifiable = user.Notifiable,
 					NonFriendMessage = user.NonFriendMessage,
@@ -212,7 +216,8 @@ public class ChatService : IChatService
 					FileId = c.IconFile.Id,
 					FileName = c.IconFile.Name,
 					FileType = c.IconFile.Type,
-					FileSize = c.IconFile.Size
+					FileSize = c.IconFile.Size,
+					Deleted = false
 				} : null
 			};
 		}).ToList();
@@ -274,7 +279,8 @@ public class ChatService : IChatService
 				FileId = chatInfo.IconFile.Id,
 				FileName = chatInfo.IconFile.Name,
 				FileType = chatInfo.IconFile.Type,
-				FileSize = chatInfo.IconFile.Size
+				FileSize = chatInfo.IconFile.Size,
+				Deleted = false
 			} : null,
 			Users = chatInfo.Users.Select(us => new UserChatResponseDTO
 			{
@@ -287,7 +293,8 @@ public class ChatService : IChatService
 					FileId = us.User.IconFile.Id,
 					FileName = us.User.IconFile.Name,
 					FileType = us.User.IconFile.Type,
-					FileSize = us.User.IconFile.Size
+					FileSize = us.User.IconFile.Size,
+					Deleted = false
 				},
 				Notifiable = us.User.Notifiable,
 				NonFriendMessage = us.User.NonFriendMessage,
@@ -354,7 +361,8 @@ public class ChatService : IChatService
 				FileId = user.IconFile.Id,
 				FileName = user.IconFile.Name,
 				FileType = user.IconFile.Type,
-				FileSize = user.IconFile.Size
+				FileSize = user.IconFile.Size,
+				Deleted = false
 			},
 			Notifiable = user.Notifiable,
 			NonFriendMessage = user.NonFriendMessage,
@@ -398,7 +406,8 @@ public class ChatService : IChatService
 						FileId = u.IconFile.Id,
 						FileName = u.IconFile.Name,
 						FileType = u.IconFile.Type,
-						FileSize = u.IconFile.Size
+						FileSize = u.IconFile.Size,
+						Deleted = false
 					},
 					Notifiable = u.Notifiable,
 					NonFriendMessage = u.NonFriendMessage,
@@ -442,6 +451,24 @@ public class ChatService : IChatService
 
 		if (chat.Users.Count() == 0)
 		{
+			if (chat.IconFileId != null)
+			{
+				var iconFile = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == chat.IconFileId);
+				if (iconFile != null)
+				{
+					try
+					{
+						await _minioService.DeleteFileAsync(iconFile.Path.TrimStart('/'));
+					}
+					catch (Exception ex)
+					{
+					}
+
+					_hitsContext.File.Remove(iconFile);
+				}
+			}
+
+
 			var lastReads = await _hitsContext.LastReadChatMessage.Where(lrcm => lrcm.ChatId == chat.Id).ToListAsync();
 			if (lastReads != null && lastReads.Count() > 0)
 			{
@@ -451,7 +478,7 @@ public class ChatService : IChatService
 			await _hitsContext.ChatMessage
 				.Where(m => m.ChatId == chat.Id)
 				.ExecuteUpdateAsync(setters => setters
-					.SetProperty(m => m.DeleteTime, _ => DateTime.UtcNow.AddMonths(3)));
+					.SetProperty(m => m.DeleteTime, _ => DateTime.UtcNow));
 
 			_hitsContext.Chat.Remove(chat);
 			await _hitsContext.SaveChangesAsync();
@@ -568,7 +595,8 @@ public class ChatService : IChatService
 							FileId = f.Id,
 							FileName = f.Name,
 							FileType = f.Type,
-							FileSize = f.Size
+							FileSize = f.Size,
+							Deleted = f.Deleted
 						})
 						.ToList()
 					};
@@ -669,27 +697,23 @@ public class ChatService : IChatService
 		}
 
 		var originalFileName = Path.GetFileName(iconFile.FileName);
-		originalFileName = Path.GetFileName(originalFileName);
-		var iconDirectory = Path.Combine("wwwroot", "icons");
+		var safeFileName = $"{Guid.NewGuid()}{Path.GetExtension(originalFileName)}";
+		var objectName = $"icons/{safeFileName}";
 
-		Directory.CreateDirectory(iconDirectory);
-
-		var iconPath = Path.Combine(iconDirectory, originalFileName);
-
-		await File.WriteAllBytesAsync(iconPath, fileBytes);
+		await _minioService.UploadFileAsync(objectName, fileBytes, iconFile.ContentType);
 
 		if (chat.IconFileId != null)
 		{
 			var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == chat.IconFileId);
 			if (oldIcon != null)
 			{
-				var oldIconPath = Path.Combine("wwwroot", oldIcon.Path.TrimStart('/'));
-
-				if (File.Exists(oldIconPath))
+				try
 				{
-					File.Delete(oldIconPath);
+					await _minioService.DeleteFileAsync(oldIcon.Path);
 				}
-
+				catch
+				{
+				}
 				_hitsContext.File.Remove(oldIcon);
 			}
 		}
@@ -697,13 +721,14 @@ public class ChatService : IChatService
 		var file = new FileDbModel
 		{
 			Id = Guid.NewGuid(),
-			Path = $"/icons/{originalFileName}",
+			Path = objectName,
 			Name = originalFileName,
 			Type = iconFile.ContentType,
 			Size = iconFile.Length,
 			Creator = owner.Id,
 			IsApproved = true,
 			CreatedAt = DateTime.UtcNow,
+			Deleted = false,
 			ChatIcId = chat.Id
 		};
 
@@ -719,7 +744,8 @@ public class ChatService : IChatService
 				FileId = file.Id,
 				FileName = file.Name,
 				FileType = file.Type,
-				FileSize = file.Size
+				FileSize = file.Size,
+				Deleted = false
 			}
 		};
 

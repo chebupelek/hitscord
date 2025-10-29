@@ -6,4 +6,5 @@ public class FileMetaResponseDTO
 	public required string FileName { get; set; }
 	public required string FileType { get; set; }
 	public required long FileSize { get; set; }
+	public required bool Deleted { get; set; }
 }

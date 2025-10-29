@@ -14,6 +14,7 @@ public class FileDbModel
 	public required Guid Creator { get; set; }
 	public required bool IsApproved { get; set; }
 	public required DateTime CreatedAt { get; set; }
+	public required bool Deleted { get; set; }
 
 	public Guid? UserId { get; set; }
 	[ForeignKey(nameof(UserId))]

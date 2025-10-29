@@ -5,6 +5,7 @@ using hitscord.Models.db;
 using hitscord.Models.other;
 using hitscord.Models.response;
 using hitscord.nClamUtil;
+using hitscord.Utils;
 using hitscord.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using nClam;
@@ -20,8 +21,9 @@ public class FileService : IFileService
 	private readonly IChannelService _channelService;
 	private readonly nClamService _clamService;
 	private readonly ILogger<FileService> _logger;
+	private readonly MinioService _minioService;
 
-	public FileService(HitsContext hitsContext, ILogger<FileService> logger, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IChannelService channelService, nClamService clamService)
+	public FileService(HitsContext hitsContext, ILogger<FileService> logger, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IChannelService channelService, nClamService clamService, MinioService minioService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -29,6 +31,7 @@ public class FileService : IFileService
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_logger = logger;
+		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
 	public async Task<FileResponseDTO> GetIconAsync(string token, Guid fileId)
@@ -51,14 +54,16 @@ public class FileService : IFileService
 			throw new CustomException("File is not an image", "Get file", "File type", 400, "Файл не является изображением", "Получение изображения");
 		}
 
-		var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
-
-		if (!System.IO.File.Exists(filePath))
+		try
 		{
-			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
+			await _minioService.StatFileAsync(file.Path);
+		}
+		catch (Minio.Exceptions.ObjectNotFoundException)
+		{
+			throw new CustomException("File not found in storage", "Get file", "Minio object", 404, "Файл не найден в хранилище", "Получение файла");
 		}
 
-		var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+		var fileBytes = await _minioService.GetFileAsync(file.Path);
 		var base64File = Convert.ToBase64String(fileBytes);
 
 		return new FileResponseDTO
@@ -81,7 +86,7 @@ public class FileService : IFileService
 			.Include(f => f.ChannelMessage)
 				.ThenInclude(cm => cm.TextChannel)
 			.Include(f => f.ChatMessage)
-			.FirstOrDefaultAsync(f => f.Id == fileId);
+			.FirstOrDefaultAsync(f => f.Id == fileId && f.Deleted == false);
 		_logger.LogInformation("2 {file}", file);
 		if (file == null)
 		{
@@ -137,14 +142,16 @@ public class FileService : IFileService
 			}
 		}
 
-		var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
-
-		if (!System.IO.File.Exists(filePath))
+		try
 		{
-			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
+			await _minioService.StatFileAsync(file.Path);
+		}
+		catch (Minio.Exceptions.ObjectNotFoundException)
+		{
+			throw new CustomException("File not found in storage", "Get file", "Minio object", 404, "Файл не найден в хранилище", "Получение файла");
 		}
 
-		var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+		var fileBytes = await _minioService.GetFileAsync(file.Path);
 		var base64File = Convert.ToBase64String(fileBytes);
 
 		return new FileResponseDTO
@@ -334,21 +341,21 @@ public class FileService : IFileService
 
 		var originalFileName = Path.GetFileName(file.FileName);
 		var safeFileName = Path.GetRandomFileName() + Path.GetExtension(originalFileName);
-		var uploadsDirectory = Path.Combine("wwwroot", "message_files");
-		Directory.CreateDirectory(uploadsDirectory);
+		var objectName = $"message_files/{Guid.NewGuid()}_{originalFileName}";
+		await _minioService.UploadFileAsync(objectName, fileBytes, file.ContentType);
 
-		var filePath = Path.Combine(uploadsDirectory, safeFileName);
-		await System.IO.File.WriteAllBytesAsync(filePath, fileBytes);
+		var fileUrl = _minioService.GetFileUrl(objectName);
 
 		var fileModel = new FileDbModel
 		{
 			Id = Guid.NewGuid(),
-			Path = $"/message_files/{safeFileName}",
+			Path = objectName,
 			Name = originalFileName,
 			Type = file.ContentType,
 			Size = file.Length,
 			Creator = user.Id,
 			IsApproved = false,
+			Deleted = false,
 			CreatedAt = DateTime.UtcNow,
 		};
 
@@ -360,7 +367,8 @@ public class FileService : IFileService
 			FileId = fileModel.Id,
 			FileName = fileModel.Name,
 			FileType = fileModel.Type,
-			FileSize = fileModel.Size
+			FileSize = fileModel.Size,
+			Deleted = false
 		};
 	}
 
@@ -381,6 +389,8 @@ public class FileService : IFileService
 			throw new CustomException("File not found", "DeleteNotApprovedFileAsync", "File id", 400, "Файл не найден", "Удаление неподтвержденного файла для сообщения");
 		}
 
+		await _minioService.DeleteFileAsync(file.Path);
+
 		_hitsContext.File.Remove(file);
 		await _hitsContext.SaveChangesAsync();
 	}
@@ -399,12 +409,7 @@ public class FileService : IFileService
 			{
 				try
 				{
-					var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
-
-					if (System.IO.File.Exists(fullPath))
-					{
-						System.IO.File.Delete(fullPath);
-					}
+					await _minioService.DeleteFileAsync(file.Path);
 				}
 				catch (Exception fileEx)
 				{
@@ -430,27 +435,25 @@ public class FileService : IFileService
 			var filesToDelete = await _hitsContext.File
 				.Where(f => f.CreatedAt <= threeMonthsAgo
 				&& f.UserId == null
-				&& f.ServerId == null)
+				&& f.ServerId == null
+				&& f.ChatIcId == null)
 				.ToListAsync();
 
 			foreach (var file in filesToDelete)
 			{
 				try
 				{
-					var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", file.Path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
-
-					if (System.IO.File.Exists(fullPath))
-					{
-						System.IO.File.Delete(fullPath);
-					}
+					await _minioService.DeleteFileAsync(file.Path);
 				}
 				catch (Exception fileEx)
 				{
 					Console.WriteLine($"Ошибка при удалении файла {file.Path}: {fileEx.Message}");
 				}
+
+				file.Deleted = true;
 			}
 
-			_hitsContext.File.RemoveRange(filesToDelete);
+			_hitsContext.File.UpdateRange(filesToDelete);
 			await _hitsContext.SaveChangesAsync();
 		}
 		catch (Exception ex)

@@ -9,6 +9,7 @@ using hitscord.Models.other;
 using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.nClamUtil;
+using hitscord.Utils;
 using hitscord.WebSockets;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -29,13 +30,15 @@ public class ServerService : IServerService
 	private readonly IAuthorizationService _authorizationService;
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly nClamService _clamService;
+	private readonly MinioService _minioService;
 
-	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, INotificationService notificationsService, nClamService clamService)
+	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, INotificationService notificationsService, nClamService clamService, MinioService minioService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
+		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
     public async Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels)
@@ -107,7 +110,8 @@ public class ServerService : IServerService
 			FileId = file.Id,
 			FileName = file.Name,
 			FileType = file.Type,
-			FileSize = file.Size
+			FileSize = file.Size,
+			Deleted = file.Deleted
 		};
 	}
 
@@ -533,7 +537,26 @@ public class ServerService : IServerService
 		var applications = await _hitsContext.ServerApplications.Where(sa => sa.ServerId == server.Id).ToListAsync();
         _hitsContext.Channel.RemoveRange(channelsToDelete);
 		_hitsContext.ServerApplications.RemoveRange(applications);
-        _hitsContext.Server.Remove(server);
+
+		if (server.IconFileId != null)
+		{
+			var iconFile = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == server.IconFileId);
+			if (iconFile != null)
+			{
+				try
+				{
+					await _minioService.DeleteFileAsync(iconFile.Path.TrimStart('/'));
+				}
+				catch (Exception ex)
+				{
+				}
+
+				// Удаляем запись из базы
+				_hitsContext.File.Remove(iconFile);
+			}
+		}
+		
+		_hitsContext.Server.Remove(server);
         await _hitsContext.SaveChangesAsync();
 
 		await _hitsContext.ChannelMessage
@@ -980,7 +1003,7 @@ public class ServerService : IServerService
 			.Include(t => t.ChannelCanWrite)
 			.Include(t => t.ChannelCanWriteSub)
 			.Include(t => t.Messages)
-			.Where(t => t.ServerId == server.Id && t.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)) && EF.Property<string>(t, "ChannelType") == "Text")
+			.Where(t => t.ServerId == server.Id && t.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)) && EF.Property<string>(t, "ChannelType") == "Text" && t.DeleteTime == null)
 			.ToListAsync();
 
 		var textChannelResponses = textChannels
@@ -1012,7 +1035,7 @@ public class ServerService : IServerService
 			.Include(n => n.ChannelCanWrite)
 			.Include(n => n.ChannelNotificated)
 			.Include(n => n.Messages)
-			.Where(n => n.ServerId == server.Id && n.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)))
+			.Where(n => n.ServerId == server.Id && n.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)) && n.DeleteTime == null)
 			.ToListAsync();
 
 		var notificationChannelResponses = notificationChannels
@@ -1055,7 +1078,8 @@ public class ServerService : IServerService
 					FileId = us.User.IconFile.Id,
 					FileName = us.User.IconFile.Name,
 					FileType = us.User.IconFile.Type,
-					FileSize = us.User.IconFile.Size
+					FileSize = us.User.IconFile.Size,
+					Deleted = us.User.IconFile.Deleted
 				},
 				Roles = us.SubscribeRoles
 					.Select(sr => new UserServerRoles
@@ -1451,27 +1475,23 @@ public class ServerService : IServerService
 		}
 
 		var originalFileName = Path.GetFileName(iconFile.FileName);
-		originalFileName = Path.GetFileName(originalFileName);
-		var iconDirectory = Path.Combine("wwwroot", "icons");
+		var safeFileName = $"{Guid.NewGuid()}{Path.GetExtension(originalFileName)}";
+		var objectName = $"icons/{safeFileName}";
 
-		Directory.CreateDirectory(iconDirectory);
-
-		var iconPath = Path.Combine(iconDirectory, originalFileName);
-
-		await File.WriteAllBytesAsync(iconPath, fileBytes);
+		await _minioService.UploadFileAsync(objectName, fileBytes, iconFile.ContentType);
 
 		if (server.IconFileId != null)
 		{
 			var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == server.IconFileId);
 			if (oldIcon != null)
 			{
-				var oldIconPath = Path.Combine("wwwroot", oldIcon.Path.TrimStart('/'));
-
-				if (File.Exists(oldIconPath))
+				try
 				{
-					File.Delete(oldIconPath);
+					await _minioService.DeleteFileAsync(oldIcon.Path);
 				}
-
+				catch
+				{
+				}
 				_hitsContext.File.Remove(oldIcon);
 			}
 		}
@@ -1479,13 +1499,14 @@ public class ServerService : IServerService
 		var file = new FileDbModel
 		{
 			Id = Guid.NewGuid(),
-			Path = $"/icons/{originalFileName}",
+			Path = objectName,
 			Name = originalFileName,
 			Type = iconFile.ContentType,
 			Size = iconFile.Length,
 			Creator = owner.Id,
 			IsApproved = true,
 			CreatedAt = DateTime.UtcNow,
+			Deleted = false,
 			ServerId = server.Id
 		};
 
@@ -1501,7 +1522,8 @@ public class ServerService : IServerService
 				FileId = file.Id,
 				FileName = file.Name,
 				FileType = file.Type,
-				FileSize = file.Size
+				FileSize = file.Size,
+				Deleted = file.Deleted
 			}
 		};
 

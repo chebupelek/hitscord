@@ -12,6 +12,7 @@ using Grpc.Core;
 using System.Threading.Channels;
 using System.Collections.Immutable;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
+using hitscord.Utils;
 
 namespace hitscord.Services;
 
@@ -32,7 +33,7 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId)
 	{
-		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId);
+		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && ((TextChannelDbModel)c).DeleteTime == null);
 		if (channel == null)
 		{
 			throw new CustomException("Channel not found", "Check channel for existing", "Channel", 404, "Канал не найден", "Проверка наличия канала");
@@ -42,7 +43,7 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId)
 	{
-		var channel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text");
+		var channel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text" && c.DeleteTime == null);
 		if (channel == null || channel.GetType() == typeof(NotificationChannelDbModel) || channel.GetType() == typeof(SubChannelDbModel))
 		{
 			throw new CustomException("Text channel not found", "Check text channel for existing", "Text channel", 404, "Текстовый канал не найден", "Проверка наличия текстового канала");
@@ -52,8 +53,8 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckTextOrNotificationChannelExistAsync(Guid channelId)
 	{
-		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text");
-		var notificationChannel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(c => c.Id == channelId);
+		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text" && c.DeleteTime == null);
+		var notificationChannel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
 		if (textChannel != null && textChannel.GetType() == typeof(SubChannelDbModel))
 		{
 			return textChannel;
@@ -73,9 +74,9 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckTextOrNotificationOrSubChannelExistAsync(Guid channelId)
 	{
-		var textChannel = await _hitsContext.TextChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text");
-		var notificationChannel = await _hitsContext.NotificationChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId);
-		var subChannel = await _hitsContext.SubChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId);
+		var textChannel = await _hitsContext.TextChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text" && c.DeleteTime == null);
+		var notificationChannel = await _hitsContext.NotificationChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
+		var subChannel = await _hitsContext.SubChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
 		if (textChannel != null)
 		{
 			return textChannel;
@@ -130,7 +131,7 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckNotificationChannelExistAsync(Guid channelId)
 	{
-		var channel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(c => c.Id == channelId);
+		var channel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
 		if (channel == null)
 		{
 			throw new CustomException("Notification channel not found", "Check notification channel for existing", "Notification channel", 404, "Уведомительный канал не найден", "Проверка наличия уведомительног канала");
@@ -140,7 +141,7 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckSubChannelExistAsync(Guid channelId)
 	{
-		var channel = await _hitsContext.SubChannel.FirstOrDefaultAsync(c => c.Id == channelId);
+		var channel = await _hitsContext.SubChannel.FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
 		if (channel == null)
 		{
 			throw new CustomException("Sub channel not found", "Check sub channel for existing", "Sub channel", 404, "Под канал не найден", "Проверка наличия под канала");
@@ -823,20 +824,17 @@ public class ChannelService : IChannelService
 					await _webSocketManager.BroadcastMessageAsync(removedUser, new List<Guid> { userId }, "You removed from voice channel");
 				}
 			}
+
+			_hitsContext.Channel.Remove(channel);
+			await _hitsContext.SaveChangesAsync();
 		}
 		if (channelType == ChannelTypeEnum.Text || channelType == ChannelTypeEnum.Notification)
 		{
-			var nonNitifiables = await _hitsContext.NonNotifiableChannel.Where(nnc => nnc.TextChannelId == channel.Id).ToListAsync();
-			_hitsContext.NonNotifiableChannel.RemoveRange(nonNitifiables);
-
-			await _hitsContext.ChannelMessage
-				.Where(m => m.TextChannelId == channel.Id)
-				.ExecuteUpdateAsync(setters => setters
-					.SetProperty(m => m.DeleteTime, _ => DateTime.UtcNow.AddDays(21)));
+			var tc = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == chnnelId);
+			tc.DeleteTime = DateTime.UtcNow.AddDays(21);
+			_hitsContext.TextChannel.Update(tc);
+			await _hitsContext.SaveChangesAsync();
 		}
-
-		_hitsContext.Channel.Remove(channel);
-		await _hitsContext.SaveChangesAsync();
 
 		var deletedChannelResponse = new ChannelResponseSocket
 		{
@@ -1225,7 +1223,8 @@ public class ChannelService : IChannelService
 							FileId = f.Id,
 							FileName = f.Name,
 							FileType = f.Type,
-							FileSize = f.Size
+							FileSize = f.Size,
+							Deleted = f.Deleted
 						})
 						.ToList()
 					};
@@ -2163,6 +2162,37 @@ public class ChannelService : IChannelService
 				.ToListAsync();
 
 			return new UsersIdList { Ids = ids };
+		}
+	}
+
+	public async Task RemoveChannels()
+	{
+		var now = DateTime.Now;
+
+		var channels = await _hitsContext.TextChannel.Where(c =>
+				c.DeleteTime != null
+				&& c.DeleteTime < now
+			)
+			.ToListAsync();
+
+		foreach (var channel in channels)
+		{
+			var lastReads = await _hitsContext.LastReadChannelMessage.Where(lrcm => lrcm.TextChannelId == channel.Id).ToListAsync();
+			if (lastReads != null && lastReads.Count() > 0)
+			{
+				_hitsContext.LastReadChannelMessage.RemoveRange(lastReads);
+			}
+
+			var nonNitifiables = await _hitsContext.NonNotifiableChannel.Where(nnc => nnc.TextChannelId == channel.Id).ToListAsync();
+			_hitsContext.NonNotifiableChannel.RemoveRange(nonNitifiables);
+
+			await _hitsContext.ChannelMessage
+				.Where(m => m.TextChannelId == channel.Id)
+				.ExecuteUpdateAsync(setters => setters
+					.SetProperty(m => m.DeleteTime, _ => DateTime.UtcNow.AddDays(1)));
+
+			_hitsContext.TextChannel.Remove(channel);
+			await _hitsContext.SaveChangesAsync();
 		}
 	}
 }

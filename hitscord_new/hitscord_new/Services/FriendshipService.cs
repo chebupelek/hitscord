@@ -85,7 +85,8 @@ public class FriendshipService : IFriendshipService
 					FileId = user.IconFile.Id,
 					FileName = user.IconFile.Name,
 					FileType = user.IconFile.Type,
-					FileSize = user.IconFile.Size
+					FileSize = user.IconFile.Size,
+					Deleted = false
 				},
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
@@ -200,7 +201,8 @@ public class FriendshipService : IFriendshipService
 					FileId = user.IconFile.Id,
 					FileName = user.IconFile.Name,
 					FileType = user.IconFile.Type,
-					FileSize = user.IconFile.Size
+					FileSize = user.IconFile.Size,
+					Deleted = false
 				},
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
@@ -234,7 +236,8 @@ public class FriendshipService : IFriendshipService
 							FileId = f.UserFrom.IconFile.Id,
 							FileName = f.UserFrom.IconFile.Name,
 							FileType = f.UserFrom.IconFile.Type,
-							FileSize = f.UserFrom.IconFile.Size
+							FileSize = f.UserFrom.IconFile.Size,
+							Deleted = false
 						},
 						Notifiable = f.UserFrom.Notifiable,
 						FriendshipApplication = f.UserFrom.FriendshipApplication,
@@ -271,7 +274,8 @@ public class FriendshipService : IFriendshipService
 							FileId = f.UserTo.IconFile.Id,
 							FileName = f.UserTo.IconFile.Name,
 							FileType = f.UserTo.IconFile.Type,
-							FileSize = f.UserTo.IconFile.Size
+							FileSize = f.UserTo.IconFile.Size,
+							Deleted = false
 						},
 						Notifiable = f.UserTo.Notifiable,
 						FriendshipApplication = f.UserTo.FriendshipApplication,
@@ -308,7 +312,8 @@ public class FriendshipService : IFriendshipService
 						FileId = u.IconFile.Id,
 						FileName = u.IconFile.Name,
 						FileType = u.IconFile.Type,
-						FileSize = u.IconFile.Size
+						FileSize = u.IconFile.Size,
+						Deleted = false
 					},
 					Notifiable = u.Notifiable,
 					FriendshipApplication = u.FriendshipApplication,
