@@ -13,5 +13,14 @@ namespace hitscord.JwtCreation
             };
             return claims;
         }
-    }
+
+		public static List<Claim> CreateClaims(this AdminDbModel user)
+		{
+			var claims = new List<Claim>
+			{
+				new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+			};
+			return claims;
+		}
+	}
 }

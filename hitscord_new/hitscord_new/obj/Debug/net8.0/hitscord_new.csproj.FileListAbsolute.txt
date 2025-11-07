@@ -566,3 +566,7 @@ C:\Users\misti\Desktop\hitscord_new\hitscord_new\obj\Debug\net8.0\staticwebasset
 C:\Users\misti\Desktop\hitscord_new\hitscord_new\obj\Debug\net8.0\hitscord.6F1605EB.Up2Date
 C:\Users\misti\Desktop\hitscord_new\hitscord_new\obj\Debug\net8.0\hitscord_new.genruntimeconfig.cache
 C:\Users\misti\Desktop\hitscord_new\hitscord_new\obj\Debug\net8.0\ref\hitscord_new.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\CommunityToolkit.HighPerformance.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Minio.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.IO.Hashing.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.Reactive.dll

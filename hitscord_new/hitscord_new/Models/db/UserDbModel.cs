@@ -51,4 +51,6 @@ public class UserDbModel
 	[Required]
 	[Range(2, 20, ErrorMessage = "NotificationLifeTime должен быть от 2 до 20")]
 	public required int NotificationLifeTime { get; set; }
+
+    public required ICollection<SystemRoleDbModel> SystemRoles { get; set; }
 }

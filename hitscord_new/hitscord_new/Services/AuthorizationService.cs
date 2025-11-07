@@ -133,7 +133,8 @@ public class AuthorizationService : IAuthorizationService
 			Notifiable = true,
             FriendshipApplication = true,
             NonFriendMessage = true,
-			NotificationLifeTime = 4
+			NotificationLifeTime = 4,
+			SystemRoles = new List<SystemRoleDbModel>()
 		};
 
         await _hitsContext.User.AddAsync(newUser);

@@ -55,6 +55,10 @@ namespace hitscord.Contexts
 
 		public DbSet<FileDbModel> File { get; set; }
 
+		public DbSet<SystemRoleDbModel> SystemRole { get; set; }
+		public DbSet<AdminDbModel> Admin { get; set; }
+		public DbSet<ServerPresetDbModel> Preset { get; set; }
+
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
 			modelBuilder.Entity<UserDbModel>(entity =>
@@ -63,6 +67,9 @@ namespace hitscord.Contexts
 					.WithOne(f => f.User)
 					.HasForeignKey<FileDbModel>(f => f.UserId)
 					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasMany(u => u.SystemRoles)
+					.WithMany(sr => sr.Users);
 			});
 
 			modelBuilder.Entity<ServerDbModel>(entity =>
@@ -485,6 +492,11 @@ namespace hitscord.Contexts
 					.WithMany(m => m.Files)
 					.HasForeignKey(f => new { f.ChatMessageId, f.ChatId })
 					.OnDelete(DeleteBehavior.Cascade);
+			});
+
+			modelBuilder.Entity<ServerPresetDbModel>(entity =>
+			{
+				entity.HasKey(p => new { p.ServerRoleId, p.SystemRoleId });
 			});
 		}
     }
