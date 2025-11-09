@@ -219,7 +219,7 @@ public class ChannelService : IChannelService
 		var neededRole = ownerSub.SubscribeRoles.FirstOrDefault(sr => sr.Role.ServerCanWorkChannels == true);
 		serverRolesId.Add(neededRole.RoleId);
 
-		Guid channelId = new Guid();
+		Guid channelId = Guid.NewGuid();
 		string channelName = "";
 
 		switch (channelType)
