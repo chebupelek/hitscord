@@ -217,7 +217,10 @@ public class ChannelService : IChannelService
 
 		var serverRolesId = await _hitsContext.Role.Where(r => r.ServerId == server.Id && (r.Role == RoleEnum.Admin || r.Role == RoleEnum.Creator)).Select(r => r.Id).ToListAsync();
 		var neededRole = ownerSub.SubscribeRoles.FirstOrDefault(sr => sr.Role.ServerCanWorkChannels == true);
-		serverRolesId.Add(neededRole.RoleId);
+		if (neededRole.Role.Role != RoleEnum.Admin && neededRole.Role.Role != RoleEnum.Creator)
+		{
+			serverRolesId.Add(neededRole.RoleId);
+		}
 
 		Guid channelId = Guid.NewGuid();
 		string channelName = "";
