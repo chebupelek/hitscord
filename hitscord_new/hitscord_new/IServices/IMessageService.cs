@@ -13,8 +13,8 @@ public interface IMessageService
     Task UpdateMessageInChatWebsocketAsync(long messageId, Guid chatId, string token, string text);
     Task DeleteMessageInChatWebsocketAsync(long messageId, Guid chatId, string token);
 
-	Task<VoteResponceDTO> VoteAsync(string token, bool channel, Guid variantId);
-	Task<VoteResponceDTO> UnVoteAsync(string token, Guid variantId);
+	Task VoteAsync(string token, bool channel, Guid variantId);
+	Task UnVoteAsync(string token, Guid variantId);
 	Task<VoteResponceDTO> GetVotingAsync(string token, bool channel, Guid channelId, long voteId);
 
     Task RemoveMessagesFromDBAsync();

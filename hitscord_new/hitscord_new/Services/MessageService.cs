@@ -672,9 +672,7 @@ public class MessageService : IMessageService
 			throw new CustomException("User has no access to see this channel", "Delete normal message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Удаление сообщения");
 		}
 
-		var message = await _hitsContext.ClassicChannelMessage
-			.Include(m => m.Files)
-			.Include(m => m.NestedChannel)
+		var message = await _hitsContext.ChannelMessage
 			.FirstOrDefaultAsync(m => m.Id == messageId && m.TextChannelId == channel.Id);
 		if (message == null)
 		{
@@ -1014,7 +1012,7 @@ public class MessageService : IMessageService
 			throw new CustomException("User not in chat", "Delete normal message in chat", "User Id", 401, "Пользователь не состоит в чате", "Удаление сообщения в чате");
 		}
 
-		var message = await _hitsContext.ClassicChatMessage.FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
+		var message = await _hitsContext.ChatMessage.FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
 		if (message == null)
 		{
 			throw new CustomException("Message not found", "Delete normal message in chat", "Normal message", 404, "Сообщение не найдено", "Удаление сообщения в чате");
@@ -1038,7 +1036,7 @@ public class MessageService : IMessageService
 	}
 
 
-	public async Task<VoteResponceDTO> VoteAsync(string token, bool channel, Guid variantId)
+	public async Task VoteAsync(string token, bool channel, Guid variantId)
 	{
 		var user = await _authService.GetUserAsync(token);
 
@@ -1141,7 +1139,26 @@ public class MessageService : IMessageService
 				}).ToList()
 			};
 
-			return response;
+			var alertedUsers = await _hitsContext.UserServer
+				.Include(u => u.User)
+				.Include(u => u.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+						.ThenInclude(r => r.ChannelCanSee)
+				.Include(u => u.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+						.ThenInclude(r => r.ChannelCanUse)
+				.Where(u =>
+					u.SubscribeRoles.Any(sr =>
+						sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == variant.TextChannelId) ||
+						sr.Role.ChannelCanUse.Any(ccu => ccu.SubChannelId == variant.TextChannelId)
+					))
+				.Select(u => u.UserId)
+				.ToListAsync();
+
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User voted in channel");
+			}
 		}
 		else
 		{
@@ -1227,11 +1244,15 @@ public class MessageService : IMessageService
 				}).ToList()
 			};
 
-			return response;
+			var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == variant.ChatId).Select(us => us.UserId).ToListAsync();
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User voted in chat");
+			}
 		}
 	}
 
-	public async Task<VoteResponceDTO> UnVoteAsync(string token, Guid variantId)
+	public async Task UnVoteAsync(string token, Guid variantId)
 	{
 		var user = await _authService.GetUserAsync(token);
 
@@ -1318,7 +1339,26 @@ public class MessageService : IMessageService
 				}).ToList()
 			};
 
-			return response;
+			var alertedUsers = await _hitsContext.UserServer
+				.Include(u => u.User)
+				.Include(u => u.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+						.ThenInclude(r => r.ChannelCanSee)
+				.Include(u => u.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+						.ThenInclude(r => r.ChannelCanUse)
+				.Where(u =>
+					u.SubscribeRoles.Any(sr =>
+						sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == channelVariant.TextChannelId) ||
+						sr.Role.ChannelCanUse.Any(ccu => ccu.SubChannelId == channelVariant.TextChannelId)
+					))
+				.Select(u => u.UserId)
+				.ToListAsync();
+
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User unvoted in channel");
+			}
 		}
 		else
 		{
@@ -1395,7 +1435,11 @@ public class MessageService : IMessageService
 					}).ToList()
 				};
 
-				return response;
+				var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == variant.ChatId).Select(us => us.UserId).ToListAsync();
+				if (alertedUsers != null && alertedUsers.Count() > 0)
+				{
+					await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User unvoted in chat");
+				}
 			}
 		}
 
