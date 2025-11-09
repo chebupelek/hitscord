@@ -1005,7 +1005,7 @@ public class MessageService : IMessageService
 			throw new CustomException("User not in chat", "Delete normal message in chat", "User Id", 401, "Пользователь не состоит в чате", "Удаление сообщения в чате");
 		}
 
-		var message = await _hitsContext.ClassicChatMessage.FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
+		var message = await _hitsContext.ChatMessage.FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
 		if (message == null)
 		{
 			throw new CustomException("Message not found", "Delete normal message in chat", "Normal message", 404, "Сообщение не найдено", "Удаление сообщения в чате");
