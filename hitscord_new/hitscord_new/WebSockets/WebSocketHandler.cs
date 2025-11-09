@@ -132,12 +132,7 @@ public class WebSocketHandler
 					if (vote != null)
 					{
 						var voteData = vote.Content;
-						var result = await _messageService.VoteAsync(voteData.Token, voteData.isChannel, voteData.VoteVariantId);
-						await _webSocketManager.SendMessageAsync(userId, new
-						{
-							MessageType = "User voted",
-							Payload = result
-						});
+						await _messageService.VoteAsync(voteData.Token, voteData.isChannel, voteData.VoteVariantId);
 					}
 					break;
 
@@ -147,12 +142,7 @@ public class WebSocketHandler
 					if (unvote != null)
 					{
 						var unvoteData = unvote.Content;
-						var result = await _messageService.UnVoteAsync(unvoteData.Token, unvoteData.VoteVariantId);
-						await _webSocketManager.SendMessageAsync(userId, new
-						{
-							MessageType = "User unvoted",
-							Payload = result
-						});
+						await _messageService.UnVoteAsync(unvoteData.Token, unvoteData.VoteVariantId);
 					}
 					break;
 
