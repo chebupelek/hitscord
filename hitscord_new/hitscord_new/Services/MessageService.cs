@@ -1359,6 +1359,8 @@ public class MessageService : IMessageService
 			{
 				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User unvoted in channel");
 			}
+
+			return;
 		}
 		else
 		{
@@ -1441,6 +1443,8 @@ public class MessageService : IMessageService
 					await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User unvoted in chat");
 				}
 			}
+
+			return;
 		}
 
 		throw new CustomException("Variant not found", "Unvoting", "Variant", 400, "Вариант не найден", "Отмена голоса");
