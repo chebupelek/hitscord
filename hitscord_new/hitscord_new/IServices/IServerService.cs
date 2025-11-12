@@ -1,4 +1,5 @@
 ﻿using hitscord.Models.db;
+using hitscord.Models.other;
 using hitscord.Models.response;
 
 namespace hitscord.IServices;
@@ -8,7 +9,7 @@ public interface IServerService
     Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels);
     Task<ServerDbModel> GetServerFullModelAsync(Guid serverId);
 
-    Task<ServerIdDTO> CreateServerAsync(string token, string severName);
+    Task<ServerIdDTO> CreateServerAsync(string token, string severName, ServerTypeEnum? type);
     Task SubscribeAsync(Guid serverId, string token, string? userName);
     Task UnsubscribeAsync(Guid serverId, string token);
     Task UnsubscribeForCreatorAsync(Guid serverId, string token, Guid newCreatorId);

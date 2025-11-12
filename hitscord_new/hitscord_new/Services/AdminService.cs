@@ -16,6 +16,8 @@ using Grpc.Core;
 using hitscord.WebSockets;
 using Authzed.Api.V0;
 using Microsoft.AspNetCore.SignalR;
+using NickBuhro.Translit;
+using System.Text.RegularExpressions;
 
 namespace hitscord.Services;
 
@@ -87,7 +89,7 @@ public class AdminService: IAdminService
 			throw new CustomException("UserId not found", "Profile", "Access token", 404, "Не найден подобный Id пользователя", "Получение профиля");
 		}
 		Guid userIdGuid = Guid.Parse(userId);
-		var user = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Id == userIdGuid);
+		var user = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Id == userIdGuid && u.Approved == true);
 		if (user == null)
 		{
 			throw new CustomException("User not found", "Profile", "User", 404, "Пользователь не найден", "Получение профиля");
@@ -95,9 +97,33 @@ public class AdminService: IAdminService
 		return user;
 	}
 
+	public async Task CreateAccount(AdminRegistrationDTO registrationData)
+	{
+		if (await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Login == registrationData.Login) != null)
+		{
+			throw new CustomException("Account with this login already exist", "Account", "Login", 400, "Аккаунт с таким логином уже существует", "Регистрация");
+		}
+		if (await _hitsContext.Admin.FirstOrDefaultAsync(u => u.AccountName == registrationData.AccountName) != null)
+		{
+			throw new CustomException("Account with this name already exist", "Account", "Name", 400, "Аккаунт с таким именем уже существует", "Регистрация");
+		}
+
+		var newUser = new AdminDbModel
+		{
+			Id = Guid.NewGuid(),
+			Login = registrationData.Login,
+			PasswordHash = _passwordHasher.HashPassword(registrationData.Login, registrationData.Password),
+			AccountName = registrationData.AccountName,
+			Approved = false
+		};
+
+		await _hitsContext.Admin.AddAsync(newUser);
+		_hitsContext.SaveChanges();
+	}
+
 	public async Task<TokenDTO> LoginAsync(AdminLoginDTO loginData)
 	{
-		var userData = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Login == loginData.Login);
+		var userData = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Login == loginData.Login && u.Approved == true);
 		if (userData == null)
 		{
 			throw new CustomException("A user with this login doesnt exists", "Login", "Login", 404, "Пользователь с таким логином не существует", "Логин");
@@ -541,7 +567,14 @@ public class AdminService: IAdminService
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
 				NonFriendMessage = user.NonFriendMessage,
-				isFriend = false
+				isFriend = false,
+				SystemRoles = user.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
 			};
 			if (user != null && user.IconFileId != null)
 			{

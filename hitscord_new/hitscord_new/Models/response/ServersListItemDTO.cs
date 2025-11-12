@@ -1,4 +1,6 @@
-﻿namespace hitscord.Models.response;
+﻿using hitscord.Models.other;
+
+namespace hitscord.Models.response;
 
 public class ServersListItemDTO
 {
@@ -8,4 +10,5 @@ public class ServersListItemDTO
     public FileMetaResponseDTO? Icon { get; set; }
     public required int NonReadedCount { get; set; }
 	public required int NonReadedTaggedCount { get; set; }
+    public required ServerTypeEnum ServerType { get; set; }
 }

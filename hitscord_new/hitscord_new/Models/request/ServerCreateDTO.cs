@@ -5,6 +5,7 @@ namespace hitscord.Models.request;
 public class ServerCreateDTO
 {
     public required string Name { get; set; }
+    public ServerTypeEnum? ServerType { get; set; }
 
     public void Validation()
     {

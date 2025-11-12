@@ -22,4 +22,7 @@ public class AdminDbModel
     [MinLength(6)]
     [MaxLength(50)]
     public required string AccountName { get; set; }
+
+	[Required]
+	public required bool Approved { get; set; }
 }

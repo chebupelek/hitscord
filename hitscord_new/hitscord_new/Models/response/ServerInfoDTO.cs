@@ -1,9 +1,12 @@
-﻿namespace hitscord.Models.response;
+﻿using hitscord.Models.other;
+
+namespace hitscord.Models.response;
 
 public class ServerInfoDTO
 {
 	public required Guid ServerId { get; set; }
 	public required string ServerName { get; set; }
+	public required ServerTypeEnum ServerType { get; set; }
 	public FileMetaResponseDTO? Icon { get; set; }
 	public required bool IsClosed { get; set; }
 	public required List<RolesItemDTO> Roles { get; set; }

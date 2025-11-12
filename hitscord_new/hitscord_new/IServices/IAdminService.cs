@@ -8,6 +8,7 @@ namespace hitscord.IServices;
 
 public interface IAdminService
 {
+	Task CreateAccount(AdminRegistrationDTO registrationData);
 	Task<TokenDTO> LoginAsync(AdminLoginDTO loginData);
 	Task LogoutAsync(string token);
 	Task<UsersAdminListDTO> UsersListAsync(string token, int num, int page, UsersSortEnum? sort, string? name, string? mail, List<Guid>? rolesIds);

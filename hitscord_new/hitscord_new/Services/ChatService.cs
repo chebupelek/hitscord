@@ -124,7 +124,48 @@ public class ChatService : IChatService
 		});
 		await _hitsContext.SaveChangesAsync();
 
-		var chatInfo = new ChatInfoDTO
+		var chatInfoOwner = new ChatInfoDTO
+		{
+			ChatId = newChat.Id,
+			ChatName = newChat.Name,
+			NonReadedCount = 0,
+			NonReadedTaggedCount = 0,
+			LastReadedMessageId = 0,
+			NonNotifiable = false,
+			Users = new List<UserChatResponseDTO>
+			{
+				new UserChatResponseDTO
+				{
+					ChatId = newChat.Id,
+					UserId = owner.Id,
+					UserName = owner.AccountName,
+					UserTag = owner.AccountTag,
+					Icon = owner.IconFileId == null ? null : new FileMetaResponseDTO
+					{
+						FileId = owner.IconFile.Id,
+						FileName = owner.IconFile.Name,
+						FileType = owner.IconFile.Type,
+						FileSize = owner.IconFile.Size,
+						Deleted = false,
+					},
+					Notifiable = owner.Notifiable,
+					NonFriendMessage = owner.NonFriendMessage,
+					FriendshipApplication = owner.FriendshipApplication,
+					isFriend = areUserFriends,
+					SystemRoles = owner.SystemRoles
+						.Select(sr => new SystemRoleShortItemDTO
+						{
+							Id = null,
+							Name = sr.Name,
+							Type = sr.Type
+						})
+						.ToList()
+				}
+			}
+		};
+		await _webSocketManager.BroadcastMessageAsync(chatInfoOwner, new List<Guid> { user.Id }, "You have been added into a chat");
+
+		var chatInfoUser = new ChatInfoDTO
 		{
 			ChatId = newChat.Id,
 			ChatName = newChat.Name,
@@ -151,12 +192,20 @@ public class ChatService : IChatService
 					Notifiable = user.Notifiable,
 					NonFriendMessage = user.NonFriendMessage,
 					FriendshipApplication = user.FriendshipApplication,
-					isFriend = areUserFriends
+					isFriend = areUserFriends,
+					SystemRoles = user.SystemRoles
+						.Select(sr => new SystemRoleShortItemDTO
+						{
+							Id = null,
+							Name = sr.Name,
+							Type = sr.Type
+						})
+						.ToList()
 				}
 			}
 		};
 
-		return chatInfo;
+		return chatInfoUser;
 	}
 
 	public async Task ChangeChatNameAsync(string token, Guid chatId, string newName)
@@ -254,6 +303,9 @@ public class ChatService : IChatService
 			.Include(c => c.Users)
 				.ThenInclude(uc => uc.User)
 					.ThenInclude(u => u.IconFile)
+			.Include(c => c.Users)
+				.ThenInclude(uc => uc.User)
+					.ThenInclude(u => u.SystemRoles)
 			.Include(c => c.IconFile)
 			.Include(c => c.Messages)
 			.FirstOrDefaultAsync(c => c.Id == chatId);
@@ -299,7 +351,15 @@ public class ChatService : IChatService
 				Notifiable = us.User.Notifiable,
 				NonFriendMessage = us.User.NonFriendMessage,
 				FriendshipApplication = us.User.FriendshipApplication,
-				isFriend = friendsIds.Contains(us.User.Id)
+				isFriend = friendsIds.Contains(us.User.Id),
+				SystemRoles = us.User.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Id = null,
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
 			})
 				.ToList()
 		};
@@ -367,7 +427,15 @@ public class ChatService : IChatService
 			Notifiable = user.Notifiable,
 			NonFriendMessage = user.NonFriendMessage,
 			FriendshipApplication = user.FriendshipApplication,
-			isFriend = false
+			isFriend = false,
+			SystemRoles = user.SystemRoles
+				.Select(sr => new SystemRoleShortItemDTO
+				{
+					Id = null,
+					Name = sr.Name,
+					Type = sr.Type
+				})
+				.ToList()
 		};
 
 		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
@@ -412,7 +480,15 @@ public class ChatService : IChatService
 					Notifiable = u.Notifiable,
 					NonFriendMessage = u.NonFriendMessage,
 					FriendshipApplication = u.FriendshipApplication,
-					isFriend = friendsIds.Contains(u.Id)
+					isFriend = friendsIds.Contains(u.Id),
+					SystemRoles = u.SystemRoles
+						.Select(sr => new SystemRoleShortItemDTO
+						{
+							Id = null,
+							Name = sr.Name,
+							Type = sr.Type
+						})
+						.ToList()
 				})
 				.ToList()
 		};
@@ -495,7 +571,15 @@ public class ChatService : IChatService
 				Notifiable = owner.Notifiable,
 				NonFriendMessage = owner.NonFriendMessage,
 				FriendshipApplication = owner.FriendshipApplication,
-				isFriend = false
+				isFriend = false,
+				SystemRoles = owner.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Id = null,
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
 			};
 
 			var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();

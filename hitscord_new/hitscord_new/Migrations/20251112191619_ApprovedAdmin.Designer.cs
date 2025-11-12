@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using hitscord.Contexts;
@@ -12,9 +13,11 @@ using hitscord.Contexts;
 namespace hitscord_new.Migrations
 {
     [DbContext(typeof(HitsContext))]
-    partial class HitsContextModelSnapshot : ModelSnapshot
+    [Migration("20251112191619_ApprovedAdmin")]
+    partial class ApprovedAdmin
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -801,18 +804,9 @@ namespace hitscord_new.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<string>("ServerType")
-                        .IsRequired()
-                        .HasMaxLength(13)
-                        .HasColumnType("character varying(13)");
-
                     b.HasKey("Id");
 
                     b.ToTable("Server");
-
-                    b.HasDiscriminator<string>("ServerType").HasValue("Server");
-
-                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ServerPresetDbModel", b =>
@@ -1098,13 +1092,6 @@ namespace hitscord_new.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasDiscriminator().HasValue("Classic");
-                });
-
-            modelBuilder.Entity("hitscord.Models.db.ServerTeacherDbModel", b =>
-                {
-                    b.HasBaseType("hitscord.Models.db.ServerDbModel");
-
-                    b.HasDiscriminator().HasValue("AdminServer");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.NotificationChannelDbModel", b =>
@@ -1550,7 +1537,7 @@ namespace hitscord_new.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("hitscord.Models.db.ServerTeacherDbModel", "Server")
+                    b.HasOne("hitscord.Models.db.ServerDbModel", "Server")
                         .WithMany()
                         .HasForeignKey("ServerId")
                         .OnDelete(DeleteBehavior.Cascade)

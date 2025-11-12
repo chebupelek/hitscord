@@ -16,6 +16,7 @@ using hitscord.Models.other;
 using Microsoft.EntityFrameworkCore.Query;
 using Grpc.Core;
 using hitscord.Utils;
+using Authzed.Api.V0;
 
 namespace hitscord.Services;
 
@@ -60,7 +61,7 @@ public class AuthorizationService : IAuthorizationService
             throw new CustomException("UserId not found", "Profile", "Access token", 404, "Не найден подобный Id пользователя", "Получение профиля");
         }
         Guid userIdGuid = Guid.Parse(userId);
-        var user = await _hitsContext.User.Include(u => u.IconFile).FirstOrDefaultAsync(u => u.Id == userIdGuid);
+        var user = await _hitsContext.User.Include(u => u.SystemRoles).Include(u => u.IconFile).FirstOrDefaultAsync(u => u.Id == userIdGuid);
         if (user == null)
         {
             throw new CustomException("User not found", "Profile", "User", 404, "Пользователь не найден", "Получение профиля");
@@ -70,7 +71,7 @@ public class AuthorizationService : IAuthorizationService
 
     public async Task<UserDbModel> GetUserAsync(Guid userId)
     {
-        var user = await _hitsContext.User.Include(u => u.IconFile).FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await _hitsContext.User.Include(u => u.SystemRoles).Include(u => u.IconFile).FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null)
         {
             throw new CustomException("User not found", "Get user by id", "User", 404, "Пользователь не найден", "Получение пользователя по Id");
@@ -80,7 +81,7 @@ public class AuthorizationService : IAuthorizationService
 
 	public async Task<UserDbModel> GetUserByTagAsync(string UserTag)
 	{
-		var user = await _hitsContext.User.Include(u => u.IconFile).FirstOrDefaultAsync(u => u.AccountTag == UserTag);
+		var user = await _hitsContext.User.Include(u => u.SystemRoles).Include(u => u.IconFile).FirstOrDefaultAsync(u => u.AccountTag == UserTag);
 		if (user == null)
 		{
 			throw new CustomException("User not found", "Get user by tag", "User", 404, "Пользователь не найден", "Получение пользователя по тегу");
@@ -205,7 +206,14 @@ public class AuthorizationService : IAuthorizationService
             FriendshipApplication = user.FriendshipApplication,
             NonFriendMessage = user.NonFriendMessage,
             Icon = icon,
-			NotificationLifeTime = user.NotificationLifeTime
+			NotificationLifeTime = user.NotificationLifeTime,
+			SystemRoles = user.SystemRoles
+				.Select(sr => new SystemRoleShortItemDTO
+				{
+					Name = sr.Name,
+					Type = sr.Type
+				})
+				.ToList()
 		};
 		return userData;
     }
@@ -242,7 +250,14 @@ public class AuthorizationService : IAuthorizationService
 			Notifiable = userData.Notifiable,
 			FriendshipApplication = userData.FriendshipApplication,
 			NonFriendMessage = userData.NonFriendMessage,
-			NotificationLifeTime = userData.NotificationLifeTime
+			NotificationLifeTime = userData.NotificationLifeTime,
+			SystemRoles = userData.SystemRoles
+				.Select(sr => new SystemRoleShortItemDTO
+				{
+					Name = sr.Name,
+					Type = sr.Type
+				})
+				.ToList()
 		};
 
 		return newUserData;

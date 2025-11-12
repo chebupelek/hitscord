@@ -7,7 +7,7 @@ namespace hitscord.Models.response;
 
 public class SystemRoleShortItemDTO
 {
-	public required Guid Id { get; set; }
+	public Guid? Id { get; set; }
 	public required string Name { get; set; }
 	public required SystemRoleTypeEnum Type { get; set; }
 }

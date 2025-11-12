@@ -23,7 +23,27 @@ public class AdminController : ControllerBase
         _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
     }
 
-    [HttpPost]
+	[HttpPost]
+	[Route("registration")]
+	public async Task<IActionResult> Registration([FromBody] AdminRegistrationDTO loginData)
+	{
+		try
+		{
+			loginData.Validation();
+			await _adminService.CreateAccount(loginData);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[HttpPost]
     [Route("login")]
     public async Task<IActionResult> Login([FromBody] AdminLoginDTO loginData)
     {

@@ -12,4 +12,5 @@ public class UserChatResponseDTO
 	public required bool FriendshipApplication { get; set; }
 	public required bool NonFriendMessage { get; set; }
 	public required bool isFriend {get; set;}
+	public required List<SystemRoleShortItemDTO> SystemRoles { get; set; }
 }

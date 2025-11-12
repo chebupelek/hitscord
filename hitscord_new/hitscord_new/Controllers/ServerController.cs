@@ -29,7 +29,7 @@ public class ServerController : ControllerBase
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validation();
-           var id = await _serverService.CreateServerAsync(jwtToken, data.Name);
+           var id = await _serverService.CreateServerAsync(jwtToken, data.Name, data.ServerType);
             return Ok(id);
         }
         catch (CustomException ex)

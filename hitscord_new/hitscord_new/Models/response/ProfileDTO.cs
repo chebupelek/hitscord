@@ -12,4 +12,5 @@ public class ProfileDTO
 	public required bool NonFriendMessage { get; set; }
     public FileMetaResponseDTO? Icon { get; set; }
 	public int? NotificationLifeTime { get; set; }
+	public required List<SystemRoleShortItemDTO> SystemRoles { get; set; }
 }

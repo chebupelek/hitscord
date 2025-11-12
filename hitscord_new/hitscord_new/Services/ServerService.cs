@@ -52,10 +52,18 @@ public class ServerService : IServerService
         return server;
     }
 
-    public async Task<ServerDbModel> GetServerFullModelAsync(Guid serverId)
+	public async Task<ServerTypeEnum> GetServerTypeeAsync(Guid serverId)
+	{
+		var teachers = await _hitsContext.ServerTeacher.FirstOrDefaultAsync(s => s.Id == serverId);
+		if (teachers != null) return ServerTypeEnum.Teacher;
+		var students = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == serverId);
+		if (students != null) return ServerTypeEnum.Student;
+		throw new CustomException("Server not found", "Get server type", "Server id", 404, "Сервер не найден", "Получение типа сервера");
+	}
+
+	public async Task<ServerDbModel> GetServerFullModelAsync(Guid serverId)
     {
         var server = await _hitsContext.Server
-                .Include(s => s.Channels)
                 .Include(s => s.Channels)
                 .Include(s => s.Roles)
                 .FirstOrDefaultAsync(s => s.Id == serverId);
@@ -115,9 +123,14 @@ public class ServerService : IServerService
 		};
 	}
 
-	public async Task<ServerIdDTO> CreateServerAsync(string token, string serverName)
+	public async Task<ServerIdDTO> CreateServerAsync(string token, string serverName, ServerTypeEnum? type)
     {
         var user = await _authorizationService.GetUserAsync(token);
+
+		if (!(user.SystemRoles.Any(sr => sr.Type == SystemRoleTypeEnum.Teacher)) && type != null && type == ServerTypeEnum.Teacher)
+		{
+			throw new CustomException("User cant create teachers servers", "Create server", "User", 401, "Пользователь не имеет права создавать учебные сервера", "Создание сервера");
+		}
 
         var newServer = new ServerDbModel()
         {
@@ -127,8 +140,25 @@ public class ServerService : IServerService
 			Channels = new List<ChannelDbModel>(),
 			Subscribtions = new List<UserServerDbModel>(),
 		};
-        await _hitsContext.Server.AddAsync(newServer);
-        await _hitsContext.SaveChangesAsync();
+
+		if (type != null && type == ServerTypeEnum.Teacher)
+		{
+			newServer = new ServerTeacherDbModel()
+			{
+				Name = serverName,
+				IsClosed = false,
+				Roles = new List<RoleDbModel>(),
+				Channels = new List<ChannelDbModel>(),
+				Subscribtions = new List<UserServerDbModel>(),
+			};
+			await _hitsContext.ServerTeacher.AddAsync((ServerTeacherDbModel)newServer);
+			await _hitsContext.SaveChangesAsync();
+		}
+		else
+		{
+			await _hitsContext.Server.AddAsync(newServer);
+			await _hitsContext.SaveChangesAsync();
+		}
 
         var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Создатель", "#FF0000", true, true, true, true, true, true, true, true, true);
         var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Админ", "#00FF00", true, true, true, true, true, true, true, true, true);
@@ -315,7 +345,15 @@ public class ServerService : IServerService
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
 				NonFriendMessage = user.NonFriendMessage,
-				isFriend = false
+				isFriend = false,
+				SystemRoles = user.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Id = null,
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
 			};
 			if (user != null && user.IconFileId != null)
 			{
@@ -416,7 +454,16 @@ public class ServerService : IServerService
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
+		var serverType = server switch
+		{
+			ServerTeacherDbModel => ServerTypeEnum.Teacher,
+			_ => ServerTypeEnum.Student
+		};
 		var newCreator = await _authorizationService.GetUserAsync(newCreatorId);
+		if (serverType == ServerTypeEnum.Teacher && !(newCreator.SystemRoles.Any(sr => sr.Type == SystemRoleTypeEnum.Teacher)))
+		{
+			throw new CustomException("New creator isnt teacher", "Check subscription is exist", "User", 401, "Новый владелец не является учителем", "Отписка для создателя");
+		}
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
@@ -624,7 +671,12 @@ public class ServerService : IServerService
 				IsNotifiable = sub.NonNotifiable,
 				Icon = icon,
 				NonReadedCount = nonReadedMessages,
-				NonReadedTaggedCount = nonReadedTaggedMessages
+				NonReadedTaggedCount = nonReadedTaggedMessages,
+				ServerType = sub.Server switch
+				{
+					ServerTeacherDbModel => ServerTypeEnum.Teacher,
+					_ => ServerTypeEnum.Student
+				}
 			});
 		}
 
@@ -924,6 +976,11 @@ public class ServerService : IServerService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 		var server = await GetServerFullModelAsync(serverId);
+		var serverType = server switch
+		{
+			ServerTeacherDbModel => ServerTypeEnum.Teacher,
+			_ => ServerTypeEnum.Student
+		};
 
 		var sub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
@@ -976,7 +1033,7 @@ public class ServerService : IServerService
 			})
 			.ToListAsync();
 
-		var pairVoiceChannelResponses = await _hitsContext.PairVoiceChannel
+		var pairVoiceChannelResponses = serverType == ServerTypeEnum.Teacher ? await _hitsContext.PairVoiceChannel
 			.Include(vc => vc.Users)
 			.Include(vc => vc.ChannelCanSee)
 			.Include(vc => vc.ChannelCanJoin)
@@ -996,7 +1053,8 @@ public class ServerService : IServerService
 				})
 				.ToList()
 			})
-			.ToListAsync();
+			.ToListAsync()
+			: null;
 
 		var textChannels = await _hitsContext.TextChannel
 			.Include(t => t.ChannelCanSee)
@@ -1064,6 +1122,8 @@ public class ServerService : IServerService
 		var serverUsers = await _hitsContext.UserServer
 			.Include(us => us.User)
 				.ThenInclude(u => u.IconFile)
+			.Include(us => us.User)
+				.ThenInclude(u => u.SystemRoles)
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 			.Where(us => us.ServerId == serverId && us.IsBanned == false)
@@ -1092,7 +1152,15 @@ public class ServerService : IServerService
 				Notifiable = us.User.Notifiable,
 				FriendshipApplication = us.User.FriendshipApplication,
 				NonFriendMessage = us.User.NonFriendMessage,
-				isFriend = friendsIds.Contains(us.User.Id)
+				isFriend = friendsIds.Contains(us.User.Id),
+				SystemRoles = us.User.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Id = null,
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
 			})
 			.ToListAsync();
 
@@ -1100,6 +1168,7 @@ public class ServerService : IServerService
 		{
 			ServerId = serverId,
 			ServerName = server.Name,
+			ServerType = serverType,
 			Icon = null,
 			IsClosed = server.IsClosed,
 			Roles = await _hitsContext.Role
@@ -1634,7 +1703,14 @@ public class ServerService : IServerService
 							Notifiable = user.Notifiable,
 							FriendshipApplication = user.FriendshipApplication,
 							NonFriendMessage = user.NonFriendMessage,
-							isFriend = false
+							isFriend = false,
+							SystemRoles = user.SystemRoles
+								.Select(sr => new SystemRoleShortItemDTO
+								{
+									Name = sr.Name,
+									Type = sr.Type
+								})
+								.ToList()
 						};
 						if (user != null && user.IconFileId != null)
 						{
@@ -1761,7 +1837,14 @@ public class ServerService : IServerService
 			Notifiable = user.Notifiable,
 			FriendshipApplication = user.FriendshipApplication,
 			NonFriendMessage = user.NonFriendMessage,
-			isFriend = false
+			isFriend = false,
+			SystemRoles = user.SystemRoles
+				.Select(sr => new SystemRoleShortItemDTO
+				{
+					Name = sr.Name,
+					Type = sr.Type
+				})
+				.ToList()
 		};
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
@@ -1870,6 +1953,7 @@ public class ServerService : IServerService
 			.Skip((page - 1) * size)
 			.Take(size)
 			.Include(sa => sa.User)
+				.ThenInclude(u => u.SystemRoles)
 			.Select(sa => new ServerApplicationResponseDTO
 			{
 				ApplicationId = sa.Id,
@@ -1883,7 +1967,14 @@ public class ServerService : IServerService
 					Notifiable = sa.User.Notifiable,
 					FriendshipApplication = sa.User.FriendshipApplication,
 					NonFriendMessage = sa.User.NonFriendMessage,
-					Icon = null
+					Icon = null,
+					SystemRoles = sa.User.SystemRoles
+						.Select(sr => new SystemRoleShortItemDTO
+						{
+							Name = sr.Name,
+							Type = sr.Type
+						})
+						.ToList()
 				},
 				CreatedAt = sa.CreatedAt
 			})
