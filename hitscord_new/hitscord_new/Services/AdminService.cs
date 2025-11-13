@@ -743,7 +743,7 @@ public class AdminService: IAdminService
 		var users = await _hitsContext.User
 			.Include(u => u.SystemRoles)
 			.Where(u => UsersIds.Contains(u.Id)
-				&& u.SystemRoles.Any(sr => sr.Id != role.Id))
+				&& (u.SystemRoles.Any(sr => sr.Id != role.Id) || u.SystemRoles.Count == 0))
 			.ToListAsync();
 
 		if (users == null || users.Count == 0)
