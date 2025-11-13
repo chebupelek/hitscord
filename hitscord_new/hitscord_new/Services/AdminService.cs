@@ -148,8 +148,16 @@ public class AdminService: IAdminService
 			Start = DateTime.Now
 		};
 
-		_tokenContext.AdminToken.Add(logDb);
-		await _tokenContext.SaveChangesAsync();
+		try
+		{
+			_tokenContext.AdminToken.Add(logDb);
+			await _tokenContext.SaveChangesAsync();
+		}
+		catch (DbUpdateException ex)
+		{
+			var inner = ex.InnerException?.Message;
+			throw new Exception($"EF SaveChanges failed: {inner}", ex);
+		}
 
 		return new TokenDTO { AccessToken = accessToken };
 	}
