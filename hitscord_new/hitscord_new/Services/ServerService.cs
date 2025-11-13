@@ -54,13 +54,28 @@ public class ServerService : IServerService
         return server;
     }
 
-	public async Task<ServerTypeEnum> GetServerTypeeAsync(Guid serverId)
+	public async Task<ServerTypeEnum> GetServerTypeAsync(Guid serverId)
 	{
-		var teachers = await _hitsContext.ServerTeacher.FirstOrDefaultAsync(s => s.Id == serverId);
-		if (teachers != null) return ServerTypeEnum.Teacher;
-		var students = await _hitsContext.Server.FirstOrDefaultAsync(s => s.Id == serverId);
-		if (students != null) return ServerTypeEnum.Student;
-		throw new CustomException("Server not found", "Get server type", "Server id", 404, "Сервер не найден", "Получение типа сервера");
+		var server = await _hitsContext.Server
+			.OfType<ServerTeacherDbModel>()
+			.FirstOrDefaultAsync(s => s.Id == serverId);
+
+		if (server != null) return ServerTypeEnum.Teacher;
+
+		var servern = await _hitsContext.Server
+			.OfType<ServerDbModel>()
+			.FirstOrDefaultAsync(s => s.Id == serverId);
+
+		if (server != null) return ServerTypeEnum.Student;
+
+		throw new CustomException(
+			"Server not found",
+			"Get server type",
+			"Server id",
+			404,
+			"Сервер не найден",
+			"Получение типа сервера"
+		);
 	}
 
 	public async Task<ServerDbModel> GetServerFullModelAsync(Guid serverId)
@@ -153,7 +168,7 @@ public class ServerService : IServerService
 				Channels = new List<ChannelDbModel>(),
 				Subscribtions = new List<UserServerDbModel>(),
 			};
-			await _hitsContext.ServerTeacher.AddAsync((ServerTeacherDbModel)newServer);
+			await _hitsContext.Server.AddAsync(newServer);
 			await _hitsContext.SaveChangesAsync();
 		}
 		else
