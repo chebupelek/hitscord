@@ -376,11 +376,6 @@ public class RolesService : IRolesService
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
-		var serverType = server switch
-		{
-			ServerTeacherDbModel => ServerTypeEnum.Teacher,
-			_ => ServerTypeEnum.Student
-		};
 		var role = await CheckRoleAsync(roleId, serverId);
 
 		var ownerSub = await _hitsContext.UserServer
@@ -511,7 +506,7 @@ public class RolesService : IRolesService
 				break;
 
 			case SettingsEnum.CanCreateLessons:
-				if (serverType != ServerTypeEnum.Teacher)
+				if (server.ServerType != ServerTypeEnum.Teacher)
 				{
 					throw new CustomException("Cant change CanCreateLessons", "Change role settings", "Role", 400, "Нельзя менять данную настройку в этом канале", "Изменение настроек роли");
 				}
@@ -531,7 +526,7 @@ public class RolesService : IRolesService
 				break;
 
 			case SettingsEnum.CanCheckAttendance:
-				if (serverType != ServerTypeEnum.Teacher)
+				if (server.ServerType != ServerTypeEnum.Teacher)
 				{
 					throw new CustomException("Cant change CanCreateLessons", "Change role settings", "Role", 400, "Нельзя менять данную настройку в этом канале", "Изменение настроек роли");
 				}

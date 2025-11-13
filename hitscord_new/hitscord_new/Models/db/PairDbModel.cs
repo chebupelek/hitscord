@@ -20,7 +20,7 @@ public class PairDbModel
 	public Guid ServerId { get; set; }
 
 	[ForeignKey(nameof(ServerId))]
-	public ServerTeacherDbModel Server { get; set; }
+	public ServerDbModel Server { get; set; }
 
 	[Required]
 	public Guid PairVoiceChannelId { get; set; }

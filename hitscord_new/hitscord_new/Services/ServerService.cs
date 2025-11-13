@@ -54,30 +54,6 @@ public class ServerService : IServerService
         return server;
     }
 
-	public async Task<ServerTypeEnum> GetServerTypeAsync(Guid serverId)
-	{
-		var server = await _hitsContext.Server
-			.OfType<ServerTeacherDbModel>()
-			.FirstOrDefaultAsync(s => s.Id == serverId);
-
-		if (server != null) return ServerTypeEnum.Teacher;
-
-		var servern = await _hitsContext.Server
-			.OfType<ServerDbModel>()
-			.FirstOrDefaultAsync(s => s.Id == serverId);
-
-		if (server != null) return ServerTypeEnum.Student;
-
-		throw new CustomException(
-			"Server not found",
-			"Get server type",
-			"Server id",
-			404,
-			"Сервер не найден",
-			"Получение типа сервера"
-		);
-	}
-
 	public async Task<ServerDbModel> GetServerFullModelAsync(Guid serverId)
     {
         var server = await _hitsContext.Server
@@ -156,28 +132,13 @@ public class ServerService : IServerService
 			Roles = new List<RoleDbModel>(),
 			Channels = new List<ChannelDbModel>(),
 			Subscribtions = new List<UserServerDbModel>(),
+			ServerType = (type != null && type == ServerTypeEnum.Teacher) ? ServerTypeEnum.Teacher : ServerTypeEnum.Student
 		};
 
-		if (type != null && type == ServerTypeEnum.Teacher)
-		{
-			newServer = new ServerTeacherDbModel()
-			{
-				Name = serverName,
-				IsClosed = false,
-				Roles = new List<RoleDbModel>(),
-				Channels = new List<ChannelDbModel>(),
-				Subscribtions = new List<UserServerDbModel>(),
-			};
-			await _hitsContext.Server.AddAsync(newServer);
-			await _hitsContext.SaveChangesAsync();
-		}
-		else
-		{
-			await _hitsContext.Server.AddAsync(newServer);
-			await _hitsContext.SaveChangesAsync();
-		}
+		await _hitsContext.Server.AddAsync(newServer);
+		await _hitsContext.SaveChangesAsync();
 
-        var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Создатель", "#FF0000", true, true, true, true, true, true, true, true, true);
+		var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Создатель", "#FF0000", true, true, true, true, true, true, true, true, true);
         var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Админ", "#00FF00", true, true, true, true, true, true, true, true, true);
         var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Неопределенная", "#FFFF00", false, false, false, false, false, false, false, false, false);
         newServer.Roles = new List<RoleDbModel> { creatorRole, adminRole, uncertainRole };
@@ -471,13 +432,8 @@ public class ServerService : IServerService
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
-		var serverType = server switch
-		{
-			ServerTeacherDbModel => ServerTypeEnum.Teacher,
-			_ => ServerTypeEnum.Student
-		};
 		var newCreator = await _authorizationService.GetUserAsync(newCreatorId);
-		if (serverType == ServerTypeEnum.Teacher && !(newCreator.SystemRoles.Any(sr => sr.Type == SystemRoleTypeEnum.Teacher)))
+		if (server.ServerType == ServerTypeEnum.Teacher && !(newCreator.SystemRoles.Any(sr => sr.Type == SystemRoleTypeEnum.Teacher)))
 		{
 			throw new CustomException("New creator isnt teacher", "Check subscription is exist", "User", 401, "Новый владелец не является учителем", "Отписка для создателя");
 		}
@@ -689,11 +645,7 @@ public class ServerService : IServerService
 				Icon = icon,
 				NonReadedCount = nonReadedMessages,
 				NonReadedTaggedCount = nonReadedTaggedMessages,
-				ServerType = sub.Server switch
-				{
-					ServerTeacherDbModel => ServerTypeEnum.Teacher,
-					_ => ServerTypeEnum.Student
-				}
+				ServerType = sub.Server.ServerType
 			});
 		}
 
@@ -993,11 +945,6 @@ public class ServerService : IServerService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 		var server = await GetServerFullModelAsync(serverId);
-		var serverType = server switch
-		{
-			ServerTeacherDbModel => ServerTypeEnum.Teacher,
-			_ => ServerTypeEnum.Student
-		};
 
 		var sub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
@@ -1050,7 +997,7 @@ public class ServerService : IServerService
 			})
 			.ToListAsync();
 
-		var pairVoiceChannelResponses = serverType == ServerTypeEnum.Teacher ? await _hitsContext.PairVoiceChannel
+		var pairVoiceChannelResponses = server.ServerType == ServerTypeEnum.Teacher ? await _hitsContext.PairVoiceChannel
 			.Include(vc => vc.Users)
 			.Include(vc => vc.ChannelCanSee)
 			.Include(vc => vc.ChannelCanJoin)
@@ -1185,7 +1132,7 @@ public class ServerService : IServerService
 		{
 			ServerId = serverId,
 			ServerName = server.Name,
-			ServerType = serverType,
+			ServerType = server.ServerType,
 			Icon = null,
 			IsClosed = server.IsClosed,
 			Roles = await _hitsContext.Role
@@ -2044,12 +1991,7 @@ public class ServerService : IServerService
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
-		var serverType = server switch
-		{
-			ServerTeacherDbModel => ServerTypeEnum.Teacher,
-			_ => ServerTypeEnum.Student
-		};
-		if (serverType != ServerTypeEnum.Teacher)
+		if (server.ServerType != ServerTypeEnum.Teacher)
 		{
 			throw new CustomException("Server isnt teachers", "Get server presets", "Server", 401, "Сервер не является учительсяким", "Получение пресетов сервера");
 		}
@@ -2088,12 +2030,7 @@ public class ServerService : IServerService
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
-		var serverType = server switch
-		{
-			ServerTeacherDbModel => ServerTypeEnum.Teacher,
-			_ => ServerTypeEnum.Student
-		};
-		if (serverType != ServerTypeEnum.Teacher)
+		if (server.ServerType != ServerTypeEnum.Teacher)
 		{
 			throw new CustomException("Server isnt teachers", "Get system roles", "Server", 401, "Сервер не является учительсяким", "Получение системных ролей");
 		}
@@ -2154,12 +2091,7 @@ public class ServerService : IServerService
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
-		var serverType = server switch
-		{
-			ServerTeacherDbModel => ServerTypeEnum.Teacher,
-			_ => ServerTypeEnum.Student
-		};
-		if (serverType != ServerTypeEnum.Teacher)
+		if (server.ServerType != ServerTypeEnum.Teacher)
 		{
 			throw new CustomException("Server isnt teachers", "Create server presets", "Server", 401, "Сервер не является учительсяким", "Создание пресета");
 		}
@@ -2357,12 +2289,7 @@ public class ServerService : IServerService
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
-		var serverType = server switch
-		{
-			ServerTeacherDbModel => ServerTypeEnum.Teacher,
-			_ => ServerTypeEnum.Student
-		};
-		if (serverType != ServerTypeEnum.Teacher)
+		if (server.ServerType != ServerTypeEnum.Teacher)
 		{
 			throw new CustomException("Server isnt teachers", "Delete server presets", "Server", 401, "Сервер не является учительсяким", "Удаление пресета");
 		}

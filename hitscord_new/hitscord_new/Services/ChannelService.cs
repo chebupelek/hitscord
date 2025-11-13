@@ -202,11 +202,6 @@ public class ChannelService : IChannelService
 	{
 		var owner = await _authService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
-		var serverType = server switch
-		{
-			ServerTeacherDbModel => ServerTypeEnum.Teacher,
-			_ => ServerTypeEnum.Student
-		};
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
@@ -314,7 +309,7 @@ public class ChannelService : IChannelService
 				break;
 
 			case ChannelTypeEnum.Pair:
-				if (serverType != ServerTypeEnum.Teacher)
+				if (server.ServerType != ServerTypeEnum.Teacher)
 				{
 					throw new CustomException("Server no teachers", "Create channel", "Channel type", 401, "Канал такого типа нельзя создать в вашем сервере", "Создание канала");
 				}

@@ -25,4 +25,5 @@ public class ServerDbModel
 	[ForeignKey(nameof(IconFileId))]
 	public FileDbModel? IconFile { get; set; }
 	public required bool IsClosed { get; set; }
+    public required ServerTypeEnum ServerType { get; set; }
 }

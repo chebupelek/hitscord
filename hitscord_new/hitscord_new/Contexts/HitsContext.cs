@@ -10,7 +10,6 @@ namespace hitscord.Contexts
         public HitsContext(DbContextOptions<HitsContext> options) : base(options) { }
         public DbSet<UserDbModel> User { get; set; }
         public DbSet<ServerDbModel> Server { get; set; }
-		//public DbSet<ServerTeacherDbModel> ServerTeacher { get; set; }
 		public DbSet<RoleDbModel> Role { get; set; }
         public DbSet<UserServerDbModel> UserServer { get; set; }
 		public DbSet<SubscribeRoleDbModel> SubscribeRole { get; set; }
@@ -75,11 +74,6 @@ namespace hitscord.Contexts
 
 			modelBuilder.Entity<ServerDbModel>(entity =>
             {
-				entity.HasDiscriminator<string>("ServerType")
-					.HasValue<ServerDbModel>("StudentServer")
-					.HasValue<ServerTeacherDbModel>("AdminServer");
-
-
 				entity.HasMany(e => e.Channels)
                     .WithOne(c => c.Server)
                     .HasForeignKey(c => c.ServerId);
