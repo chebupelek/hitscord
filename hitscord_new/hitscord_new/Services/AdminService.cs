@@ -442,6 +442,90 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
+	public async Task DeleteSubscribedRoleAsync(UserDbModel user, RoleDbModel role)
+	{
+		var userSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+			.FirstOrDefaultAsync(us => us.SubscribeRoles.Any(sr => sr.RoleId == role.Id) && us.UserId == user.Id);
+		if (userSub == null)
+		{
+			return;
+		}
+
+		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == role.ServerId).Select(us => us.UserId).ToListAsync();
+		if (userSub.SubscribeRoles.Count() == 1)
+		{
+			var userVoiceChannel = await _hitsContext.UserVoiceChannel
+				.Include(us => us.VoiceChannel)
+				.FirstOrDefaultAsync(us =>
+					us.VoiceChannel.ServerId == role.ServerId
+					&& us.UserId == user.Id);
+			if (userVoiceChannel != null)
+			{
+				_hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
+			}
+
+			var lastMessage = await _hitsContext.LastReadChannelMessage.Include(lr => lr.TextChannel).Where(lr => lr.UserId == user.Id && lr.TextChannel.ServerId == role.ServerId).ToListAsync();
+			_hitsContext.LastReadChannelMessage.RemoveRange(lastMessage);
+
+			var nonNitifiables = await _hitsContext.NonNotifiableChannel.Where(nnc => nnc.UserServerId == userSub.Id).ToListAsync();
+			_hitsContext.NonNotifiableChannel.RemoveRange(nonNitifiables);
+
+			_hitsContext.UserServer.Remove(userSub);
+			await _hitsContext.SaveChangesAsync();
+
+			var newUnsubscriberResponse = new UnsubscribeResponseDTO
+			{
+				ServerId = role.ServerId,
+				UserId = user.Id,
+			};
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+			}
+		}
+		else
+		{
+			var deletedRole = userSub.SubscribeRoles.FirstOrDefault(usr => usr.RoleId == role.Id);
+
+			userSub.SubscribeRoles.Remove(deletedRole);
+			_hitsContext.UserServer.Update(userSub);
+			await _hitsContext.SaveChangesAsync();
+
+			var removedChannels = await _hitsContext.ChannelCanSee
+				.Where(ccs => ccs.RoleId == deletedRole.RoleId)
+				.Select(ccs => ccs.ChannelId)
+				.ToListAsync();
+			foreach (var channelId in removedChannels)
+			{
+				bool stillHasAccess = await _hitsContext.ChannelCanSee
+					.AnyAsync(ccs => removedChannels.Contains(ccs.ChannelId)
+									 && userSub.SubscribeRoles.Select(sr => sr.RoleId).Contains(ccs.RoleId));
+
+				if (!stillHasAccess)
+				{
+					var lastRead = await _hitsContext.LastReadChannelMessage
+						.FirstOrDefaultAsync(lr => lr.UserId == user.Id && lr.TextChannelId == channelId);
+
+					if (lastRead != null)
+						_hitsContext.LastReadChannelMessage.Remove(lastRead);
+				}
+			}
+			await _hitsContext.SaveChangesAsync();
+
+			var oldUserRole = new NewUserRoleResponseDTO
+			{
+				ServerId = role.ServerId,
+				UserId = user.Id,
+				RoleId = deletedRole.RoleId,
+			};
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+			}
+		}
+	}
+
 	public async Task DeleteSystemRoleAsync(string token, Guid RoleId)
 	{
 		var admin = await GetAdminAsync(token);
@@ -454,38 +538,38 @@ public class AdminService: IAdminService
 			throw new CustomException("Role not found", "DeleteSystemRoleAsync", "Role", 404, "Роль не найдена", "Удаление системной роли");
 		}
 
+		var presets = await _hitsContext.Preset
+			.Where(p => p.SystemRoleId == role.Id)
+			.Select(p => p.ServerRoleId)
+			.ToListAsync();
+
+		var userServerRolePairs = await _hitsContext.UserServer
+			.Include(us => us.User)
+				.ThenInclude(u => u.SystemRoles)
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.Where(us =>
+				us.User.SystemRoles.Any(sr => sr.Id == role.Id) &&
+				us.SubscribeRoles.Any(sr => presets.Contains(sr.RoleId))
+			)
+			.SelectMany(us => us.SubscribeRoles
+				.Where(sr => presets.Contains(sr.RoleId))
+				.Select(sr => new
+				{
+					User = us.User,
+					ServerRole = sr.Role
+				})
+			)
+			.Distinct()
+			.ToListAsync();
+
+		foreach (var pair in userServerRolePairs)
+		{
+			await DeleteSubscribedRoleAsync(pair.User, pair.ServerRole);
+		}
+
 		_hitsContext.SystemRole.Remove(role);
 		await _hitsContext.SaveChangesAsync();
-	}
-
-	private async Task<List<Guid>> GetRoleChainAsync(Guid roleId)
-	{
-		var allRoles = await _hitsContext.SystemRole.AsNoTracking().ToListAsync();
-		var result = new List<Guid>();
-		var current = allRoles.FirstOrDefault(r => r.Id == roleId);
-
-		while (current != null)
-		{
-			result.Add(current.Id);
-			current = allRoles.FirstOrDefault(r => r.Id == current.ParentRoleId);
-		}
-
-		return result;
-	}
-
-	private async Task<List<SystemRoleDbModel>> GetRoleChainFullAsync(Guid roleId)
-	{
-		var allRoles = await _hitsContext.SystemRole.AsNoTracking().ToListAsync();
-		var result = new List<SystemRoleDbModel>();
-		var current = allRoles.FirstOrDefault(r => r.Id == roleId);
-
-		while (current != null)
-		{
-			result.Add(current);
-			current = allRoles.FirstOrDefault(r => r.Id == current.ParentRoleId);
-		}
-
-		return result;
 	}
 
 	public async Task CreateSubscribedRoleAsync(UserDbModel user, RoleDbModel role)
@@ -658,8 +742,6 @@ public class AdminService: IAdminService
 			throw new CustomException("Role not found", "AddSystemRoleAsync", "Role", 404, "Роль не найдена", "Присвоение системной роли");
 		}
 
-		var roleChain = await GetRoleChainAsync(RoleId);
-
 		var users = await _hitsContext.User
 			.Include(u => u.SystemRoles)
 			.Where(u => UsersIds.Contains(u.Id)
@@ -673,7 +755,7 @@ public class AdminService: IAdminService
 
 		var presets = await _hitsContext.Preset
 			.Include(p => p.ServerRole)
-			.Where(p => roleChain.Contains(p.SystemRoleId))
+			.Where(p => p.SystemRoleId == role.Id)
 			.Select(p => p.ServerRole)
 			.ToListAsync();
 
@@ -696,109 +778,6 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	private async Task<List<SystemRoleDbModel>> GetAllChildRolesAsync(Guid parentRoleId)
-	{
-		var result = new List<SystemRoleDbModel>();
-
-		var children = await _hitsContext.SystemRole
-			.Include(r => r.ChildRoles)
-			.Where(r => r.ParentRoleId == parentRoleId)
-			.ToListAsync();
-
-		foreach (var child in children)
-		{
-			result.Add(child);
-			var descendants = await GetAllChildRolesAsync(child.Id);
-			result.AddRange(descendants);
-		}
-
-		return result;
-	}
-
-	public async Task DeleteSubscribedRoleAsync(UserDbModel user, RoleDbModel role)
-	{
-		var userSub = await _hitsContext.UserServer
-			.Include(us => us.SubscribeRoles)
-			.FirstOrDefaultAsync(us => us.SubscribeRoles.Any(sr => sr.RoleId == role.Id) && us.UserId == user.Id);
-		if (userSub == null)
-		{
-			return;
-		}
-
-		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == role.ServerId).Select(us => us.UserId).ToListAsync();
-		if (userSub.SubscribeRoles.Count() == 1)
-		{
-			var userVoiceChannel = await _hitsContext.UserVoiceChannel
-				.Include(us => us.VoiceChannel)
-				.FirstOrDefaultAsync(us =>
-					us.VoiceChannel.ServerId == role.ServerId
-					&& us.UserId == user.Id);
-			if (userVoiceChannel != null)
-			{
-				_hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
-			}
-
-			var lastMessage = await _hitsContext.LastReadChannelMessage.Include(lr => lr.TextChannel).Where(lr => lr.UserId == user.Id && lr.TextChannel.ServerId == role.ServerId).ToListAsync();
-			_hitsContext.LastReadChannelMessage.RemoveRange(lastMessage);
-
-			var nonNitifiables = await _hitsContext.NonNotifiableChannel.Where(nnc => nnc.UserServerId == userSub.Id).ToListAsync();
-			_hitsContext.NonNotifiableChannel.RemoveRange(nonNitifiables);
-
-			_hitsContext.UserServer.Remove(userSub);
-			await _hitsContext.SaveChangesAsync();
-
-			var newUnsubscriberResponse = new UnsubscribeResponseDTO
-			{
-				ServerId = role.ServerId,
-				UserId = user.Id,
-			};
-			if (alertedUsers != null && alertedUsers.Count() > 0)
-			{
-				await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
-			}
-		}
-		else
-		{
-			var deletedRole = userSub.SubscribeRoles.FirstOrDefault(usr => usr.RoleId == role.Id);
-
-			userSub.SubscribeRoles.Remove(deletedRole);
-			_hitsContext.UserServer.Update(userSub);
-			await _hitsContext.SaveChangesAsync();
-
-			var removedChannels = await _hitsContext.ChannelCanSee
-				.Where(ccs => ccs.RoleId == deletedRole.RoleId)
-				.Select(ccs => ccs.ChannelId)
-				.ToListAsync();
-			foreach (var channelId in removedChannels)
-			{
-				bool stillHasAccess = await _hitsContext.ChannelCanSee
-					.AnyAsync(ccs => removedChannels.Contains(ccs.ChannelId)
-									 && userSub.SubscribeRoles.Select(sr => sr.RoleId).Contains(ccs.RoleId));
-
-				if (!stillHasAccess)
-				{
-					var lastRead = await _hitsContext.LastReadChannelMessage
-						.FirstOrDefaultAsync(lr => lr.UserId == user.Id && lr.TextChannelId == channelId);
-
-					if (lastRead != null)
-						_hitsContext.LastReadChannelMessage.Remove(lastRead);
-				}
-			}
-			await _hitsContext.SaveChangesAsync();
-
-			var oldUserRole = new NewUserRoleResponseDTO
-			{
-				ServerId = role.ServerId,
-				UserId = user.Id,
-				RoleId = deletedRole.RoleId,
-			};
-			if (alertedUsers != null && alertedUsers.Count() > 0)
-			{
-				await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
-			}
-		}
-	}
-
 	public async Task RemoveSystemRoleAsync(string token, Guid RoleId, Guid UserId)
 	{
 		var admin = await GetAdminAsync(token);
@@ -811,8 +790,6 @@ public class AdminService: IAdminService
 			throw new CustomException("Role not found", "RemoveSystemRoleAsync", "Role", 404, "Роль не найдена", "Отвязка системной роли");
 		}
 
-		var roleChain = await GetRoleChainFullAsync(RoleId);
-
 		var user = await _hitsContext.User
 			.Include(u => u.SystemRoles)
 			.FirstOrDefaultAsync(u => u.Id == UserId && u.SystemRoles.Any(sr => sr.Id == role.Id));
@@ -822,42 +799,15 @@ public class AdminService: IAdminService
 			throw new CustomException("User not found", "RemoveSystemRoleAsync", "UserId", 404, "Пользователь не найдены", "Отвязка системной роли");
 		}
 
-		var childRoles = await GetAllChildRolesAsync(RoleId);
-		bool hasChildRole = user.SystemRoles.Any(ur => childRoles.Any(cr => cr.Id == ur.Id));
-		if (!hasChildRole)
+		var presetRolesToUnlink = await _hitsContext.Preset
+			.Include(sp => sp.ServerRole)
+			.Where(sp => sp.SystemRoleId == role.Id)
+			.Select(sp => sp.ServerRole)
+			.ToListAsync();
+
+		foreach (var serverRole in presetRolesToUnlink)
 		{
-			var userRolesInChain = user.SystemRoles
-			.Where(sr => roleChain.Any(rc => rc.Id == sr.Id))
-			.ToList();
-
-
-			List<SystemRoleDbModel> rolesToUnlink;
-
-			if (userRolesInChain.Count == 1)
-			{
-				rolesToUnlink = roleChain;
-			}
-			else
-			{
-				int startIndex = 0;
-				int stopIndex = roleChain.FindIndex(r => r.Id == userRolesInChain
-					.OrderByDescending(x => roleChain.FindIndex(rc => rc.Id == x.Id))
-					.First().Id);
-
-				rolesToUnlink = roleChain.Take(stopIndex).ToList();
-			}
-
-			var rolesToUnlinkIds = rolesToUnlink.Select(r => r.Id).ToList();
-			var presetRolesToUnlink = await _hitsContext.Preset
-				.Include(sp => sp.ServerRole)
-				.Where(sp => rolesToUnlinkIds.Contains(sp.SystemRoleId))
-				.Select(sp => sp.ServerRole)
-				.ToListAsync();
-
-			foreach (var serverRole in presetRolesToUnlink)
-			{
-				await DeleteSubscribedRoleAsync(user, serverRole);
-			}
+			await DeleteSubscribedRoleAsync(user, serverRole);
 		}
 
 		user.SystemRoles.Remove(role);

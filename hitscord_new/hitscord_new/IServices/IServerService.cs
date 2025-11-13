@@ -33,4 +33,9 @@ public interface IServerService
     Task RemoveApplicationUserAsync(string token, Guid applicationId);
     Task<ServerApplicationsListResponseDTO> GetServerApplicationsAsync(string token, Guid serverId, int page, int size);
     Task<UserApplicationsListResponseDTO> GetUserApplicationsAsync(string token, int page, int size);
+
+    Task<ServerPresetListResponseDTO> GetServerPresetsAsync(string token, Guid serverId);
+    Task<SystemRolesFullListDTO> RolesFullListAsync(string token, Guid serverId);
+    Task CreatePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
+    Task DeletePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
 }

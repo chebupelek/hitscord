@@ -11,6 +11,7 @@ using hitscord.Models.response;
 using hitscord.nClamUtil;
 using hitscord.Utils;
 using hitscord.WebSockets;
+using hitscord_new.Migrations;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using nClam;
@@ -18,6 +19,7 @@ using NickBuhro.Translit;
 using System;
 using System.Data;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using static System.Net.Mime.MediaTypeNames;
@@ -2021,5 +2023,437 @@ public class ServerService : IServerService
 			Total = applicationsCount
 		};
 		return applicationsList;
+	}
+
+	public async Task<ServerPresetListResponseDTO> GetServerPresetsAsync(string token, Guid serverId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		var serverType = server switch
+		{
+			ServerTeacherDbModel => ServerTypeEnum.Teacher,
+			_ => ServerTypeEnum.Student
+		};
+		if (serverType != ServerTypeEnum.Teacher)
+		{
+			throw new CustomException("Server isnt teachers", "Get server presets", "Server", 401, "Сервер не является учительсяким", "Получение пресетов сервера");
+		}
+
+		var ownerSub = await _hitsContext.UserServer
+		.Include(us => us.SubscribeRoles)
+			.ThenInclude(sr => sr.Role)
+		.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == owner.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner not subscriber of this server", "Get server presets", "User", 401, "Владелец не является участником этого сервера", "Получение пресетов сервера");
+		}
+		if (!ownerSub.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Creator))
+		{
+			throw new CustomException("User is not creator of this server", "Get server presets", "User", 401, "Пользователь - не создатель сервера", "Получение пресетов сервера");
+		}
+
+		var presets = await _hitsContext.Preset
+			.Include(p => p.ServerRole)
+			.Include(p => p.SystemRole)
+			.Where(p => p.ServerRole.ServerId == server.Id)
+			.Select(p => new ServerPresetItemDTO
+			{
+				ServerRoleId = p.ServerRoleId,
+				ServerRoleName = p.ServerRole.Name,
+				SystenRoleId = p.SystemRoleId,
+				SystenRoleName = p.SystemRole.Name,
+				SystenRoleType = p.SystemRole.Type
+			})
+			.ToListAsync();
+
+		return new ServerPresetListResponseDTO { Presets = presets, Total = presets.Count };
+	}
+
+	public async Task<SystemRolesFullListDTO> RolesFullListAsync(string token, Guid serverId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		var serverType = server switch
+		{
+			ServerTeacherDbModel => ServerTypeEnum.Teacher,
+			_ => ServerTypeEnum.Student
+		};
+		if (serverType != ServerTypeEnum.Teacher)
+		{
+			throw new CustomException("Server isnt teachers", "Get system roles", "Server", 401, "Сервер не является учительсяким", "Получение системных ролей");
+		}
+
+		var ownerSub = await _hitsContext.UserServer
+		.Include(us => us.SubscribeRoles)
+			.ThenInclude(sr => sr.Role)
+		.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == owner.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner not subscriber of this server", "Get system roles", "User", 401, "Владелец не является участником этого сервера", "Получение системных ролей");
+		}
+		if (!ownerSub.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Creator))
+		{
+			throw new CustomException("User is not creator of this server", "Get system roles", "User", 401, "Пользователь - не создатель сервера", "Получение системных ролей");
+		}
+
+		var allRoles = await _hitsContext.SystemRole
+			.Include(r => r.ChildRoles)
+			.AsNoTracking()
+			.ToListAsync();
+
+		var roleDtos = allRoles.Select(r => new SystemRoleItemDTO
+			{
+				Id = r.Id,
+				Name = r.Name,
+				Type = r.Type
+			})
+			.ToList();
+
+		var rolesDict = roleDtos.ToDictionary(r => r.Id);
+
+		foreach (var dbRole in allRoles)
+		{
+			if (dbRole.ParentRoleId != null && rolesDict.TryGetValue(dbRole.ParentRoleId.Value, out var parentDto))
+			{
+				parentDto.ChildRoles.Add(rolesDict[dbRole.Id]);
+			}
+		}
+
+		var rootRoles = allRoles
+			.Where(r => r.ParentRoleId == null)
+			.Select(r => rolesDict[r.Id])
+			.ToList();
+
+		var roles = new SystemRolesFullListDTO
+		{
+			Roles = allRoles
+				.Where(r => r.ParentRoleId == null)
+				.Select(r => rolesDict[r.Id])
+				.ToList()
+		};
+
+		return roles;
+	}
+
+	public async Task CreatePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		var serverType = server switch
+		{
+			ServerTeacherDbModel => ServerTypeEnum.Teacher,
+			_ => ServerTypeEnum.Student
+		};
+		if (serverType != ServerTypeEnum.Teacher)
+		{
+			throw new CustomException("Server isnt teachers", "Create server presets", "Server", 401, "Сервер не является учительсяким", "Создание пресета");
+		}
+
+		var serverRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == serverRoleId && r.ServerId == server.Id);
+		if (serverRole == null)
+		{
+			throw new CustomException("Server role not found", "Create server presets", "Server role", 404, "Серверная роль не найдена", "Создание пресета");
+		}
+
+		var systemRole = await _hitsContext.SystemRole.FirstOrDefaultAsync(r => r.Id == systemRoleId);
+		if (systemRole == null)
+		{
+			throw new CustomException("System role not found", "Create server presets", "System role", 404, "Системная роль не найдена", "Создание пресета");
+		}
+
+		var preset = await _hitsContext.Preset.FirstOrDefaultAsync(p => p.SystemRoleId == systemRole.Id && p.ServerRoleId == serverRole.Id);
+		if (preset != null)
+		{
+			throw new CustomException("Preset already exist", "Create server presets", "Preset", 400, "Такой пресет уже существует", "Создание пресета");
+		}
+
+		var newPreset = new ServerPresetDbModel
+		{
+			SystemRoleId = systemRole.Id,
+			ServerRoleId = serverRole.Id
+		};
+
+		await _hitsContext.Preset.AddAsync(newPreset);
+		await _hitsContext.SaveChangesAsync();
+
+		var users = await _hitsContext.User
+			.Include(u => u.SystemRoles)
+			.Where(u => u.SystemRoles.Any(sr => sr.Id == systemRoleId))
+			.ToListAsync();
+
+		var channelsCanRead = await _hitsContext.ChannelCanSee
+			.Include(ccs => ccs.Channel)
+			.Where(ccs => (ccs.Channel is TextChannelDbModel || ccs.Channel is NotificationChannelDbModel || ccs.Channel is SubChannelDbModel)
+				&& ccs.Channel.ServerId == server.Id
+				&& ccs.RoleId == serverRole.Id)
+			.Select(ccs => ccs.ChannelId)
+			.ToListAsync();
+
+		foreach (var user in users)
+		{
+			var userSub = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+				.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == user.Id);
+
+			if (userSub == null || !(userSub.SubscribeRoles.Any(sr => sr.RoleId == serverRole.Id)))
+			{
+				var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+
+				if (userSub == null)
+				{
+					var newSub = new UserServerDbModel
+					{
+						Id = Guid.NewGuid(),
+						UserId = user.Id,
+						ServerId = server.Id,
+						UserServerName = user.AccountName,
+						IsBanned = false,
+						NonNotifiable = false,
+						SubscribeRoles = new List<SubscribeRoleDbModel>()
+					};
+					newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
+					{
+						UserServerId = newSub.Id,
+						RoleId = serverRole.Id
+					});
+
+					var lastReadedList = new List<LastReadChannelMessageDbModel>();
+					if (channelsCanRead != null)
+					{
+						foreach (var channel in channelsCanRead)
+						{
+							lastReadedList.Add(new LastReadChannelMessageDbModel
+							{
+								UserId = user.Id,
+								TextChannelId = channel,
+								LastReadedMessageId = (
+									await _hitsContext.ChannelMessage
+										.Where(cm => cm.TextChannelId == channel)
+										.Select(m => (long?)m.Id).MaxAsync() ?? 0
+								)
+							});
+						}
+					}
+
+					await _hitsContext.UserServer.AddAsync(newSub);
+					await _hitsContext.LastReadChannelMessage.AddRangeAsync(lastReadedList);
+					await _hitsContext.SaveChangesAsync();
+
+					var newSubscriberResponse = new ServerUserDTO
+					{
+						ServerId = server.Id,
+						UserId = user.Id,
+						UserName = user.AccountName,
+						UserTag = user.AccountTag,
+						Icon = null,
+						Roles = new List<UserServerRoles>{
+							new UserServerRoles
+							{
+								RoleId = serverRole.Id,
+								RoleName = serverRole.Name,
+								RoleType = serverRole.Role
+							}
+						},
+						Notifiable = user.Notifiable,
+						FriendshipApplication = user.FriendshipApplication,
+						NonFriendMessage = user.NonFriendMessage,
+						isFriend = false,
+						SystemRoles = user.SystemRoles
+							.Select(sr => new SystemRoleShortItemDTO
+							{
+								Name = sr.Name,
+								Type = sr.Type
+							})
+							.ToList()
+					};
+					if (user != null && user.IconFileId != null)
+					{
+						var userIcon = await GetImageAsync((Guid)user.IconFileId);
+						newSubscriberResponse.Icon = userIcon;
+					}
+
+					var allFriends = await _hitsContext.Friendship
+						.Where(f => f.UserIdFrom == user.Id || f.UserIdTo == user.Id)
+						.Select(f => f.UserIdFrom == user.Id ? f.UserIdTo : f.UserIdFrom)
+						.Distinct()
+						.ToListAsync();
+					var friendsSet = new HashSet<Guid>(allFriends);
+					if (alertedUsers != null && alertedUsers.Count() > 0)
+					{
+						foreach (var alertedUser in alertedUsers)
+						{
+							newSubscriberResponse.isFriend = friendsSet.Contains(alertedUser);
+							await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, new List<Guid> { alertedUser }, "New user on server");
+						}
+					}
+				}
+				else
+				{
+					userSub.SubscribeRoles.Add(new SubscribeRoleDbModel
+					{
+						UserServerId = userSub.Id,
+						RoleId = serverRole.Id
+					});
+
+					_hitsContext.UserServer.Update(userSub);
+					await _hitsContext.SaveChangesAsync();
+
+					foreach (var channel in channelsCanRead)
+					{
+						bool alreadyExists = await _hitsContext.LastReadChannelMessage
+							.AnyAsync(lr => lr.UserId == user.Id && lr.TextChannelId == channel);
+
+						if (!alreadyExists)
+						{
+							var lastMessageId = await _hitsContext.ChannelMessage
+								.Where(m => m.TextChannelId == channel)
+								.OrderByDescending(m => m.Id)
+								.Select(m => (long?)m.Id)
+								.FirstOrDefaultAsync() ?? 0;
+
+							var lastRead = new LastReadChannelMessageDbModel
+							{
+								UserId = user.Id,
+								TextChannelId = channel,
+								LastReadedMessageId = lastMessageId
+							};
+
+							await _hitsContext.LastReadChannelMessage.AddAsync(lastRead);
+						}
+					}
+					await _hitsContext.SaveChangesAsync();
+
+					var newUserRole = new NewUserRoleResponseDTO
+					{
+						ServerId = server.Id,
+						UserId = user.Id,
+						RoleId = serverRole.Id,
+					};
+					if (alertedUsers != null && alertedUsers.Count() > 0)
+					{
+						await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role added to user");
+					}
+				}
+			}
+		}
+	}
+
+	public async Task DeletePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		var serverType = server switch
+		{
+			ServerTeacherDbModel => ServerTypeEnum.Teacher,
+			_ => ServerTypeEnum.Student
+		};
+		if (serverType != ServerTypeEnum.Teacher)
+		{
+			throw new CustomException("Server isnt teachers", "Delete server presets", "Server", 401, "Сервер не является учительсяким", "Удаление пресета");
+		}
+
+		var serverRole = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == serverRoleId && r.ServerId == server.Id);
+		if (serverRole == null)
+		{
+			throw new CustomException("Server role not found", "Delete server presets", "Server role", 404, "Серверная роль не найдена", "Удаление пресета");
+		}
+
+		var systemRole = await _hitsContext.SystemRole.FirstOrDefaultAsync(r => r.Id == systemRoleId);
+		if (systemRole == null)
+		{
+			throw new CustomException("System role not found", "Delete server presets", "System role", 404, "Системная роль не найдена", "Удаление пресета");
+		}
+
+		var preset = await _hitsContext.Preset.FirstOrDefaultAsync(p => p.SystemRoleId == systemRole.Id && p.ServerRoleId == serverRole.Id);
+		if (preset == null)
+		{
+			throw new CustomException("Preset not found", "Delete server presets", "Preset", 404, "Пресет не найден", "Удаление пресета");
+		}
+
+		var usersSubs = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.Where(us => us.ServerId == server.Id
+				&& us.SubscribeRoles.Any(sr => sr.RoleId == serverRole.Id))
+			.ToListAsync();
+
+		foreach (var sub in usersSubs)
+		{
+			var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+			if (sub.SubscribeRoles.Count() == 1)
+			{
+				var userVoiceChannel = await _hitsContext.UserVoiceChannel
+					.Include(us => us.VoiceChannel)
+					.FirstOrDefaultAsync(us =>
+						us.VoiceChannel.ServerId == server.Id
+						&& us.UserId == sub.UserId);
+				if (userVoiceChannel != null)
+				{
+					_hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
+				}
+
+				var lastMessage = await _hitsContext.LastReadChannelMessage.Include(lr => lr.TextChannel).Where(lr => lr.UserId == sub.UserId && lr.TextChannel.ServerId == server.Id).ToListAsync();
+				_hitsContext.LastReadChannelMessage.RemoveRange(lastMessage);
+
+				var nonNitifiables = await _hitsContext.NonNotifiableChannel.Where(nnc => nnc.UserServerId == sub.Id).ToListAsync();
+				_hitsContext.NonNotifiableChannel.RemoveRange(nonNitifiables);
+
+				_hitsContext.UserServer.Remove(sub);
+				await _hitsContext.SaveChangesAsync();
+
+				var newUnsubscriberResponse = new UnsubscribeResponseDTO
+				{
+					ServerId = server.Id,
+					UserId = sub.UserId,
+				};
+				if (alertedUsers != null && alertedUsers.Count() > 0)
+				{
+					await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+				}
+			}
+			else
+			{
+				var deletedRole = sub.SubscribeRoles.FirstOrDefault(usr => usr.RoleId == serverRole.Id);
+
+				sub.SubscribeRoles.Remove(deletedRole);
+				_hitsContext.UserServer.Update(sub);
+				await _hitsContext.SaveChangesAsync();
+
+				var removedChannels = await _hitsContext.ChannelCanSee
+					.Where(ccs => ccs.RoleId == deletedRole.RoleId)
+					.Select(ccs => ccs.ChannelId)
+					.ToListAsync();
+				foreach (var channelId in removedChannels)
+				{
+					bool stillHasAccess = await _hitsContext.ChannelCanSee
+						.AnyAsync(ccs => removedChannels.Contains(ccs.ChannelId)
+										 && sub.SubscribeRoles.Select(sr => sr.RoleId).Contains(ccs.RoleId));
+
+					if (!stillHasAccess)
+					{
+						var lastRead = await _hitsContext.LastReadChannelMessage
+							.FirstOrDefaultAsync(lr => lr.UserId == sub.UserId && lr.TextChannelId == channelId);
+
+						if (lastRead != null)
+							_hitsContext.LastReadChannelMessage.Remove(lastRead);
+					}
+				}
+				await _hitsContext.SaveChangesAsync();
+
+				var oldUserRole = new NewUserRoleResponseDTO
+				{
+					ServerId = server.Id,
+					UserId = sub.UserId,
+					RoleId = deletedRole.RoleId,
+				};
+				if (alertedUsers != null && alertedUsers.Count() > 0)
+				{
+					await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+				}
+			}
+		}
+
+		_hitsContext.Preset.Remove(preset);
+		await _hitsContext.SaveChangesAsync();
 	}
 }

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using hitscord.Models.DTOModels.request;
 using hitscord.Models.other;
+using hitscord.Models.response;
 
 namespace hitscord.Controllers;
 
@@ -481,6 +482,90 @@ public class ServerController : ControllerBase
 			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			var result = await _serverService.GetUserApplicationsAsync(jwtToken, Page, Size);
 			return Ok(result);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("presets/list")]
+	public async Task<IActionResult> GetServerPresets([FromQuery] Guid ServerId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var result = await _serverService.GetServerPresetsAsync(jwtToken, ServerId);
+			return Ok(result);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("presets/systemroles")]
+	public async Task<IActionResult> RolesFullList([FromQuery] Guid ServerId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var result = await _serverService.RolesFullListAsync(jwtToken, ServerId);
+			return Ok(result);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("presets/create")]
+	public async Task<IActionResult> CreatePreset([FromBody] PresetResponseDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _serverService.CreatePresetAsync(jwtToken, data.ServerId, data.ServerRoleId, data.SystemRoleId);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpDelete]
+	[Route("presets/delete")]
+	public async Task<IActionResult> DeletePreset([FromBody] PresetResponseDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _serverService.DeletePresetAsync(jwtToken, data.ServerId, data.ServerRoleId, data.SystemRoleId);
+			return Ok();
 		}
 		catch (CustomException ex)
 		{
