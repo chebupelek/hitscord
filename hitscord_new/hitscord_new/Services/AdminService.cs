@@ -190,11 +190,6 @@ public class AdminService: IAdminService
 			throw new CustomException("Page < 1", "UsersListAsync", "Page", 400, "Номер страницы меньше 1", "Получение списка пользователей");
 		}
 
-		if (rolesIds != null && rolesIds.Count == 0)
-		{
-			throw new CustomException("RolesIds is empty", "UsersListAsync", "RolesIds", 400, "Список ролей пустой", "Получение списка пользователей");
-		}
-
 		var usersCount = await _hitsContext.User
 			.Where(u =>
 				(name == null || u.AccountName.Contains(name)) &&
