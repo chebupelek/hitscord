@@ -75,6 +75,8 @@ namespace hitscord.Contexts
 
 			modelBuilder.Entity<ServerDbModel>(entity =>
             {
+				entity.ToTable("Server");
+
 				entity.HasDiscriminator<string>("ServerType")
 					.HasValue<ServerDbModel>("Server")
 					.HasValue<ServerTeacherDbModel>("AdminServer");
