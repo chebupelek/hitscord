@@ -194,13 +194,8 @@ public class AdminService: IAdminService
 			.Where(u =>
 				(name == null || u.AccountName.Contains(name)) &&
 				(mail == null || u.Mail.Contains(mail)) &&
-				(rolesIds == null || u.SystemRoles.Any(r => rolesIds.Contains(r.Id))))
+				(rolesIds == null || rolesIds.Count < 1 || u.SystemRoles.Any(r => rolesIds.Contains(r.Id))))
 			.CountAsync();
-
-		if ((page - 1) * num >= usersCount)
-		{
-			throw new CustomException("Pagination error", "UsersListAsync", "Pagination", 400, "Запрашиваются элементы превышающие их количество", "Получение списка пользователей");
-		}
 
 		var usersQuery = _hitsContext.User
 			.Include(u => u.SystemRoles)
@@ -208,7 +203,7 @@ public class AdminService: IAdminService
 			.Where(u =>
 				(name == null || u.AccountName.Contains(name)) &&
 				(mail == null || u.Mail.Contains(mail)) &&
-				(rolesIds == null || u.SystemRoles.Any(r => rolesIds.Contains(r.Id))));
+				(rolesIds == null || rolesIds.Count < 1 || u.SystemRoles.Any(r => rolesIds.Contains(r.Id))));
 
 		if (sort != null)
 		{
