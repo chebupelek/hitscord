@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 using hitscord.WebSockets;
 using Quartz;
 using hitscord.nClamUtil;
+using hitscord.Models.db;
+using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -159,7 +161,38 @@ using (var scope = app.Services.CreateScope())
     var HitsContext = scope.ServiceProvider.GetRequiredService<HitsContext>();
     await HitsContext.Database.MigrateAsync();
 
-    var LogContext = scope.ServiceProvider.GetRequiredService<hitscord.Contexts.TokenContext>();
+	if (!HitsContext.SystemRole.Any())
+	{
+		HitsContext.SystemRole.AddRange(new[]
+		{
+			new SystemRoleDbModel
+			{
+				Name = "Студент",
+				Type = SystemRoleTypeEnum.Student,
+				ParentRoleId = null,
+				ParentRole = null,
+				ChildRoles = new List<SystemRoleDbModel>(),
+				Users = new List<UserDbModel>()
+			},
+			new SystemRoleDbModel 
+			{
+				Name = "Преподаватель",
+				Type = SystemRoleTypeEnum.Teacher,
+				ParentRoleId = null,
+				ParentRole = null,
+				ChildRoles = new List<SystemRoleDbModel>(),
+				Users = new List<UserDbModel>()
+			}
+		});
+
+		await HitsContext.SaveChangesAsync();
+	}
+
+
+	var adminService = scope.ServiceProvider.GetRequiredService<IAdminService>();
+	await adminService.CreateAccountOnce();
+
+	var LogContext = scope.ServiceProvider.GetRequiredService<hitscord.Contexts.TokenContext>();
     await LogContext.Database.MigrateAsync();
 }
 
