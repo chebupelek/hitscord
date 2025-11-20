@@ -12,8 +12,20 @@ services:
       - RabbitMq__Host=rabbitmq
       - ASPNETCORE_URLS=http://+:80
     restart: unless-stopped
+    networks:
+      - hitscord_network
+
+  nginx:
+    image: nginx:latest
+    restart: always
     ports:
-      - "5000:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/ssl/conf.d/default.conf:ro
+      - ./certs:/etc/ssl/certs:ro
+    depends_on:
+      - hitscord
     networks:
       - hitscord_network
 
