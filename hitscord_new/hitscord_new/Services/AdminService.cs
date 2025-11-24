@@ -812,4 +812,24 @@ public class AdminService: IAdminService
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
 	}
+
+	public async Task<AdminDbModel> CreateAccountOnce()
+	{
+		if (await _hitsContext.Admin.AnyAsync())
+			return null;
+
+		var newAdmin = new AdminDbModel
+		{
+			Id = Guid.NewGuid(),
+			Login = "TetyaDusya",
+			PasswordHash = _passwordHasher.HashPassword("TetyaDusya", "TetyaDusya"),
+			AccountName = "Тётя Дуся",
+			Approved = true
+		};
+
+		_hitsContext.Admin.Add(newAdmin);
+		await _hitsContext.SaveChangesAsync();
+
+		return newAdmin;
+	}
 }
