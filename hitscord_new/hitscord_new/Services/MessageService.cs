@@ -479,9 +479,17 @@ public class MessageService : IMessageService
 			.Select(u => u.UserId)
 			.ToListAsync();
 
+		var where = channelType switch
+		{
+			ChannelTypeEnum.Text => " in text channel",
+			ChannelTypeEnum.Notification => " in notification channel",
+			ChannelTypeEnum.Sub => " in sub channel",
+			_ => ""
+		};
+
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "New message");
+			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "New message" + where);
 		}
 
 		var notificatedRoles = await _hitsContext.Role

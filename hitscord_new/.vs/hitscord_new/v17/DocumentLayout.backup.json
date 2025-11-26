@@ -3,8 +3,8 @@
   "WorkspaceRootPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\services\\adminservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\services\\adminservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -31,14 +31,14 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "AdminService.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\AdminService.cs",
-              "RelativeDocumentMoniker": "hitscord_new\\Services\\AdminService.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\AdminService.cs",
-              "RelativeToolTip": "hitscord_new\\Services\\AdminService.cs",
-              "ViewState": "AgIAALkAAAAAAAAAAAAgwMUAAAARAAAAAAAAAA==",
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Program.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Program.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Program.cs",
+              "RelativeToolTip": "hitscord_new\\Program.cs",
+              "ViewState": "AgIAAJ0AAAAAAAAAAAAuwLMAAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-13T02:32:25.993Z",
+              "WhenOpened": "2025-11-24T12:58:45.61Z",
               "EditorCaption": ""
             }
           ]

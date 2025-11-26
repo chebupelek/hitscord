@@ -166,7 +166,7 @@ using (var scope = app.Services.CreateScope())
 		{
 			new SystemRoleDbModel
 			{
-				Name = "Ñòóäåíò",
+				Name = "Студент",
 				Type = SystemRoleTypeEnum.Student,
 				ParentRoleId = null,
 				ParentRole = null,
@@ -175,7 +175,7 @@ using (var scope = app.Services.CreateScope())
 			},
 			new SystemRoleDbModel
 			{
-				Name = "Ïðåïîäàâàòåëü",
+				Name = "Преподаватель",
 				Type = SystemRoleTypeEnum.Teacher,
 				ParentRoleId = null,
 				ParentRole = null,
