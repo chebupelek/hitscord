@@ -546,6 +546,8 @@ public class MessageService : IMessageService
 
 		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistAsync(channelId);
 
+		var channelType = await _channelService.GetChannelType(channel.Id);
+
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
@@ -628,6 +630,14 @@ public class MessageService : IMessageService
 			}).ToList()
 		};
 
+		var where = channelType switch
+		{
+			ChannelTypeEnum.Text => " in text channel",
+			ChannelTypeEnum.Notification => " in notification channel",
+			ChannelTypeEnum.Sub => " in sub channel",
+			_ => ""
+		};
+
 		var alertedUsers = await _hitsContext.UserServer
 			.Include(u => u.User)
 			.Include(u => u.SubscribeRoles)
@@ -646,7 +656,7 @@ public class MessageService : IMessageService
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Updated message");
+			await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Updated message" + where);
 		}
 	}
 
@@ -655,6 +665,8 @@ public class MessageService : IMessageService
 		var user = await _authService.GetUserAsync(token);
 
 		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistAsync(channelId);
+
+		var channelType = await _channelService.GetChannelType(channel.Id);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
@@ -711,6 +723,14 @@ public class MessageService : IMessageService
 			.Select(u => u.UserId)
 			.ToListAsync();
 
+		var where = channelType switch
+		{
+			ChannelTypeEnum.Text => " in text channel",
+			ChannelTypeEnum.Notification => " in notification channel",
+			ChannelTypeEnum.Sub => " in sub channel",
+			_ => ""
+		};
+
 		var messageDto = new DeletedMessageResponceDTO
 		{
 			ServerId = channel.ServerId,
@@ -719,7 +739,7 @@ public class MessageService : IMessageService
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Deleted message");
+			await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Deleted message" + where);
 		}
 
 		
@@ -1063,6 +1083,8 @@ public class MessageService : IMessageService
 				throw new CustomException("Variant not found", "Voting", "Variant id", 404, "Вариант не найден", "Голосование");
 			}
 
+			var channelType = await _channelService.GetChannelType(variant.Vote.TextChannelId);
+
 			var userSub = await _hitsContext.UserServer
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
@@ -1147,6 +1169,14 @@ public class MessageService : IMessageService
 				}).ToList()
 			};
 
+			var where = channelType switch
+			{
+				ChannelTypeEnum.Text => " in text channel",
+				ChannelTypeEnum.Notification => " in notification channel",
+				ChannelTypeEnum.Sub => " in sub channel",
+				_ => ""
+			};
+
 			var alertedUsers = await _hitsContext.UserServer
 				.Include(u => u.User)
 				.Include(u => u.SubscribeRoles)
@@ -1165,7 +1195,7 @@ public class MessageService : IMessageService
 
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User voted in channel");
+				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User voted" + where);
 			}
 		}
 		else
@@ -1274,6 +1304,8 @@ public class MessageService : IMessageService
 
 		if (channelVariant != null)
 		{
+			var channelType = await _channelService.GetChannelType(channelVariant.Vote.TextChannelId);
+
 			var userSub = await _hitsContext.UserServer
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
@@ -1347,6 +1379,14 @@ public class MessageService : IMessageService
 				}).ToList()
 			};
 
+			var where = channelType switch
+			{
+				ChannelTypeEnum.Text => " in text channel",
+				ChannelTypeEnum.Notification => " in notification channel",
+				ChannelTypeEnum.Sub => " in sub channel",
+				_ => ""
+			};
+
 			var alertedUsers = await _hitsContext.UserServer
 				.Include(u => u.User)
 				.Include(u => u.SubscribeRoles)
@@ -1365,7 +1405,7 @@ public class MessageService : IMessageService
 
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User unvoted in channel");
+				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User unvoted" + where);
 			}
 
 			return;

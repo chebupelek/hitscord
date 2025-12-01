@@ -22,8 +22,20 @@
       "DocumentGroups": [
         {
           "DockedWidth": 25,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 3,
           "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:2:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:1:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -32,7 +44,7 @@
               "RelativeDocumentMoniker": "hitscord_new\\Models\\response\\ServerPresetItemDTO.cs",
               "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Models\\response\\ServerPresetItemDTO.cs",
               "RelativeToolTip": "hitscord_new\\Models\\response\\ServerPresetItemDTO.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAvAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAAgAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-12-01T18:20:59.358Z",
               "EditorCaption": ""
@@ -47,8 +59,7 @@
               "RelativeToolTip": "hitscord_new\\Services\\ServerService.cs",
               "ViewState": "AgIAALoGAAAAAAAAAAAAAMcHAAAuAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-01T18:20:36.754Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-12-01T18:20:36.754Z"
             },
             {
               "$type": "Document",
@@ -60,20 +71,7 @@
               "RelativeToolTip": "hitscord_new\\Models\\response\\PresetResponseDTO.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-01T18:20:20.026Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:2:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:1:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+              "WhenOpened": "2025-12-01T18:20:20.026Z"
             }
           ]
         }
