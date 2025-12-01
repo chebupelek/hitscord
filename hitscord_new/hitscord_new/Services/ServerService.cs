@@ -1590,6 +1590,8 @@ public class ServerService : IServerService
 		}
 
 		server.IsClosed = isClosed;
+		_hitsContext.Server.Update(server);
+		await _hitsContext.SaveChangesAsync();
 
 		if (isClosed == false)
 		{
