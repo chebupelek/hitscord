@@ -9,7 +9,7 @@ public class ServerPresetItemDTO
 {
 	public required Guid ServerRoleId { get; set; }
 	public required string ServerRoleName { get; set; }
-	public required Guid SystenRoleId { get; set; }
-	public required string SystenRoleName { get; set; }
-	public required SystemRoleTypeEnum SystenRoleType { get; set; }
+	public required Guid SystemRoleId { get; set; }
+	public required string SystemRoleName { get; set; }
+	public required SystemRoleTypeEnum SystemRoleType { get; set; }
 }
