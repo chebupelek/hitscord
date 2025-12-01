@@ -2028,9 +2028,9 @@ public class ServerService : IServerService
 			{
 				ServerRoleId = p.ServerRoleId,
 				ServerRoleName = p.ServerRole.Name,
-				SystenRoleId = p.SystemRoleId,
-				SystenRoleName = p.SystemRole.Name,
-				SystenRoleType = p.SystemRole.Type
+				SystemRoleId = p.SystemRoleId,
+				SystemRoleName = p.SystemRole.Name,
+				SystemRoleType = p.SystemRole.Type
 			})
 			.ToListAsync();
 
