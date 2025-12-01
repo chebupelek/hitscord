@@ -2,6 +2,6 @@
 
 public class ClamAVOptions
 {
-	public string Host { get; set; } = "localhost";
+	public string Host { get; set; } = "clamav";
 	public int Port { get; set; } = 3310;
 }
