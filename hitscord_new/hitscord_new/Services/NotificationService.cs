@@ -23,7 +23,7 @@ public class NotificationService : INotificationService
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var notificationsCount = await _hitsContext.Notifications.Where(n => n.UserId == owner.Id).CountAsync();
-		if (Page < 1 || Size < 1 || ((Page - 1) * Size) + 1 < notificationsCount)
+		if (Page < 1 || Size < 1 || ((Page - 1) * Size) + 1 > notificationsCount)
 		{
 			throw new CustomException($"Pagination error", "Get user notifications", "pagination", 400, $"Проблема с пагинацией", "Получение уведомлений пользователя");
 		}
