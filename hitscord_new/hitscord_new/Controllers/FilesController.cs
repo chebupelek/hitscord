@@ -80,7 +80,7 @@ public class FilesController : ControllerBase
 		}
 		catch (Exception ex)
 		{
-			return StatusCode(500, ex.Message + " " + ex.InnerException != null ? ex.InnerException.Message : "");
+			return StatusCode(500, $"{ex.Message} {ex.InnerException?.Message}");
 		}
 	}
 
