@@ -166,14 +166,10 @@ public class FileService : IFileService
 
 	public async Task<FileMetaResponseDTO> UploadFileToMessageAsync(string token, Guid channelId, IFormFile file)
 	{
-		_logger.LogInformation("1");
 		var user = await _authorizationService.GetUserAsync(token);
-		_logger.LogInformation("2");
-
 		bool canUse = false;
 
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == channelId);
-		_logger.LogInformation("3");
 		if (chat != null)
 		{
 			if (chat.Users.Any(u => u.UserId == user.Id))
@@ -185,7 +181,6 @@ public class FileService : IFileService
 				throw new CustomException("User not in this chat", "UploadFileToMessageAsync", "ChatId", 401, "Пользователь не находится в этом чате", "Загрузка файла в сообщение");
 			}
 		}
-		_logger.LogInformation("4");
 
 		var notificationChannel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(nc => nc.Id == channelId);
 		if (notificationChannel != null)
@@ -233,7 +228,6 @@ public class FileService : IFileService
 			canUse = true;
 		}
 
-		_logger.LogInformation("5");
 		var subChannel = await _hitsContext.SubChannel.FirstOrDefaultAsync(nc => nc.Id == channelId);
 		if (subChannel != null)
 		{
@@ -272,11 +266,9 @@ public class FileService : IFileService
 
 			canUse = true;
 		}
-		_logger.LogInformation("6");
 		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(nc => nc.Id == channelId && EF.Property<string>(nc, "ChannelType") == "Text");
 		if (textChannel != null)
 		{
-			_logger.LogInformation("7");
 			var userServer = await _hitsContext.UserServer
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
@@ -285,7 +277,6 @@ public class FileService : IFileService
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanSee)
 				.FirstOrDefaultAsync(us => us.ServerId == textChannel.ServerId && us.UserId == user.Id);
-			_logger.LogInformation("8");
 			if (userServer == null)
 			{
 				throw new CustomException(
@@ -297,15 +288,12 @@ public class FileService : IFileService
 					"Загрузка файла в сообщение"
 				);
 			}
-			_logger.LogInformation("9");
 			var canSee = userServer.SubscribeRoles
 				.SelectMany(sr => sr.Role.ChannelCanSee)
 				.Any(ccs => ccs.ChannelId == textChannel.Id);
-			_logger.LogInformation("10");
 			var canWrite = userServer.SubscribeRoles
 				.SelectMany(sr => sr.Role.ChannelCanWrite)
 				.Any(ccs => ccs.TextChannelId == textChannel.Id);
-			_logger.LogInformation("11");
 			if (canSee == false || canWrite == false)
 			{
 				throw new CustomException(
@@ -320,7 +308,6 @@ public class FileService : IFileService
 
 			canUse = true;
 		}
-		_logger.LogInformation("12");
 		if (canUse == false)
 		{
 			throw new CustomException(
@@ -332,30 +319,23 @@ public class FileService : IFileService
 				"Загрузка файла в сообщение"
 			);
 		}
-		_logger.LogInformation("13");
 		byte[] fileBytes;
 		using (var ms = new MemoryStream())
 		{
 			await file.CopyToAsync(ms);
 			fileBytes = ms.ToArray();
 		}
-		_logger.LogInformation("14");
 		var scanResult = await _clamService.ScanFileAsync(fileBytes);
-		_logger.LogInformation("15");
 		if (scanResult.Result != ClamScanResults.Clean)
 		{
 			throw new CustomException("Virus detected", "UploadFileToMessageAsync", "File", 400, "Обнаружен вирус в файле", "Загрузка файла в сообщение");
 		}
-		_logger.LogInformation("16");
 		var originalFileName = Path.GetFileName(file.FileName);
 		var safeFileName = Path.GetRandomFileName() + Path.GetExtension(originalFileName);
 		var objectName = $"message_files/{Guid.NewGuid()}_{originalFileName}";
-		_logger.LogInformation("17");
 		await _minioService.UploadFileAsync(objectName, fileBytes, file.ContentType);
-		_logger.LogInformation("18");
 
 		var fileUrl = _minioService.GetFileUrl(objectName);
-		_logger.LogInformation("19");
 		var fileModel = new FileDbModel
 		{
 			Id = Guid.NewGuid(),
@@ -368,10 +348,8 @@ public class FileService : IFileService
 			Deleted = false,
 			CreatedAt = DateTime.UtcNow,
 		};
-		_logger.LogInformation("20");
 		await _hitsContext.File.AddAsync(fileModel);
 		await _hitsContext.SaveChangesAsync();
-		_logger.LogInformation("21");
 		return new FileMetaResponseDTO
 		{
 			FileId = fileModel.Id,

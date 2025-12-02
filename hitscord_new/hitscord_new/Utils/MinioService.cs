@@ -40,20 +40,12 @@ public class MinioService
 
 	public async Task UploadFileAsync(string objectName, byte[] data, string contentType)
 	{
-		_logger.LogInformation("1 1");
-		_logger.LogInformation(_bucket);
-		_logger.LogInformation(_endpoint);
-		_logger.LogInformation(_useSSL.ToString());
 		using var stream = new MemoryStream(data);
-		_logger.LogInformation("1 2");
 		bool found = await _minio.BucketExistsAsync(new BucketExistsArgs().WithBucket(_bucket));
-		_logger.LogInformation("1 3");
 		if (!found)
 		{
-			_logger.LogInformation("1 4");
 			await _minio.MakeBucketAsync(new MakeBucketArgs().WithBucket(_bucket));
 		}
-		_logger.LogInformation("1 5");
 		await _minio.PutObjectAsync(new PutObjectArgs()
 			.WithBucket(_bucket)
 			.WithObject(objectName)
