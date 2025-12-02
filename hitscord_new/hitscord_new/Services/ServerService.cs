@@ -257,11 +257,11 @@ public class ServerService : IServerService
 
 	public async Task SubscribeAsync(Guid serverId, string token, string? userName)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
+		var user = await _authorizationService.GetUserAsync(token);/*
 		if (user.SystemRoles.Count == 0)
 		{
 			throw new CustomException("User cant subscribe to servers", "Subscribe", "User", 403, "Пользователь не имеет права присоединяться к серверам", "Подписка");
-		}
+		}*/
 		var server = await CheckServerExistAsync(serverId, true);
 		var existedSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId);
 		if (existedSub != null && existedSub.IsBanned == true)

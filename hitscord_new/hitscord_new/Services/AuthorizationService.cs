@@ -124,6 +124,12 @@ public class AuthorizationService : IAuthorizationService
 			formattedNumber = formattedNumber.Substring(formattedNumber.Length - 6);
 		}
 
+		var studentRole = await _hitsContext.SystemRole.FirstOrDefaultAsync(sr => sr.ParentRoleId == null && sr.Type == SystemRoleTypeEnum.Student);
+		if (studentRole == null)
+		{
+			throw new CustomException("Student role not found", "Account", "Student role", 404, "Стартовая роль не найдена", "Регистрация");
+		}
+
 		var newUser = new UserDbModel
         {
             Mail = registrationData.Mail,
@@ -137,6 +143,7 @@ public class AuthorizationService : IAuthorizationService
 			NotificationLifeTime = 4,
 			SystemRoles = new List<SystemRoleDbModel>()
 		};
+		newUser.SystemRoles.Add(studentRole);
 
         await _hitsContext.User.AddAsync(newUser);
         _hitsContext.SaveChanges();
