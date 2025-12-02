@@ -1,5 +1,5 @@
 ﻿using Minio;
-using Minio.DataModel.Args; // 👈 ВАЖНО — этот using обязателен
+using Minio.DataModel.Args;
 using Microsoft.Extensions.Options;
 
 namespace hitscord.Utils;
@@ -19,8 +19,9 @@ public class MinioService
 	private readonly string _bucket;
 	private readonly string _endpoint;
 	private readonly bool _useSSL;
+	private readonly ILogger<MinioService> _logger;
 
-	public MinioService(IOptions<MinioSettings> options)
+	public MinioService(IOptions<MinioSettings> options, ILogger<MinioService> logger)
 	{
 		var settings = options.Value;
 		_bucket = settings.BucketName;
@@ -32,16 +33,23 @@ public class MinioService
 			.WithCredentials(settings.AccessKey, settings.SecretKey)
 			.WithSSL(settings.UseSSL)
 			.Build();
+
+		_logger = logger;
 	}
 
 	public async Task UploadFileAsync(string objectName, byte[] data, string contentType)
 	{
+		_logger.LogInformation("1 1");
 		using var stream = new MemoryStream(data);
-
+		_logger.LogInformation("1 2");
 		bool found = await _minio.BucketExistsAsync(new BucketExistsArgs().WithBucket(_bucket));
+		_logger.LogInformation("1 3");
 		if (!found)
+		{
+			_logger.LogInformation("1 4");
 			await _minio.MakeBucketAsync(new MakeBucketArgs().WithBucket(_bucket));
-
+		}
+		_logger.LogInformation("1 5");
 		await _minio.PutObjectAsync(new PutObjectArgs()
 			.WithBucket(_bucket)
 			.WithObject(objectName)
