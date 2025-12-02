@@ -1,6 +1,7 @@
 ﻿using Minio;
 using Minio.DataModel.Args;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace hitscord.Utils;
 
@@ -40,6 +41,9 @@ public class MinioService
 	public async Task UploadFileAsync(string objectName, byte[] data, string contentType)
 	{
 		_logger.LogInformation("1 1");
+		_logger.LogInformation(_bucket);
+		_logger.LogInformation(_endpoint);
+		_logger.LogInformation(_useSSL.ToString());
 		using var stream = new MemoryStream(data);
 		_logger.LogInformation("1 2");
 		bool found = await _minio.BucketExistsAsync(new BucketExistsArgs().WithBucket(_bucket));
