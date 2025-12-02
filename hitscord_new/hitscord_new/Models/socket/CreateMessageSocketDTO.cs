@@ -13,31 +13,31 @@ public class CreateMessageSocketDTO
     public ClassicMessageSocketDTO? Classic { get; set; }
     public VoteMessageSocketDTO? Vote { get; set; }
 
-	public void Validation(Guid UserId)
+	public void Validation()
     {
         if (ChannelId == Guid.Empty)
         {
-            throw new CustomExceptionUser("ChannelId cannot be empty.", "CreateMessage", "ChannelId", 400, "ChannelId не может быть пустым.", "Валидация сообщения", UserId);
+            throw new CustomException("ChannelId cannot be empty.", "CreateMessage", "ChannelId", 400, "ChannelId не может быть пустым.", "Валидация сообщения");
         }
 
         if (MessageType == MessageTypeEnum.Classic)
         {
             if (Classic == null)
             {
-				throw new CustomExceptionUser("Classic data cannot be empty.", "CreateMessage", "Classic", 400, "Classic не может быть пустым.", "Валидация сообщения", UserId);
+				throw new CustomException("Classic data cannot be empty.", "CreateMessage", "Classic", 400, "Classic не может быть пустым.", "Валидация сообщения");
 			}
 
-            Classic.ValidationClassic(UserId);
+            Classic.ValidationClassic();
         }
 
         if (MessageType == MessageTypeEnum.Vote)
         {
 			if (Vote == null)
 			{
-				throw new CustomExceptionUser("Vote data cannot be empty.", "CreateMessage", "Vote", 400, "Vote не может быть пустым.", "Валидация сообщения", UserId);
+				throw new CustomException("Vote data cannot be empty.", "CreateMessage", "Vote", 400, "Vote не может быть пустым.", "Валидация сообщения");
 			}
 
-			Vote.ValidationVote(UserId);
+			Vote.ValidationVote();
 		}
     }
 }

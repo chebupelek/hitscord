@@ -48,7 +48,7 @@ public class MessageService : IMessageService
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
-	private async Task<List<Guid>> ExtractChannelUsersAsync(string input, Guid textChannelId)
+	private async Task<List<Guid>> ExtractChannelUsersAsync(string? input, Guid textChannelId)
 	{
 		var matches = Regex.Matches(input, @"\/\/\{usertag:([a-zA-Z0-9]+#\d{6})\}\/\/");
 		var tagList = matches.Cast<Match>().Select(m => m.Groups[1].Value).ToList();
@@ -72,7 +72,7 @@ public class MessageService : IMessageService
 		return (users == null ? (new List<Guid>()) : users);
 	}
 
-	private async Task<List<Guid>> ExtractChatUsersAsync(string input, Guid chatId)
+	private async Task<List<Guid>> ExtractChatUsersAsync(string? input, Guid chatId)
 	{
 		var matches = Regex.Matches(input, @"\/\/\{usertag:([a-zA-Z0-9]+#\d{6})\}\/\/");
 		var tagList = matches.Cast<Match>().Select(m => m.Groups[1].Value).ToList();
@@ -87,7 +87,7 @@ public class MessageService : IMessageService
 		return (users == null ? (new List<Guid>()) : users);
 	}
 
-	private async Task<List<Guid>> ExtractRolesTagsAsync(string input, Guid textChannelId)
+	private async Task<List<Guid>> ExtractRolesTagsAsync(string? input, Guid textChannelId)
 	{
 		var matches = Regex.Matches(input, @"\/\/\{roletag:([a-zA-Z0-9]+)\}\/\/");
 		var tagList = matches.Cast<Match>().Select(m => m.Groups[1].Value).ToList();
@@ -226,6 +226,7 @@ public class MessageService : IMessageService
 	public async Task CreateMessageWebsocketAsync(CreateMessageSocketDTO Content)
 	{
 		var user = await _authService.GetUserAsync(Content.Token);
+		Content.Validation();
 		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistAsync(Content.ChannelId);
 
 		var userSub = await _hitsContext.UserServer
@@ -748,7 +749,7 @@ public class MessageService : IMessageService
 	public async Task CreateMessageToChatWebsocketAsync(CreateMessageSocketDTO Content)
 	{
 		var user = await _authService.GetUserAsync(Content.Token);
-
+		Content.Validation();
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == Content.ChannelId);
 		if (chat == null)
 		{
