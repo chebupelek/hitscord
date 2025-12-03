@@ -25,7 +25,7 @@ public class ClassicMessageSocketDTO
 
 		if (Files != null)
         {
-            if (Files.Count() > 10 || Files.Count() < 1)
+            if (Files.Count() > 10)
             {
 				throw new CustomException("" +
                     "files count must be between 1 and 10", "CreateMessage", "Text", 400, "Файлов должно быть от 1 до 10", "Валидация сообщения");
