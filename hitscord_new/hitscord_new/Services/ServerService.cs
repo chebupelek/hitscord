@@ -1564,6 +1564,10 @@ public class ServerService : IServerService
 		_logger.LogInformation("10");
 		_hitsContext.File.Add(file);
 		await _hitsContext.SaveChangesAsync();
+
+		server.IconFileId = file.Id;
+		_hitsContext.Server.Update(server);
+		await _hitsContext.SaveChangesAsync();
 		_logger.LogInformation("11");
 		string base64Icon = Convert.ToBase64String(fileBytes);
 		var changeIconDto = new ServerIconResponseDTO
