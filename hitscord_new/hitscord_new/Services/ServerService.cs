@@ -33,10 +33,12 @@ public class ServerService : IServerService
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
+	private readonly ILogger<ServerService> _logger;
 
-	public ServerService(HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, INotificationService notificationsService, nClamService clamService, MinioService minioService)
-    {
-        _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
+	public ServerService(ILogger<ServerService> logger, HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, INotificationService notificationsService, nClamService clamService, MinioService minioService)
+	{
+		_logger = logger;
+		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
@@ -617,34 +619,51 @@ public class ServerService : IServerService
 
 		foreach (var sub in subscriptions)
 		{
+			_logger.LogInformation("Начата обработка подписки на сервер {ServerId} ({ServerName}) пользователем {UserId}",
+				sub.Server.Id, sub.Server.Name, user.Id);
+
 			var icon = sub.Server.IconFileId == null ? null : await GetImageAsync((Guid)sub.Server.IconFileId);
 
 			var userRoleIdsForServer = sub.SubscribeRoles.Select(sr => sr.RoleId).ToHashSet();
+			_logger.LogDebug("Для сервера {ServerId} у пользователя {UserId} найдено ролей: {RolesCount}",
+		sub.Server.Id, user.Id, userRoleIdsForServer.Count);
 
 			var channelIds = await _hitsContext.TextChannel
 				.Where(c => c.ServerId == sub.ServerId && EF.Property<string>(c, "ChannelType") == "Text")
 				.Select(c => c.Id)
 				.ToListAsync();
+			_logger.LogDebug("Сервер {ServerId} содержит {ChannelCount} текстовых каналов",
+		sub.Server.Id, channelIds.Count);
 
 			var lastReads = await _hitsContext.LastReadChannelMessage
 				.Where(lr => lr.UserId == user.Id && channelIds.Contains(lr.TextChannelId))
 				.ToListAsync();
+			_logger.LogDebug("Пользователь {UserId} имеет {LastReadCount} записей LastRead для серверa {ServerId}",
+		user.Id, lastReads.Count, sub.Server.Id);
 
 			var nonReadedMessages = 0;
 			var nonReadedTaggedMessages = 0;
 
 			var lastReadsDict = lastReads.ToDictionary(lr => lr.TextChannelId, lr => lr.LastReadedMessageId);
+			_logger.LogDebug("Сформирован словарь LastReads: {LastReadsCount} элементов. Пример: {Example}",
+	lastReadsDict.Count,
+	lastReadsDict.Take(3).Select(x => $"{x.Key}:{x.Value}"));
 
 			var nonReadedMessagesQuery = _hitsContext.ChannelMessage
 				.Where(cm => channelIds.Contains(cm.TextChannelId))
 				.AsEnumerable()
 				.Where(cm => cm.Id > (lastReadsDict.TryGetValue(cm.TextChannelId, out var lastId) ? lastId : 0))
 				.ToList();
+			_logger.LogDebug("Получено {UnreadCount} непрочитанных сообщений в сервере (каналы: {ChannelCount})",
+	nonReadedMessagesQuery.Count, channelIds.Count);
 
 			nonReadedMessages = nonReadedMessagesQuery.Count();
 			nonReadedTaggedMessages = nonReadedMessagesQuery.Count(m =>
 				m.TaggedUsers.Contains(user.Id) || m.TaggedRoles.Any(rid => userRoleIdsForServer.Contains(rid))
 			);
+			_logger.LogInformation(
+		"Для сервера {ServerId}: непрочитанных={NonReaded}, тегнутых={Tagged}. Пользователь {UserId}",
+		sub.Server.Id, nonReadedMessages, nonReadedTaggedMessages, user.Id);
 
 			serverList.Add(new ServersListItemDTO
 			{

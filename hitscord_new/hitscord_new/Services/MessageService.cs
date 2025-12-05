@@ -519,6 +519,10 @@ public class MessageService : IMessageService
 
 		if (notifiedUsers != null && notifiedUsers.Count > 0)
 		{
+			foreach (var nu in notifiedUsers)
+			{
+				_logger.LogInformation("User notified {nu} with message {messageId}", nu, ((MessageResponceDTO)response).Id);
+			}
 			await _webSocketManager.BroadcastMessageAsync(response, notifiedUsers, "User notified");
 		}
 
