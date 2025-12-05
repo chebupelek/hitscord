@@ -650,9 +650,9 @@ public class ServerService : IServerService
 	lastReadsDict.Take(3).Select(x => $"{x.Key}:{x.Value}"));
 
 			var nonReadedMessagesQuery = _hitsContext.ChannelMessage
-				.Where(cm => channelIds.Contains(cm.TextChannelId))
+				.Where(cm => lastReadsDict.Keys.Contains(cm.TextChannelId))
 				.AsEnumerable()
-				.Where(cm => cm.Id > (lastReadsDict.TryGetValue(cm.TextChannelId, out var lastId) ? lastId : 0))
+				.Where(cm => cm.Id > lastReadsDict[cm.TextChannelId])
 				.ToList();
 			_logger.LogInformation("Получено {UnreadCount} непрочитанных сообщений в сервере (каналы: {ChannelCount})",
 	nonReadedMessagesQuery.Count, channelIds.Count);
