@@ -525,6 +525,7 @@ public class MessageService : IMessageService
 				&& (u.NonNotifiable == false)
 				&& (!nonNotified.Contains(u.Id)))
 			.Select(u => u.UserId)
+			.Distinct()
 			.ToListAsync();
 
 		_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!notifiedUsers ({Count}): {List}",
