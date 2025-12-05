@@ -625,27 +625,27 @@ public class ServerService : IServerService
 			var icon = sub.Server.IconFileId == null ? null : await GetImageAsync((Guid)sub.Server.IconFileId);
 
 			var userRoleIdsForServer = sub.SubscribeRoles.Select(sr => sr.RoleId).ToHashSet();
-			_logger.LogDebug("Для сервера {ServerId} у пользователя {UserId} найдено ролей: {RolesCount}",
+			_logger.LogInformation("Для сервера {ServerId} у пользователя {UserId} найдено ролей: {RolesCount}",
 		sub.Server.Id, user.Id, userRoleIdsForServer.Count);
 
 			var channelIds = await _hitsContext.TextChannel
 				.Where(c => c.ServerId == sub.ServerId && EF.Property<string>(c, "ChannelType") == "Text")
 				.Select(c => c.Id)
 				.ToListAsync();
-			_logger.LogDebug("Сервер {ServerId} содержит {ChannelCount} текстовых каналов",
+			_logger.LogInformation("Сервер {ServerId} содержит {ChannelCount} текстовых каналов",
 		sub.Server.Id, channelIds.Count);
 
 			var lastReads = await _hitsContext.LastReadChannelMessage
 				.Where(lr => lr.UserId == user.Id && channelIds.Contains(lr.TextChannelId))
 				.ToListAsync();
-			_logger.LogDebug("Пользователь {UserId} имеет {LastReadCount} записей LastRead для серверa {ServerId}",
+			_logger.LogInformation("Пользователь {UserId} имеет {LastReadCount} записей LastRead для серверa {ServerId}",
 		user.Id, lastReads.Count, sub.Server.Id);
 
 			var nonReadedMessages = 0;
 			var nonReadedTaggedMessages = 0;
 
 			var lastReadsDict = lastReads.ToDictionary(lr => lr.TextChannelId, lr => lr.LastReadedMessageId);
-			_logger.LogDebug("Сформирован словарь LastReads: {LastReadsCount} элементов. Пример: {Example}",
+			_logger.LogInformation("Сформирован словарь LastReads: {LastReadsCount} элементов. Пример: {Example}",
 	lastReadsDict.Count,
 	lastReadsDict.Take(3).Select(x => $"{x.Key}:{x.Value}"));
 
@@ -654,7 +654,7 @@ public class ServerService : IServerService
 				.AsEnumerable()
 				.Where(cm => cm.Id > (lastReadsDict.TryGetValue(cm.TextChannelId, out var lastId) ? lastId : 0))
 				.ToList();
-			_logger.LogDebug("Получено {UnreadCount} непрочитанных сообщений в сервере (каналы: {ChannelCount})",
+			_logger.LogInformation("Получено {UnreadCount} непрочитанных сообщений в сервере (каналы: {ChannelCount})",
 	nonReadedMessagesQuery.Count, channelIds.Count);
 
 			nonReadedMessages = nonReadedMessagesQuery.Count();
