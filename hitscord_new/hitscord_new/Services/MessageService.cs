@@ -493,26 +493,16 @@ public class MessageService : IMessageService
 			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "New message" + where);
 		}
 
-		_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Начато формирование списка уведомляемых пользователей для канала {ChannelId}", channel.Id);
-
 		var notificatedRoles = await _hitsContext.Role
 			.Include(r => r.ChannelNotificated)
 			.Where(r => r.ChannelNotificated.Any(cn => cn.NotificationChannelId == channel.Id))
 			.Select(r => r.Id)
 			.ToListAsync();
 
-		_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!notificatedRoles ({Count}): {List}",
-			notificatedRoles.Count,
-			string.Join(", ", notificatedRoles));
-
 		var nonNotified = await _hitsContext.NonNotifiableChannel
 			.Where(nnc => nnc.TextChannelId == channel.Id)
 			.Select(nnc => nnc.UserServerId)
 			.ToListAsync();
-
-		_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!nonNotified ({Count}): {List}",
-			nonNotified.Count,
-			string.Join(", ", nonNotified));
 
 		var notifiedUsers = await _hitsContext.UserServer
 			.Include(u => u.User)
@@ -528,16 +518,8 @@ public class MessageService : IMessageService
 			.Distinct()
 			.ToListAsync();
 
-		_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!notifiedUsers ({Count}): {List}",
-			notifiedUsers.Count,
-			string.Join(", ", notifiedUsers));
-
 		if (notifiedUsers != null && notifiedUsers.Count > 0)
 		{
-			foreach (var nu in notifiedUsers)
-			{
-				_logger.LogInformation("User notified {nu} with message {messageId}", nu, ((MessageResponceDTO)response).Id);
-			}
 			await _webSocketManager.BroadcastMessageAsync(response, notifiedUsers, "User notified");
 		}
 

@@ -1523,23 +1523,31 @@ public class ServerService : IServerService
 		var objectName = $"icons/{safeFileName}";
 
 		await _minioService.UploadFileAsync(objectName, fileBytes, iconFile.ContentType);
-
+		_logger.LogInformation("1");
 		if (server.IconFileId != null)
 		{
+			_logger.LogInformation("2");
 			var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == server.IconFileId);
+			_logger.LogInformation("3");
 			if (oldIcon != null)
 			{
+				_logger.LogInformation("4");
 				try
 				{
+					_logger.LogInformation("5");
 					await _minioService.DeleteFileAsync(oldIcon.Path);
 				}
 				catch
 				{
+					_logger.LogInformation("6");
 				}
+				_logger.LogInformation("7");
 				_hitsContext.File.Remove(oldIcon);
+				await _hitsContext.SaveChangesAsync();
+				_logger.LogInformation("8");
 			}
 		}
-
+		_logger.LogInformation("9");
 		var file = new FileDbModel
 		{
 			Id = Guid.NewGuid(),
@@ -1553,10 +1561,10 @@ public class ServerService : IServerService
 			Deleted = false,
 			ServerId = server.Id
 		};
-
+		_logger.LogInformation("10");
 		_hitsContext.File.Add(file);
 		await _hitsContext.SaveChangesAsync();
-
+		_logger.LogInformation("11");
 		string base64Icon = Convert.ToBase64String(fileBytes);
 		var changeIconDto = new ServerIconResponseDTO
 		{
