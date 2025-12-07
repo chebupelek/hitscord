@@ -1110,6 +1110,9 @@ public class ChannelService : IChannelService
 		{
 			throw new CustomException("User is not subscriber of this server", "Get channel messages", "User", 404, "Пользователь не является подписчиком сервера", "Получение списка сообщений канала");
 		}
+		var userRoleIds = userSub.SubscribeRoles
+			.Select(sr => sr.RoleId)
+			.ToList();
 		var subChannel = await _hitsContext.SubChannel.Include(sc => sc.ChannelMessage).FirstOrDefaultAsync(sc => sc.Id == channel.Id);
 		if (subChannel != null)
 		{
@@ -1233,7 +1236,8 @@ public class ChannelService : IChannelService
 							FileSize = f.Size,
 							Deleted = f.Deleted
 						})
-						.ToList()
+						.ToList(),
+						isTagged = message.TaggedUsers.Contains(user.Id) || message.TaggedRoles.Any(taggedRoleId => userRoleIds.Contains(taggedRoleId))
 					};
 					break;
 
@@ -1268,7 +1272,8 @@ public class ChannelService : IChannelService
 								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
 									: votes.Select(v => v.UserId).ToList()
 							};
-						}).ToList()
+						}).ToList(),
+						isTagged = false
 					};
 					break;
 

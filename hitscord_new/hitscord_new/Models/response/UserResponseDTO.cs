@@ -10,4 +10,5 @@ public class UserResponseDTO
 	public required bool Notifiable { get; set; }
 	public required bool FriendshipApplication { get; set; }
 	public required bool NonFriendMessage { get; set; }
+	public required List<SystemRoleShortItemDTO> SystemRoles { get; set; }
 }

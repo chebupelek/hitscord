@@ -414,7 +414,8 @@ public class MessageService : IMessageService
 						FileType = f.Type,
 						FileSize = f.Size,
 						Deleted = f.Deleted
-					}).ToList()
+					}).ToList(),
+					isTagged = false
 				};
 				break;
 
@@ -456,7 +457,8 @@ public class MessageService : IMessageService
 								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
 								: votes.Select(v => v.UserId).ToList()
 						};
-					}).ToList()
+					}).ToList(),
+					isTagged = false
 				};
 				break;
 
@@ -488,11 +490,6 @@ public class MessageService : IMessageService
 			_ => ""
 		};
 
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "New message" + where);
-		}
-
 		var notificatedRoles = await _hitsContext.Role
 			.Include(r => r.ChannelNotificated)
 			.Where(r => r.ChannelNotificated.Any(cn => cn.NotificationChannelId == channel.Id))
@@ -518,6 +515,23 @@ public class MessageService : IMessageService
 			.Distinct()
 			.ToListAsync();
 
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			foreach (var alertedUser in alertedUsers)
+			{
+				if (notifiedUsers != null && notifiedUsers.Count > 0 && notifiedUsers.Contains(alertedUser))
+				{
+					((MessageResponceDTO)response).isTagged = true;
+				}
+				else
+				{
+					((MessageResponceDTO)response).isTagged = false;
+				}
+				await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { alertedUser }, "New message" + where);
+			}
+		}
+
+		((MessageResponceDTO)response).isTagged = true;
 		if (notifiedUsers != null && notifiedUsers.Count > 0)
 		{
 			await _webSocketManager.BroadcastMessageAsync(response, notifiedUsers, "User notified");
@@ -629,7 +643,8 @@ public class MessageService : IMessageService
 				FileType = f.Type,
 				FileSize = f.Size,
 				Deleted = f.Deleted
-			}).ToList()
+			}).ToList(),
+			isTagged = false
 		};
 
 		var where = channelType switch
@@ -656,9 +671,38 @@ public class MessageService : IMessageService
 			.Select(u => u.UserId)
 			.ToListAsync();
 
+		var notificatedRoles = await _hitsContext.Role
+			.Include(r => r.ChannelNotificated)
+			.Where(r => r.ChannelNotificated.Any(cn => cn.NotificationChannelId == channel.Id))
+			.Select(r => r.Id)
+			.ToListAsync();
+
+		var notifiedUsers = await _hitsContext.UserServer
+			.Include(u => u.User)
+			.Include(u => u.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.Where(u => (taggedUsers.Contains(u.UserId)
+				|| u.SubscribeRoles.Any(sr => taggedRoles.Contains(sr.RoleId))
+				|| u.SubscribeRoles.Any(sr => notificatedRoles.Contains(sr.RoleId)))
+				&& (u.UserId != user.Id))
+			.Select(u => u.UserId)
+			.Distinct()
+			.ToListAsync();
+
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Updated message" + where);
+			foreach (var alertedUser in alertedUsers)
+			{
+				if (notifiedUsers != null && notifiedUsers.Count > 0 && notifiedUsers.Contains(alertedUser))
+				{
+					messageDto.isTagged = true;
+				}
+				else
+				{
+					messageDto.isTagged = false;
+				}
+				await _webSocketManager.BroadcastMessageAsync(messageDto, new List<Guid> { alertedUser }, "Updated message" + where);
+			}
 		}
 	}
 
@@ -881,7 +925,8 @@ public class MessageService : IMessageService
 						FileType = f.Type,
 						FileSize = f.Size,
 						Deleted = f.Deleted
-					}).ToList()
+					}).ToList(),
+					isTagged = false
 				};
 				break;
 
@@ -923,7 +968,8 @@ public class MessageService : IMessageService
 								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
 								: votes.Select(v => v.UserId).ToList()
 						};
-					}).ToList()
+					}).ToList(),
+					isTagged = false
 				};
 
 				break;
@@ -935,10 +981,6 @@ public class MessageService : IMessageService
 		var chatUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == Content.ChannelId).ToListAsync();
 
 		var alertedUsers = chatUsers.Select(cu => cu.UserId).ToList();
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "New message in chat");
-		}
 
 		var notifiedUsers = await _hitsContext.UserChat
 			.Include(u => u.User)
@@ -947,6 +989,24 @@ public class MessageService : IMessageService
 				&& (u.NonNotifiable == false)))
 			.Select(u => u.UserId)
 			.ToListAsync();
+
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			foreach (var alertedUser in alertedUsers)
+			{
+				if (notifiedUsers != null && notifiedUsers.Count > 0 && notifiedUsers.Contains(alertedUser))
+				{
+					((MessageResponceDTO)response).isTagged = true;
+				}
+				else
+				{
+					((MessageResponceDTO)response).isTagged = false;
+				}
+				await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { alertedUser }, "New message in chat");
+			}
+		}
+
+		((MessageResponceDTO)response).isTagged = true;
 
 		if (notifiedUsers != null && notifiedUsers.Count() > 0)
 		{
@@ -1018,13 +1078,34 @@ public class MessageService : IMessageService
 				FileType = f.Type,
 				FileSize = f.Size,
 				Deleted = f.Deleted
-			}).ToList()
+			}).ToList(),
+			isTagged = false
 		};
 
 		var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == chat.Id).Select(us => us.UserId).ToListAsync();
+
+		var notifiedUsers = await _hitsContext.UserChat
+			.Include(u => u.User)
+			.Where(u => (taggedUsers.Contains(u.UserId)
+				&& (u.UserId != user.Id)
+				&& (u.NonNotifiable == false)))
+			.Select(u => u.UserId)
+			.ToListAsync();
+
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Updated message in chat");
+			foreach (var alertedUser in alertedUsers)
+			{
+				if (notifiedUsers != null && notifiedUsers.Count > 0 && notifiedUsers.Contains(alertedUser))
+				{
+					messageDto.isTagged = true;
+				}
+				else
+				{
+					messageDto.isTagged = false;
+				}
+				await _webSocketManager.BroadcastMessageAsync(messageDto, new List<Guid> { alertedUser }, "Updated message in chat");
+			}
 		}
 	}
 
@@ -1168,7 +1249,8 @@ public class MessageService : IMessageService
 							? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
 							: votes.Select(vu => vu.UserId).ToList()
 					};
-				}).ToList()
+				}).ToList(),
+				isTagged = false
 			};
 
 			var where = channelType switch
@@ -1281,7 +1363,8 @@ public class MessageService : IMessageService
 							? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
 							: votes.Select(v => v.UserId).ToList()
 					};
-				}).ToList()
+				}).ToList(),
+				isTagged = false
 			};
 
 			var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == variant.ChatId).Select(us => us.UserId).ToListAsync();
@@ -1378,7 +1461,8 @@ public class MessageService : IMessageService
 							? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
 							: votes.Select(vu => vu.UserId).ToList()
 					};
-				}).ToList()
+				}).ToList(),
+				isTagged = false
 			};
 
 			var where = channelType switch
@@ -1484,7 +1568,8 @@ public class MessageService : IMessageService
 								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
 								: votes.Select(v => v.UserId).ToList()
 						};
-					}).ToList()
+					}).ToList(),
+					isTagged = false
 				};
 
 				var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == variant.ChatId).Select(us => us.UserId).ToListAsync();
@@ -1576,7 +1661,8 @@ public class MessageService : IMessageService
 							? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
 							: votes.Select(vu => vu.UserId).ToList()
 					};
-				}).ToList()
+				}).ToList(),
+				isTagged = false
 			};
 
 			return response;
@@ -1637,7 +1723,8 @@ public class MessageService : IMessageService
 							? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
 							: votes.Select(v => v.UserId).ToList()
 					};
-				}).ToList()
+				}).ToList(),
+				isTagged = false
 			};
 
 			return response;

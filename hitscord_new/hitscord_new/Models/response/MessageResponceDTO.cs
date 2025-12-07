@@ -11,4 +11,5 @@ public class MessageResponceDTO
     public required Guid AuthorId { get; set; }
     public required DateTime CreatedAt { get; set; }
     public ReplyToMessageResponceDTO? ReplyToMessage { get; set; }
+	public required bool isTagged { get; set; }
 }

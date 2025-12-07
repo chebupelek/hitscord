@@ -682,7 +682,8 @@ public class ChatService : IChatService
 							FileSize = f.Size,
 							Deleted = f.Deleted
 						})
-						.ToList()
+						.ToList(),
+						isTagged = message.TaggedUsers.Contains(owner.Id)
 					};
 					break;
 
@@ -717,7 +718,8 @@ public class ChatService : IChatService
 								? (votes.Any(v => v.UserId == owner.Id) ? new List<Guid> { owner.Id } : new List<Guid>())
 									: votes.Select(v => v.UserId).ToList()
 							};
-						}).ToList()
+						}).ToList(),
+						isTagged = false
 					};
 					break;
 

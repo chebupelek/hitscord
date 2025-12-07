@@ -308,12 +308,19 @@ public class AuthorizationService : IAuthorizationService
         var userById = await GetUserAsync(userId);
         var userData = new UserResponseDTO
         {
-            UserId = userId,
-            UserName = userById.AccountName,
-            UserTag = userById.AccountTag,
-            Notifiable = userById.Notifiable,
-            NonFriendMessage = userById.NonFriendMessage,
-            FriendshipApplication = userById.FriendshipApplication
+			UserId = userId,
+			UserName = userById.AccountName,
+			UserTag = userById.AccountTag,
+			Notifiable = userById.Notifiable,
+			NonFriendMessage = userById.NonFriendMessage,
+			FriendshipApplication = userById.FriendshipApplication,
+			SystemRoles = userById.SystemRoles.Select(sr => new SystemRoleShortItemDTO
+				{
+					Id = null,
+					Name = sr.Name,
+					Type = sr.Type
+				})
+				.ToList()
 		};
         return userData;
 	}
