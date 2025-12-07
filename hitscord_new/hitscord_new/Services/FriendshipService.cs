@@ -90,7 +90,14 @@ public class FriendshipService : IFriendshipService
 				},
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
-				NonFriendMessage = user.NonFriendMessage
+				NonFriendMessage = user.NonFriendMessage,
+				SystemRoles = user.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
 			},
 			CreatedAt = application.CreatedAt
 		};
@@ -121,7 +128,14 @@ public class FriendshipService : IFriendshipService
 				Icon = null,
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
-				NonFriendMessage = user.NonFriendMessage
+				NonFriendMessage = user.NonFriendMessage,
+				SystemRoles = user.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
 			},
 			CreatedAt = app.CreatedAt
 		};
@@ -152,7 +166,14 @@ public class FriendshipService : IFriendshipService
 				Icon = null,
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
-				NonFriendMessage = user.NonFriendMessage
+				NonFriendMessage = user.NonFriendMessage,
+				SystemRoles = user.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
 			},
 			CreatedAt = app.CreatedAt
 		};
@@ -206,7 +227,14 @@ public class FriendshipService : IFriendshipService
 				},
 				Notifiable = user.Notifiable,
 				FriendshipApplication = user.FriendshipApplication,
-				NonFriendMessage = user.NonFriendMessage
+				NonFriendMessage = user.NonFriendMessage,
+				SystemRoles = user.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
 			},
 			CreatedAt = app.CreatedAt
 		};
@@ -222,6 +250,8 @@ public class FriendshipService : IFriendshipService
 			Applications = await _hitsContext.FriendshipApplication
 				.Include(f => f.UserFrom)
 					.ThenInclude(uf => uf.IconFile)
+				.Include(f => f.UserFrom)
+					.ThenInclude(uf => uf.SystemRoles)
 				.Where(f => f.UserIdTo == user.Id)
 				.Select(f => new ApplicationsListItem
 				{
@@ -241,7 +271,14 @@ public class FriendshipService : IFriendshipService
 						},
 						Notifiable = f.UserFrom.Notifiable,
 						FriendshipApplication = f.UserFrom.FriendshipApplication,
-						NonFriendMessage = f.UserFrom.NonFriendMessage
+						NonFriendMessage = f.UserFrom.NonFriendMessage,
+						SystemRoles = f.UserFrom.SystemRoles
+							.Select(sr => new SystemRoleShortItemDTO
+							{
+								Name = sr.Name,
+								Type = sr.Type
+							})
+							.ToList()
 					},
 					CreatedAt = f.CreatedAt
 				})
@@ -260,6 +297,8 @@ public class FriendshipService : IFriendshipService
 			Applications = await _hitsContext.Friendship
 				.Include(f => f.UserTo)
 					.ThenInclude(ut => ut.IconFile)
+				.Include(f => f.UserTo)
+					.ThenInclude(ut => ut.SystemRoles)
 				.Where(f => f.UserIdFrom == user.Id)
 				.Select(f => new ApplicationsListItem
 				{
@@ -279,7 +318,14 @@ public class FriendshipService : IFriendshipService
 						},
 						Notifiable = f.UserTo.Notifiable,
 						FriendshipApplication = f.UserTo.FriendshipApplication,
-						NonFriendMessage = f.UserTo.NonFriendMessage
+						NonFriendMessage = f.UserTo.NonFriendMessage,
+						SystemRoles = f.UserTo.SystemRoles
+							.Select(sr => new SystemRoleShortItemDTO
+							{
+								Name = sr.Name,
+								Type = sr.Type
+							})
+							.ToList()
 					},
 					CreatedAt = f.CreatedAt
 				})
@@ -298,8 +344,12 @@ public class FriendshipService : IFriendshipService
 			Users = await _hitsContext.Friendship
 				.Include(f => f.UserFrom)
 					.ThenInclude(u => u.IconFile)
+				.Include(f => f.UserFrom)
+					.ThenInclude(u => u.SystemRoles)
 				.Include(f => f.UserTo)
 					.ThenInclude(u => u.IconFile)
+				.Include(f => f.UserTo)
+					.ThenInclude(u => u.SystemRoles)
 				.Where(f => f.UserIdFrom == user.Id || f.UserIdTo == user.Id)
 				.Select(f => f.UserIdFrom == user.Id ? f.UserTo : f.UserFrom)
 				.Select(u => new UserResponseDTO
@@ -317,7 +367,14 @@ public class FriendshipService : IFriendshipService
 					},
 					Notifiable = u.Notifiable,
 					FriendshipApplication = u.FriendshipApplication,
-					NonFriendMessage = u.NonFriendMessage
+					NonFriendMessage = u.NonFriendMessage,
+					SystemRoles = u.SystemRoles
+						.Select(sr => new SystemRoleShortItemDTO
+						{
+							Name = sr.Name,
+							Type = sr.Type
+						})
+						.ToList()
 				})
 				.ToListAsync()
 		};
@@ -346,7 +403,14 @@ public class FriendshipService : IFriendshipService
 			Icon = null,
 			Notifiable = user.Notifiable,
 			FriendshipApplication = user.FriendshipApplication,
-			NonFriendMessage = user.NonFriendMessage
+			NonFriendMessage = user.NonFriendMessage,
+			SystemRoles = user.SystemRoles
+				.Select(sr => new SystemRoleShortItemDTO
+				{
+					Name = sr.Name,
+					Type = sr.Type
+				})
+				.ToList()
 		};
 		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { friend.UserIdFrom == user.Id ? friend.UserIdTo : friend.UserIdFrom }, "Friendship deleted");
 	}
