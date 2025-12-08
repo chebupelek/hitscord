@@ -243,9 +243,6 @@ public class ChatService : IChatService
 
 		var lastReadsDict = lastReads.ToDictionary(lr => lr.ChatId, lr => lr.LastReadedMessageId);
 
-		_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Сформирован словарь LastReads: {LastReadsCount} элементов. Пример: {Example}",
-			lastReadsDict.Count,
-			lastReadsDict.Take(100).Select(x => $"{x.Key}:{x.Value}"));
 
 		var chats = await _hitsContext.Chat
 			.Include(c => c.Users).ThenInclude(uc => uc.User)
@@ -257,13 +254,7 @@ public class ChatService : IChatService
 		var chatListItems = chats.Select(c =>
 		{
 			var lastReadId = lastReadsDict.ContainsKey(c.Id) ? lastReadsDict[c.Id] : 0;
-			_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Взят lastReadId {lastReadId} у чата {id}",
-				lastReadId,
-				c.Id);
 			var nonReadedMessages = c.Messages.Where(m => m.Id > lastReadId && m.DeleteTime == null).ToList();
-			_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!nonReadedMessages {nonReadedMessages} и каунт {count}",
-				nonReadedMessages.Take(3).Select(x => $"{x.Id}"),
-				nonReadedMessages.Count);
 
 			return new ChatListItemDTO
 			{
@@ -300,10 +291,6 @@ public class ChatService : IChatService
 			.Include(lr => lr.Chat)
 				.ThenInclude(c => c.Users)
 			.FirstOrDefaultAsync(lr => lr.UserId == owner.Id && lr.ChatId == chatId);
-		_logger.LogInformation("111111111111111111111111111111111111111111111111 user {name} {id} и lastRead {lastRead}",
-				owner.AccountName,
-				owner.Id,
-				lastRead.LastReadedMessageId);
 		if (lastRead == null)
 		{
 			throw new CustomException("Last read not found", "GetChatInfo", "Last read", 404, "Не найдена запись о последнем прочитанном сообщении", "Получении информации о чате");

@@ -740,13 +740,13 @@ public class ServerService : IServerService
 			_hitsContext.SubscribeRole.RemoveRange(userSub.SubscribeRoles);
 			await _hitsContext.SaveChangesAsync();
 
-			foreach (var remRole in userSub.SubscribeRoles)
+			foreach (var remRole in rolesIds)
 			{
 				var oldUserRole = new NewUserRoleResponseDTO
 				{
 					ServerId = serverId,
 					UserId = userId,
-					RoleId = remRole.RoleId,
+					RoleId = remRole,
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{

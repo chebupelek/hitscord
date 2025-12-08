@@ -520,7 +520,8 @@ public class MessageService : IMessageService
 				|| u.SubscribeRoles.Any(sr => notificatedRoles.Contains(sr.RoleId)))
 				&& (u.UserId != user.Id)
 				&& (u.NonNotifiable == false)
-				&& (!nonNotified.Contains(u.Id)))
+				&& (!nonNotified.Contains(u.Id))
+				&& (u.ServerId == channel.ServerId))
 			.Select(u => u.UserId)
 			.Distinct()
 			.ToListAsync();
@@ -1050,7 +1051,8 @@ public class MessageService : IMessageService
 			.Include(u => u.User)
 			.Where(u => (taggedUsers.Contains(u.UserId)
 				&& (u.UserId != user.Id)
-				&& (u.NonNotifiable == false)))
+				&& (u.NonNotifiable == false))
+				&& (u.ChatId == chat.Id))
 			.Select(u => u.UserId)
 			.ToListAsync();
 
