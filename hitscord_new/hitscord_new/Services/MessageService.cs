@@ -525,7 +525,7 @@ public class MessageService : IMessageService
 			.Distinct()
 			.ToListAsync();
 
-		var channelCanUseRolesIds = createdMessage is ClassicChannelMessageDbModel
+		var channelCanUseRolesIds = (createdMessage is ClassicChannelMessageDbModel && ((ClassicChannelMessageDbModel)createdMessage).NestedChannel != null)
 			? ((ClassicChannelMessageDbModel)createdMessage).NestedChannel.ChannelCanUse.Select(ccu => ccu.RoleId).ToList() : new List<Guid>();
 
 		var usersByRoles = await _hitsContext.UserServer
