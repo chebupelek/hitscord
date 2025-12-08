@@ -261,8 +261,9 @@ public class ChatService : IChatService
 				lastReadId,
 				c.Id);
 			var nonReadedMessages = c.Messages.Where(m => m.Id > lastReadId).ToList();
-			_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!nonReadedMessages {nonReadedMessages}",
-				nonReadedMessages);
+			_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!nonReadedMessages {nonReadedMessages} и каунт {count}",
+				nonReadedMessages.Take(3).Select(x => $"{x.Id}"),
+				nonReadedMessages.Count);
 
 			return new ChatListItemDTO
 			{
