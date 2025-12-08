@@ -260,7 +260,7 @@ public class ChatService : IChatService
 			_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Взят lastReadId {lastReadId} у чата {id}",
 				lastReadId,
 				c.Id);
-			var nonReadedMessages = c.Messages.Where(m => m.Id > lastReadId).ToList();
+			var nonReadedMessages = c.Messages.Where(m => m.Id > lastReadId && m.DeleteTime == null).ToList();
 			_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!nonReadedMessages {nonReadedMessages} и каунт {count}",
 				nonReadedMessages.Take(3).Select(x => $"{x.Id}"),
 				nonReadedMessages.Count);
@@ -300,6 +300,10 @@ public class ChatService : IChatService
 			.Include(lr => lr.Chat)
 				.ThenInclude(c => c.Users)
 			.FirstOrDefaultAsync(lr => lr.UserId == owner.Id && lr.Chat.Users.Any(u => u.UserId == owner.Id));
+		_logger.LogInformation("111111111111111111111111111111111111111111111111 user {name} {id} и lastRead {lastRead}",
+				owner.AccountName,
+				owner.Id,
+				lastRead.LastReadedMessageId);
 		if (lastRead == null)
 		{
 			throw new CustomException("Last read not found", "GetChatInfo", "Last read", 404, "Не найдена запись о последнем прочитанном сообщении", "Получении информации о чате");

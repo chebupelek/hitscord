@@ -640,7 +640,7 @@ public class ServerService : IServerService
 			var nonReadedMessagesQuery = _hitsContext.ChannelMessage
 				.Where(cm => lastReadsDict.Keys.Contains(cm.TextChannelId))
 				.AsEnumerable()
-				.Where(cm => cm.Id > lastReadsDict[cm.TextChannelId])
+				.Where(cm => cm.Id > lastReadsDict[cm.TextChannelId] && cm.DeleteTime == null)
 				.ToList();
 
 			nonReadedMessages = nonReadedMessagesQuery.Count();
@@ -1043,7 +1043,7 @@ public class ServerService : IServerService
 			.Select(t =>
 			{
 				var lastReadId = lastReadsDict.TryGetValue(t.Id, out var lr) ? lr : 0;
-				var messages = t.Messages.Where(m => m.Id > lastReadId);
+				var messages = t.Messages.Where(m => m.Id > lastReadId && m.DeleteTime == null);
 
 				return new TextChannelResponseDTO
 				{
@@ -1075,7 +1075,7 @@ public class ServerService : IServerService
 			.Select(n =>
 			{
 				var lastReadId = lastReadsDict.TryGetValue(n.Id, out var lr) ? lr : 0;
-				var messages = n.Messages.Where(m => m.Id > lastReadId);
+				var messages = n.Messages.Where(m => m.Id > lastReadId && m.DeleteTime == null);
 
 				return new NotificationChannelResponseDTO
 				{
