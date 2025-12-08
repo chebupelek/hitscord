@@ -17,9 +17,9 @@ public class ClassicMessageSocketDTO
 
         if (Text != null)
         {
-			if (Text.Length < 1 || Text.Length > 5000)
+			if (Text.Length > 5000)
 			{
-				throw new CustomException("Message text must be between 1 and 5000 characters.", "CreateMessage", "Text", 400, "Текст сообщения должен содержать от 1 до 5000 символов", "Валидация сообщения");
+				throw new CustomException("Message text must be less than 5000 characters.", "CreateMessage", "Text", 400, "Текст сообщения должен содержать меньше 5000 символов", "Валидация сообщения");
 			}
 		}
 
