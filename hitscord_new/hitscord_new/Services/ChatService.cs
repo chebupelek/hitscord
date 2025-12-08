@@ -25,10 +25,12 @@ public class ChatService : IChatService
 	private readonly IFileService _fileService;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
+	private readonly ILogger<ChatService> _logger;
 
-	public ChatService(HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
-    {
-        _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
+	public ChatService(ILogger<ServerService> logger, HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
+	{
+		_logger = logger;
+		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
@@ -241,6 +243,10 @@ public class ChatService : IChatService
 
 		var lastReadsDict = lastReads.ToDictionary(lr => lr.ChatId, lr => lr.LastReadedMessageId);
 
+		_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Сформирован словарь LastReads: {LastReadsCount} элементов. Пример: {Example}",
+			lastReadsDict.Count,
+			lastReadsDict.Take(100).Select(x => $"{x.Key}:{x.Value}"));
+
 		var chats = await _hitsContext.Chat
 			.Include(c => c.Users).ThenInclude(uc => uc.User)
 			.Include(c => c.Messages)
@@ -251,7 +257,12 @@ public class ChatService : IChatService
 		var chatListItems = chats.Select(c =>
 		{
 			var lastReadId = lastReadsDict.ContainsKey(c.Id) ? lastReadsDict[c.Id] : 0;
+			_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Взят lastReadId {lastReadId} у чата {id}",
+				lastReadId,
+				c.Id);
 			var nonReadedMessages = c.Messages.Where(m => m.Id > lastReadId).ToList();
+			_logger.LogInformation("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!nonReadedMessages {nonReadedMessages}",
+				nonReadedMessages);
 
 			return new ChatListItemDTO
 			{
