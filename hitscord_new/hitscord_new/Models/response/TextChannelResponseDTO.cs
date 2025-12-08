@@ -10,4 +10,5 @@ public class TextChannelResponseDTO
 	public required int NonReadedCount { get; set; }
 	public required int NonReadedTaggedCount { get; set; }
 	public required long LastReadedMessageId { get; set; }
+	public required List<UserServerRoles> RolesCanWrite { get; set; }
 }

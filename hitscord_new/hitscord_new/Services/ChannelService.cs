@@ -1242,6 +1242,18 @@ public class ChannelService : IChannelService
 					break;
 
 				case ChannelVoteDbModel vote:
+					var voteVariantIds = vote.Variants.Select(v => v.Id).ToList();
+
+					var allVotesForThisVote = votesByVariantId
+						.Where(kv => voteVariantIds.Contains(kv.Key))
+						.SelectMany(kv => kv.Value)
+						.ToList();
+
+					var uniqueUserIds = allVotesForThisVote
+						.Select(v => v.UserId)
+						.Distinct()
+						.ToList();
+
 					dto = new VoteResponceDTO
 					{
 						MessageType = message.MessageType,
@@ -1258,21 +1270,24 @@ public class ChannelService : IChannelService
 						IsAnonimous = vote.IsAnonimous,
 						Multiple = vote.Multiple,
 						Deadline = vote.Deadline,
+						TotalUsers = uniqueUserIds.Count,
 						Variants = vote.Variants.Select(variant =>
-						{
-							var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
-
-							return new VoteVariantResponseDTO
 							{
-								Id = variant.Id,
-								Number = variant.Number,
-								Content = variant.Content,
-								TotalVotes = votes.Count,
-								VotedUserIds = vote.IsAnonimous
-								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
-									: votes.Select(v => v.UserId).ToList()
-							};
-						}).ToList(),
+								var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
+
+								return new VoteVariantResponseDTO
+								{
+									Id = variant.Id,
+									Number = variant.Number,
+									Content = variant.Content,
+									TotalVotes = votes.Count,
+									VotedUserIds = vote.IsAnonimous
+									? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+										: votes.Select(v => v.UserId).ToList()
+								};
+							})
+							.OrderBy(variant => variant.Number)
+							.ToList(),
 						isTagged = false
 					};
 					break;

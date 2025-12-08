@@ -597,7 +597,8 @@ public class ServerService : IServerService
 
 		var serverDelete = new ServerDeleteDTO
         {
-            ServerId = serverId
+			ServerName = server.Name,
+			ServerId = serverId
         };
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
@@ -1034,6 +1035,7 @@ public class ServerService : IServerService
 		var textChannels = await _hitsContext.TextChannel
 			.Include(t => t.ChannelCanSee)
 			.Include(t => t.ChannelCanWrite)
+				.ThenInclude(ccw => ccw.Role)
 			.Include(t => t.ChannelCanWriteSub)
 			.Include(t => t.Messages)
 			.Where(t => t.ServerId == server.Id && t.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)) && EF.Property<string>(t, "ChannelType") == "Text" && t.DeleteTime == null)
@@ -1057,7 +1059,14 @@ public class ServerService : IServerService
 						m.TaggedUsers.Contains(user.Id) ||
 						m.TaggedRoles.Any(rid => userRoleIds.Contains(rid))
 					),
-					LastReadedMessageId = lastReadId
+					LastReadedMessageId = lastReadId,
+					RolesCanWrite = t.ChannelCanWrite.Select(ccw => new UserServerRoles
+						{
+							RoleId = ccw.RoleId,
+							RoleName = ccw.Role.Name,
+							RoleType = ccw.Role.Role
+						})
+						.ToList()
 				};
 			})
 			.ToList();

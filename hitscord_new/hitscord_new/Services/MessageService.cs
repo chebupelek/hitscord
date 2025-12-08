@@ -389,7 +389,7 @@ public class MessageService : IMessageService
 		switch (createdMessage)
 		{
 			case ClassicChannelMessageDbModel classic:
-				response = new ClassicMessageWithRolesResponceDTO
+				response = new ClassicMessageResponceDTO
 				{
 					MessageType = createdMessage.MessageType,
 					ServerId = channel.ServerId,
@@ -402,10 +402,11 @@ public class MessageService : IMessageService
 					Text = classic.Text,
 					ModifiedAt = classic.UpdatedAt,
 					ReplyToMessage = classic.ReplyToMessageId != null ? await MapChannelReplyToMessage(classic.ReplyToMessageId, classic.TextChannelId, channel.ServerId) : null,
-					NestedChannel = classic.NestedChannel == null ? null : new SubChannelResponceFullDTO
+					NestedChannel = classic.NestedChannel == null ? null : new MessageSubChannelResponceDTO
 					{
 						SubChannelId = classic.NestedChannel.Id,
-						RolesCanUse = classic.NestedChannel.ChannelCanUse.Select(ccu => ccu.RoleId).ToList()
+						CanUse = false,
+						IsNotifiable = false
 					},
 					Files = classic.Files.Select(f => new FileMetaResponseDTO
 					{
@@ -427,6 +428,12 @@ public class MessageService : IMessageService
 					.GroupBy(vu => vu.VariantId)
 					.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
+				var uniqueUserIds = votesByVariantId
+					.SelectMany(kv => kv.Value)
+					.Select(v => v.UserId)
+					.Distinct()
+					.ToList();
+
 				response = new VoteResponceDTO
 				{
 					MessageType = createdMessage.MessageType,
@@ -443,21 +450,24 @@ public class MessageService : IMessageService
 					IsAnonimous = vote.IsAnonimous,
 					Multiple = vote.Multiple,
 					Deadline = vote.Deadline,
+					TotalUsers = uniqueUserIds.Count,
 					Variants = vote.Variants.Select(variant =>
-					{
-						var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
-
-						return new VoteVariantResponseDTO
 						{
-							Id = variant.Id,
-							Number = variant.Number,
-							Content = variant.Content,
-							TotalVotes = votes.Count,
-							VotedUserIds = vote.IsAnonimous
-								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
-								: votes.Select(v => v.UserId).ToList()
-						};
-					}).ToList(),
+							var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
+
+							return new VoteVariantResponseDTO
+							{
+								Id = variant.Id,
+								Number = variant.Number,
+								Content = variant.Content,
+								TotalVotes = votes.Count,
+								VotedUserIds = vote.IsAnonimous
+									? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+									: votes.Select(v => v.UserId).ToList()
+							};
+						})
+						.OrderBy(variant => variant.Number)
+						.ToList(),
 					isTagged = false
 				};
 				break;
@@ -515,6 +525,16 @@ public class MessageService : IMessageService
 			.Distinct()
 			.ToListAsync();
 
+		var channelCanUseRolesIds = createdMessage is ClassicChannelMessageDbModel
+			? ((ClassicChannelMessageDbModel)createdMessage).NestedChannel.ChannelCanUse.Select(ccu => ccu.RoleId).ToList() : new List<Guid>();
+
+		var usersByRoles = await _hitsContext.UserServer
+			.Where(us => us.SubscribeRoles
+				.Any(sr => channelCanUseRolesIds.Contains(sr.RoleId)))
+			.Select(us => us.UserId)
+			.Distinct()
+			.ToListAsync();
+
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			foreach (var alertedUser in alertedUsers)
@@ -527,14 +547,25 @@ public class MessageService : IMessageService
 				{
 					((MessageResponceDTO)response).isTagged = false;
 				}
+				if (response is ClassicMessageResponceDTO && ((ClassicMessageResponceDTO)response).NestedChannel != null)
+				{
+					if (usersByRoles != null && usersByRoles.Count > 0 && usersByRoles.Contains(alertedUser))
+					{
+						((ClassicMessageResponceDTO)response).NestedChannel.CanUse = true;
+						((ClassicMessageResponceDTO)response).NestedChannel.IsNotifiable = true;
+					}
+					else
+					{
+						((ClassicMessageResponceDTO)response).NestedChannel.CanUse = false;
+						((ClassicMessageResponceDTO)response).NestedChannel.IsNotifiable = false;
+					}
+				}
 				await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { alertedUser }, "New message" + where);
+				if (notifiedUsers != null && notifiedUsers.Count > 0 && notifiedUsers.Contains(alertedUser))
+				{
+					await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { alertedUser }, "User notified");
+				}
 			}
-		}
-
-		((MessageResponceDTO)response).isTagged = true;
-		if (notifiedUsers != null && notifiedUsers.Count > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(response, notifiedUsers, "User notified");
 		}
 
 		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Id && lr.UserId == user.Id);
@@ -597,6 +628,7 @@ public class MessageService : IMessageService
 		var message = await _hitsContext.ClassicChannelMessage
 			.Include(m => m.Files)
 			.Include(m => m.NestedChannel)
+				.ThenInclude(n => n.ChannelCanUse)
 			.FirstOrDefaultAsync(m => m.Id == messageId && m.TextChannelId == channel.Id);
 		if (message == null)
 		{
@@ -618,7 +650,7 @@ public class MessageService : IMessageService
 		_hitsContext.ClassicChannelMessage.Update(message);
 		await _hitsContext.SaveChangesAsync();
 
-		var messageDto = new ClassicMessageWithRolesResponceDTO
+		var messageDto = new ClassicMessageResponceDTO
 		{
 			MessageType = message.MessageType,
 			ServerId = channel.ServerId,
@@ -631,10 +663,11 @@ public class MessageService : IMessageService
 			Text = message.Text,
 			ModifiedAt = message.UpdatedAt,
 			ReplyToMessage = message.ReplyToMessageId != null ? await MapChannelReplyToMessage(message.ReplyToMessageId, message.TextChannelId, channel.ServerId) : null,
-			NestedChannel = message.NestedChannel == null ? null : new SubChannelResponceFullDTO
+			NestedChannel = message.NestedChannel == null ? null : new MessageSubChannelResponceDTO
 			{
 				SubChannelId = message.NestedChannel.Id,
-				RolesCanUse = message.NestedChannel.ChannelCanUse.Select(ccu => ccu.RoleId).ToList()
+				CanUse = false,
+				IsNotifiable = false
 			},
 			Files = message.Files.Select(f => new FileMetaResponseDTO
 			{
@@ -689,6 +722,15 @@ public class MessageService : IMessageService
 			.Distinct()
 			.ToListAsync();
 
+		var channelCanUseRolesIds = message.NestedChannel != null ? message.NestedChannel.ChannelCanUse.Select(ccu => ccu.RoleId).ToList() : new List<Guid>();
+
+		var usersByRoles = await _hitsContext.UserServer
+			.Where(us => us.SubscribeRoles
+				.Any(sr => channelCanUseRolesIds.Contains(sr.RoleId)))
+			.Select(us => us.UserId)
+			.Distinct()
+			.ToListAsync();
+
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			foreach (var alertedUser in alertedUsers)
@@ -700,6 +742,19 @@ public class MessageService : IMessageService
 				else
 				{
 					messageDto.isTagged = false;
+				}
+				if (messageDto.NestedChannel != null)
+				{
+					if (usersByRoles != null && usersByRoles.Count > 0 && usersByRoles.Contains(alertedUser))
+					{
+						messageDto.NestedChannel.CanUse = true;
+						messageDto.NestedChannel.IsNotifiable = true;
+					}
+					else
+					{
+						messageDto.NestedChannel.CanUse = false;
+						messageDto.NestedChannel.IsNotifiable = false;
+					}
 				}
 				await _webSocketManager.BroadcastMessageAsync(messageDto, new List<Guid> { alertedUser }, "Updated message" + where);
 			}
@@ -938,6 +993,12 @@ public class MessageService : IMessageService
 					.GroupBy(vu => vu.VariantId)
 					.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
+				var uniqueUserIds = votesByVariantId
+					.SelectMany(kv => kv.Value)
+					.Select(v => v.UserId)
+					.Distinct()
+					.ToList();
+
 				response = new VoteResponceDTO
 				{
 					MessageType = createdMessage.MessageType,
@@ -954,21 +1015,24 @@ public class MessageService : IMessageService
 					IsAnonimous = vote.IsAnonimous,
 					Multiple = vote.Multiple,
 					Deadline = vote.Deadline,
+					TotalUsers = uniqueUserIds.Count,
 					Variants = vote.Variants.Select(variant =>
-					{
-						var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChatVariantUserDbModel>();
-
-						return new VoteVariantResponseDTO
 						{
-							Id = variant.Id,
-							Number = variant.Number,
-							Content = variant.Content,
-							TotalVotes = votes.Count,
-							VotedUserIds = vote.IsAnonimous
-								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
-								: votes.Select(v => v.UserId).ToList()
-						};
-					}).ToList(),
+							var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChatVariantUserDbModel>();
+
+							return new VoteVariantResponseDTO
+							{
+								Id = variant.Id,
+								Number = variant.Number,
+								Content = variant.Content,
+								TotalVotes = votes.Count,
+								VotedUserIds = vote.IsAnonimous
+									? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+									: votes.Select(v => v.UserId).ToList()
+							};
+						})
+						.OrderBy(variant => variant.Number)
+						.ToList(),
 					isTagged = false
 				};
 
@@ -1222,6 +1286,12 @@ public class MessageService : IMessageService
 				.GroupBy(vu => vu.VariantId)
 				.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
+			var uniqueUserIds = votesByVariantId
+				.SelectMany(kv => kv.Value)
+				.Select(v => v.UserId)
+				.Distinct()
+				.ToList();
+
 			var response = new VoteResponceDTO
 			{
 				MessageType = variant.Vote.MessageType,
@@ -1236,20 +1306,23 @@ public class MessageService : IMessageService
 				IsAnonimous = variant.Vote.IsAnonimous,
 				Multiple = variant.Vote.Multiple,
 				Deadline = variant.Vote.Deadline,
+				TotalUsers = uniqueUserIds.Count,
 				Variants = variant.Vote.Variants.Select(v =>
-				{
-					var votes = votesByVariantId.TryGetValue(v.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
-					return new VoteVariantResponseDTO
 					{
-						Id = v.Id,
-						Number = v.Number,
-						Content = v.Content,
-						TotalVotes = votes.Count,
-						VotedUserIds = variant.Vote.IsAnonimous
-							? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
-							: votes.Select(vu => vu.UserId).ToList()
-					};
-				}).ToList(),
+						var votes = votesByVariantId.TryGetValue(v.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
+						return new VoteVariantResponseDTO
+						{
+							Id = v.Id,
+							Number = v.Number,
+							Content = v.Content,
+							TotalVotes = votes.Count,
+							VotedUserIds = variant.Vote.IsAnonimous
+								? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								: votes.Select(vu => vu.UserId).ToList()
+						};
+					})
+					.OrderBy(variant => variant.Number)
+					.ToList(),
 				isTagged = false
 			};
 
@@ -1335,6 +1408,12 @@ public class MessageService : IMessageService
 				.GroupBy(vu => vu.VariantId)
 				.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
+			var uniqueUserIds = votesByVariantId
+				.SelectMany(kv => kv.Value)
+				.Select(v => v.UserId)
+				.Distinct()
+				.ToList();
+
 			var response = new VoteResponceDTO
 			{
 				MessageType = variant.Vote.MessageType,
@@ -1349,21 +1428,24 @@ public class MessageService : IMessageService
 				IsAnonimous = variant.Vote.IsAnonimous,
 				Multiple = variant.Vote.Multiple,
 				Deadline = variant.Vote.Deadline,
+				TotalUsers = uniqueUserIds.Count,
 				Variants = variant.Vote.Variants.Select(variant =>
-				{
-					var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChatVariantUserDbModel>();
-
-					return new VoteVariantResponseDTO
 					{
-						Id = variant.Id,
-						Number = variant.Number,
-						Content = variant.Content,
-						TotalVotes = votes.Count,
-						VotedUserIds = variant.Vote.IsAnonimous
-							? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
-							: votes.Select(v => v.UserId).ToList()
-					};
-				}).ToList(),
+						var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChatVariantUserDbModel>();
+
+						return new VoteVariantResponseDTO
+						{
+							Id = variant.Id,
+							Number = variant.Number,
+							Content = variant.Content,
+							TotalVotes = votes.Count,
+							VotedUserIds = variant.Vote.IsAnonimous
+								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								: votes.Select(v => v.UserId).ToList()
+						};
+					})
+					.OrderBy(variant => variant.Number)
+					.ToList(),
 				isTagged = false
 			};
 
@@ -1434,6 +1516,12 @@ public class MessageService : IMessageService
 				.GroupBy(vu => vu.VariantId)
 				.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
+			var uniqueUserIds = votesByVariantId
+				.SelectMany(kv => kv.Value)
+				.Select(v => v.UserId)
+				.Distinct()
+				.ToList();
+
 			var response = new VoteResponceDTO
 			{
 				MessageType = channelVariant.Vote.MessageType,
@@ -1448,20 +1536,23 @@ public class MessageService : IMessageService
 				IsAnonimous = channelVariant.Vote.IsAnonimous,
 				Multiple = channelVariant.Vote.Multiple,
 				Deadline = channelVariant.Vote.Deadline,
+				TotalUsers = uniqueUserIds.Count,
 				Variants = channelVariant.Vote.Variants.Select(v =>
-				{
-					var votes = votesByVariantId.TryGetValue(v.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
-					return new VoteVariantResponseDTO
 					{
-						Id = v.Id,
-						Number = v.Number,
-						Content = v.Content,
-						TotalVotes = votes.Count,
-						VotedUserIds = channelVariant.Vote.IsAnonimous
-							? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
-							: votes.Select(vu => vu.UserId).ToList()
-					};
-				}).ToList(),
+						var votes = votesByVariantId.TryGetValue(v.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
+						return new VoteVariantResponseDTO
+						{
+							Id = v.Id,
+							Number = v.Number,
+							Content = v.Content,
+							TotalVotes = votes.Count,
+							VotedUserIds = channelVariant.Vote.IsAnonimous
+								? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								: votes.Select(vu => vu.UserId).ToList()
+						};
+					})
+					.OrderBy(variant => variant.Number)
+					.ToList(),
 				isTagged = false
 			};
 
@@ -1540,6 +1631,12 @@ public class MessageService : IMessageService
 					.GroupBy(vu => vu.VariantId)
 					.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
+				var uniqueUserIds = votesByVariantId
+					.SelectMany(kv => kv.Value)
+					.Select(v => v.UserId)
+					.Distinct()
+					.ToList();
+
 				var response = new VoteResponceDTO
 				{
 					MessageType = variant.Vote.MessageType,
@@ -1554,21 +1651,24 @@ public class MessageService : IMessageService
 					IsAnonimous = variant.Vote.IsAnonimous,
 					Multiple = variant.Vote.Multiple,
 					Deadline = variant.Vote.Deadline,
+					TotalUsers = uniqueUserIds.Count,
 					Variants = variant.Vote.Variants.Select(variant =>
-					{
-						var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChatVariantUserDbModel>();
-
-						return new VoteVariantResponseDTO
 						{
-							Id = variant.Id,
-							Number = variant.Number,
-							Content = variant.Content,
-							TotalVotes = votes.Count,
-							VotedUserIds = variant.Vote.IsAnonimous
-								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
-								: votes.Select(v => v.UserId).ToList()
-						};
-					}).ToList(),
+							var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChatVariantUserDbModel>();
+
+							return new VoteVariantResponseDTO
+							{
+								Id = variant.Id,
+								Number = variant.Number,
+								Content = variant.Content,
+								TotalVotes = votes.Count,
+								VotedUserIds = variant.Vote.IsAnonimous
+									? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+									: votes.Select(v => v.UserId).ToList()
+							};
+						})
+						.OrderBy(variant => variant.Number)
+						.ToList(),
 					isTagged = false
 				};
 
@@ -1632,6 +1732,12 @@ public class MessageService : IMessageService
 				.GroupBy(vu => vu.VariantId)
 				.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
+			var uniqueUserIds = votesByVariantId
+				.SelectMany(kv => kv.Value)
+				.Select(v => v.UserId)
+				.Distinct()
+				.ToList();
+
 			var response = new VoteResponceDTO
 			{
 				MessageType = vote.MessageType,
@@ -1648,20 +1754,23 @@ public class MessageService : IMessageService
 				IsAnonimous = vote.IsAnonimous,
 				Multiple = vote.Multiple,
 				Deadline = vote.Deadline,
+				TotalUsers = uniqueUserIds.Count,
 				Variants = vote.Variants.Select(v =>
-				{
-					var votes = votesByVariantId.TryGetValue(v.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
-					return new VoteVariantResponseDTO
 					{
-						Id = v.Id,
-						Number = v.Number,
-						Content = v.Content,
-						TotalVotes = votes.Count,
-						VotedUserIds = vote.IsAnonimous
-							? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
-							: votes.Select(vu => vu.UserId).ToList()
-					};
-				}).ToList(),
+						var votes = votesByVariantId.TryGetValue(v.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
+						return new VoteVariantResponseDTO
+						{
+							Id = v.Id,
+							Number = v.Number,
+							Content = v.Content,
+							TotalVotes = votes.Count,
+							VotedUserIds = vote.IsAnonimous
+								? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								: votes.Select(vu => vu.UserId).ToList()
+						};
+					})
+					.OrderBy(variant => variant.Number)
+					.ToList(),
 				isTagged = false
 			};
 
@@ -1693,6 +1802,12 @@ public class MessageService : IMessageService
 				.GroupBy(vu => vu.VariantId)
 				.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
+			var uniqueUserIds = votesByVariantId
+				.SelectMany(kv => kv.Value)
+				.Select(v => v.UserId)
+				.Distinct()
+				.ToList();
+
 			var response = new VoteResponceDTO
 			{
 				MessageType = vote.MessageType,
@@ -1709,21 +1824,24 @@ public class MessageService : IMessageService
 				IsAnonimous = vote.IsAnonimous,
 				Multiple = vote.Multiple,
 				Deadline = vote.Deadline,
+				TotalUsers = uniqueUserIds.Count,
 				Variants = vote.Variants.Select(variant =>
-				{
-					var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChatVariantUserDbModel>();
-
-					return new VoteVariantResponseDTO
 					{
-						Id = variant.Id,
-						Number = variant.Number,
-						Content = variant.Content,
-						TotalVotes = votes.Count,
-						VotedUserIds = variant.Vote.IsAnonimous
-							? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
-							: votes.Select(v => v.UserId).ToList()
-					};
-				}).ToList(),
+						var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChatVariantUserDbModel>();
+
+						return new VoteVariantResponseDTO
+						{
+							Id = variant.Id,
+							Number = variant.Number,
+							Content = variant.Content,
+							TotalVotes = votes.Count,
+							VotedUserIds = variant.Vote.IsAnonimous
+								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								: votes.Select(v => v.UserId).ToList()
+						};
+					})
+					.OrderBy(variant => variant.Number)
+					.ToList(),
 				isTagged = false
 			};
 
