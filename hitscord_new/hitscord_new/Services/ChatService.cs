@@ -299,7 +299,7 @@ public class ChatService : IChatService
 		var lastRead = await _hitsContext.LastReadChatMessage
 			.Include(lr => lr.Chat)
 				.ThenInclude(c => c.Users)
-			.FirstOrDefaultAsync(lr => lr.UserId == owner.Id && lr.Chat.Users.Any(u => u.UserId == owner.Id));
+			.FirstOrDefaultAsync(lr => lr.UserId == owner.Id && lr.ChatId == chatId);
 		_logger.LogInformation("111111111111111111111111111111111111111111111111 user {name} {id} и lastRead {lastRead}",
 				owner.AccountName,
 				owner.Id,
