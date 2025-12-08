@@ -610,7 +610,7 @@ public class ChatService : IChatService
 			throw new CustomException("User not in this chat", "GetChatMessagesAsync", "ChatId", 401, "Пользователь не находится в этом чате", "Получение сообщений из чата");
 		}
 
-		var messagesCount = await _hitsContext.ChatMessage.CountAsync(m => m.ChatId == chat.Id);
+		var messagesCount = await _hitsContext.ChatMessage.CountAsync(m => m.ChatId == chat.Id && m.DeleteTime == null);
 
 		var messagesFresh = down == true
 			?
