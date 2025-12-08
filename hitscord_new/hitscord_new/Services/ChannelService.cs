@@ -1971,7 +1971,7 @@ public class ChannelService : IChannelService
 							.FirstOrDefaultAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
 						if (lastReadEntries != null)
 						{
-							_hitsContext.LastReadChannelMessage.RemoveRange(lastReadEntries);
+							_hitsContext.LastReadChannelMessage.Remove(lastReadEntries);
 						}
 					}
 				}
@@ -2067,13 +2067,17 @@ public class ChannelService : IChannelService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanSee)
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanUse)
 			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == owner.Id);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Change notification channel sttings", "User", 404, "Пользователь не найден", "Изменение настроек уведомлений канала");
 		}
 		var canSee = userSub.SubscribeRoles.SelectMany(sr => sr.Role.ChannelCanSee).Any(ccs => ccs.ChannelId == channel.Id);
-		if (canSee == false)
+		var canUse = userSub.SubscribeRoles.SelectMany(sr => sr.Role.ChannelCanUse).Any(ccs => ccs.SubChannelId == channel.Id);
+		if (canSee == false || canUse == false)
 		{
 			throw new CustomException("User cant see this channel", "Change notification channel sttings", "User rights", 403, "Пользователь не может видеть канал", "Изменение настроек уведомлений канала");
 		}
