@@ -27,7 +27,7 @@ public class ChatService : IChatService
 	private readonly MinioService _minioService;
 	private readonly ILogger<ChatService> _logger;
 
-	public ChatService(ILogger<ServerService> logger, HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
+	public ChatService(ILogger<ChatService> logger, HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
 	{
 		_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));

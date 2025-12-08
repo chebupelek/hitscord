@@ -1311,7 +1311,7 @@ public class ChannelService : IChannelService
 		{
 			throw new CustomException("Role doesnt exist", "Change voice channel sttings", "Role", 404, "Роль не существует", "Изменение настроек голосового канала");
 		}
-		if (role.Role == RoleEnum.Creator)
+		if (role.Role == RoleEnum.Creator || role.Role == RoleEnum.Admin)
 		{
 			throw new CustomException("Cant change creator permissions", "Change voice channel sttings", "Role", 400, "Нельзя изменять разрешения создателя", "Изменение настроек голосового канала");
 		}
@@ -1424,7 +1424,7 @@ public class ChannelService : IChannelService
 		{
 			throw new CustomException("Role doesnt exist", "Change text channel sttings", "Role", 404, "Роль не существует", "Изменение настроек текстового канала");
 		}
-		if (role.Role == RoleEnum.Creator)
+		if (role.Role == RoleEnum.Creator || role.Role == RoleEnum.Admin)
 		{
 			throw new CustomException("Cant change creator permissions", "Change text channel sttings", "Role", 400, "Нельзя изменять разрешения создателя", "Изменение настроек текстового канала");
 		}
@@ -1665,7 +1665,7 @@ public class ChannelService : IChannelService
 		{
 			throw new CustomException("Role doesnt exist", "Change notification channel sttings", "Role", 404, "Роль не существует", "Изменение настроек уведомительного канала");
 		}
-		if (role.Role == RoleEnum.Creator)
+		if (role.Role == RoleEnum.Creator || role.Role == RoleEnum.Admin)
 		{
 			throw new CustomException("Cant change creator permissions", "Change notification channel sttings", "Role", 400, "Нельзя изменять разрешения создателя", "Изменение настроек уведомительного канала");
 		}
@@ -1886,7 +1886,7 @@ public class ChannelService : IChannelService
 		{
 			throw new CustomException("Role doesnt exist", "Change Sub channel sttings", "Role", 404, "Роль не существует", "Изменение настроек под канала");
 		}
-		if (role.Role == RoleEnum.Creator)
+		if (role.Role == RoleEnum.Creator || role.Role == RoleEnum.Admin)
 		{
 			throw new CustomException("Cant change creator permissions", "Change Sub channel sttings", "Role", 400, "Нельзя изменять разрешения создателя", "Изменение настроек под канала");
 		}
