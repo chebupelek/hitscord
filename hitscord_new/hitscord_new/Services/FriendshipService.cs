@@ -339,19 +339,18 @@ public class FriendshipService : IFriendshipService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
-		var friendsList = new UsersList()
+		var friends = await _hitsContext.Friendship
+			.Include(f => f.UserFrom).ThenInclude(u => u.IconFile)
+			.Include(f => f.UserFrom).ThenInclude(u => u.SystemRoles)
+			.Include(f => f.UserTo).ThenInclude(u => u.IconFile)
+			.Include(f => f.UserTo).ThenInclude(u => u.SystemRoles)
+			.Where(f => f.UserIdFrom == user.Id || f.UserIdTo == user.Id)
+			.Select(f => f.UserIdFrom == user.Id ? f.UserTo : f.UserFrom)
+			.ToListAsync();
+
+		var result = new UsersList
 		{
-			Users = await _hitsContext.Friendship
-				.Include(f => f.UserFrom)
-					.ThenInclude(u => u.IconFile)
-				.Include(f => f.UserFrom)
-					.ThenInclude(u => u.SystemRoles)
-				.Include(f => f.UserTo)
-					.ThenInclude(u => u.IconFile)
-				.Include(f => f.UserTo)
-					.ThenInclude(u => u.SystemRoles)
-				.Where(f => f.UserIdFrom == user.Id || f.UserIdTo == user.Id)
-				.Select(f => f.UserIdFrom == user.Id ? f.UserTo : f.UserFrom)
+			Users = friends
 				.Select(u => new UserResponseDTO
 				{
 					UserId = u.Id,
@@ -373,15 +372,13 @@ public class FriendshipService : IFriendshipService
 						{
 							Name = sr.Name,
 							Type = sr.Type
-						})
-						.ToList()
+						}).ToList()
 				})
-				.ToListAsync()
+				.ToList()
 		};
 
-		return friendsList;
+		return result;
 	}
-
 	public async Task DeleteFriendAsync(string token, Guid UserId)
 	{
 		var user = await _authorizationService.GetUserAsync(token);

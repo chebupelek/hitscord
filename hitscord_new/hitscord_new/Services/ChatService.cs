@@ -819,6 +819,8 @@ public class ChatService : IChatService
 		};
 
 		_hitsContext.File.Add(file);
+		chat.IconFileId = file.Id;
+		_hitsContext.Chat.Update(chat);
 		await _hitsContext.SaveChangesAsync();
 
 		string base64Icon = Convert.ToBase64String(fileBytes);
