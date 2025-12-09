@@ -1915,6 +1915,7 @@ public class ServerService : IServerService
 	public async Task RemoveApplicationServerAsync(string token, Guid applicationId)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
+		_logger.LogInformation("applicationId {applicationId}", applicationId);
 		var application = await _hitsContext.ServerApplications.FirstOrDefaultAsync(sa => sa.Id == applicationId);
 		if (application == null)
 		{
