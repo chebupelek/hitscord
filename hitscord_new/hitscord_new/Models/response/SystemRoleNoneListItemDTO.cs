@@ -5,10 +5,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace hitscord.Models.response;
 
-public class SystemRoleItemDTO
+public class SystemRoleNoneListItemDTO
 {
 	public required Guid Id { get; set; }
 	public required string Name { get; set; }
 	public required SystemRoleTypeEnum Type { get; set; }
-	public List<SystemRoleItemDTO> ChildRoles { get; set; } = new();
+	public Guid? ParentId { get; set; }
+	public string? ParentName { get; set; }
 }

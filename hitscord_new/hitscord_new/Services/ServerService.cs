@@ -2110,7 +2110,7 @@ public class ServerService : IServerService
 		return new ServerPresetListResponseDTO { Presets = presets, Total = presets.Count };
 	}
 
-	public async Task<SystemRolesFullListDTO> RolesFullListAsync(string token, Guid serverId)
+	public async Task<SystemRolesFullListNoneChildsDTO> RolesFullListAsync(string token, Guid serverId)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
@@ -2134,8 +2134,8 @@ public class ServerService : IServerService
 
 		var allRoles = await _hitsContext.SystemRole
 			.Include(r => r.ParentRole)
-			.Select(r => new SystemRoleItemDTO
-				{
+			.Select(r => new SystemRoleNoneListItemDTO
+			{
 					Id = r.Id,
 					Type = r.Type,
 					Name = r.Name,
@@ -2144,7 +2144,7 @@ public class ServerService : IServerService
 				})	
 			.ToListAsync();
 
-		var roles = new SystemRolesFullListDTO
+		var roles = new SystemRolesFullListNoneChildsDTO
 		{
 			Roles = allRoles
 		};
