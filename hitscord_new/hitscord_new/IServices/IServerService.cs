@@ -37,6 +37,6 @@ public interface IServerService
 
     Task<ServerPresetListResponseDTO> GetServerPresetsAsync(string token, Guid serverId);
     Task<SystemRolesFullListNoneChildsDTO> RolesFullListAsync(string token, Guid serverId);
-    Task CreatePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
+    Task<ServerPresetItemDTO> CreatePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
     Task DeletePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
 }

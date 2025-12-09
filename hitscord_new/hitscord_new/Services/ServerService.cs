@@ -2152,7 +2152,7 @@ public class ServerService : IServerService
 		return roles;
 	}
 
-	public async Task CreatePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)
+	public async Task<ServerPresetItemDTO> CreatePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await CheckServerExistAsync(serverId, false);
@@ -2348,6 +2348,16 @@ public class ServerService : IServerService
 				}
 			}
 		}
+
+		var response = new ServerPresetItemDTO
+		{
+			ServerRoleId = serverRole.Id,
+			ServerRoleName = serverRole.Name,
+			SystemRoleId = systemRole.Id,
+			SystemRoleName = systemRole.Name,
+			SystemRoleType = systemRole.Type
+		};
+		return response;
 	}
 
 	public async Task DeletePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)

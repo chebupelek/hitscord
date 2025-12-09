@@ -564,8 +564,8 @@ public class ServerController : ControllerBase
 		try
 		{
 			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.CreatePresetAsync(jwtToken, data.ServerId, data.ServerRoleId, data.SystemRoleId);
-			return Ok();
+			var result = await _serverService.CreatePresetAsync(jwtToken, data.ServerId, data.ServerRoleId, data.SystemRoleId);
+			return Ok(result);
 		}
 		catch (CustomException ex)
 		{
