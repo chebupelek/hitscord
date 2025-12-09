@@ -282,6 +282,18 @@ public class AdminService: IAdminService
 			.Where(c => ((TextChannelDbModel)c).DeleteTime != null)
 			.CountAsync();
 
+		if (chanCount == 0)
+		{
+			return (new ChannelsAdminListDTO
+			{
+				Channels = new List<TextChannelAdminItemDTO>(),
+				Page = page,
+				Number = num,
+				PageCount = 0,
+				NumberCount = 0
+			});
+		}
+
 		if ((page - 1) * num >= chanCount)
 		{
 			throw new CustomException("Pagination error", "DeletedChannelsListAsync", "Pagination", 400, "Запрашиваются элементы превышающие их количество", "Получение списка удаленных каналов");
