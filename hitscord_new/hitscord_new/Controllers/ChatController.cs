@@ -214,7 +214,7 @@ public class ChatController : ControllerBase
 	[Authorize]
 	[HttpDelete]
 	[Route("unicon")]
-	public async Task<IActionResult> DeleteIconChat([FromForm] IdRequestDTO data)
+	public async Task<IActionResult> DeleteIconChat([FromBody] IdRequestDTO data)
 	{
 		try
 		{

@@ -370,7 +370,7 @@ public class ServerController : ControllerBase
 	[Authorize]
 	[HttpDelete]
 	[Route("unicon")]
-	public async Task<IActionResult> DeleteIconServer([FromForm] IdRequestDTO data)
+	public async Task<IActionResult> DeleteIconServer([FromBody] IdRequestDTO data)
 	{
 		try
 		{
@@ -391,7 +391,7 @@ public class ServerController : ControllerBase
 	[Authorize]
 	[HttpPut]
 	[Route("isClosed")]
-	public async Task<IActionResult> ChangeServerIsClosed([FromForm] ChangeServerIsClosedDTO data)
+	public async Task<IActionResult> ChangeServerIsClosed([FromBody] ChangeServerIsClosedDTO data)
 	{
 		try
 		{
@@ -412,7 +412,7 @@ public class ServerController : ControllerBase
 	[Authorize]
 	[HttpPost]
 	[Route("application/approve")]
-	public async Task<IActionResult> ApproveApplication([FromForm] IdRequestDTO data)
+	public async Task<IActionResult> ApproveApplication([FromBody] IdRequestDTO data)
 	{
 		try
 		{
@@ -433,7 +433,7 @@ public class ServerController : ControllerBase
 	[Authorize]
 	[HttpDelete]
 	[Route("application/remove/server")]
-	public async Task<IActionResult> RemoveApplicationServer([FromForm] IdRequestDTO data)
+	public async Task<IActionResult> RemoveApplicationServer([FromBody] IdRequestDTO data)
 	{
 		try
 		{
@@ -454,7 +454,7 @@ public class ServerController : ControllerBase
 	[Authorize]
 	[HttpDelete]
 	[Route("application/remove/user")]
-	public async Task<IActionResult> RemoveApplicationUser([FromForm] IdRequestDTO data)
+	public async Task<IActionResult> RemoveApplicationUser([FromBody] IdRequestDTO data)
 	{
 		try
 		{
