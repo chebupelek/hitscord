@@ -152,7 +152,7 @@ public class MessageService : IMessageService
 			{
 				MessageType = replyedMessage.MessageType,
 				ServerId = serverId,
-				ChannelId = replyedMessage.TextChannelId,
+				ChannelId = (Guid)replyedMessage.TextChannelId,
 				Id = replyedMessage.Id,
 				AuthorId = replyedMessage.Author.Id,
 				CreatedAt = replyedMessage.CreatedAt,
@@ -184,7 +184,7 @@ public class MessageService : IMessageService
 			{
 				MessageType = replyedMessage.MessageType,
 				ServerId = null,
-				ChannelId = replyedMessage.ChatId,
+				ChannelId = (Guid)replyedMessage.ChatId,
 				Id = replyedMessage.Id,
 				AuthorId = replyedMessage.Author.Id,
 				CreatedAt = replyedMessage.CreatedAt,
@@ -335,7 +335,7 @@ public class MessageService : IMessageService
 
 				if (Content.Classic != null && Content.Classic.NestedChannel == true && channelType == ChannelTypeEnum.Text)
 				{
-					await CreateSubChannelAsync(Content.Classic.Text, channel.ServerId, newMessage.Id, newMessage.TextChannelId, newMessage.RealId);
+					await CreateSubChannelAsync(Content.Classic.Text, channel.ServerId, newMessage.Id, (Guid)newMessage.TextChannelId, newMessage.RealId);
 				}
 
 				break;
@@ -407,7 +407,7 @@ public class MessageService : IMessageService
 					CreatedAt = classic.CreatedAt,
 					Text = classic.Text,
 					ModifiedAt = classic.UpdatedAt,
-					ReplyToMessage = classic.ReplyToMessageId != null ? await MapChannelReplyToMessage(classic.ReplyToMessageId, classic.TextChannelId, channel.ServerId) : null,
+					ReplyToMessage = classic.ReplyToMessageId != null ? await MapChannelReplyToMessage(classic.ReplyToMessageId, (Guid)classic.TextChannelId, channel.ServerId) : null,
 					NestedChannel = classic.NestedChannel == null ? null : new MessageSubChannelResponceDTO
 					{
 						SubChannelId = classic.NestedChannel.Id,
@@ -450,7 +450,7 @@ public class MessageService : IMessageService
 					Id = vote.Id,
 					AuthorId = vote.AuthorId,
 					CreatedAt = vote.CreatedAt,
-					ReplyToMessage = vote.ReplyToMessageId != null ? await MapChannelReplyToMessage(vote.ReplyToMessageId, vote.TextChannelId, channel.ServerId) : null,
+					ReplyToMessage = vote.ReplyToMessageId != null ? await MapChannelReplyToMessage(vote.ReplyToMessageId, (Guid)vote.TextChannelId, channel.ServerId) : null,
 					Title = vote.Title,
 					Content = vote.Content,
 					IsAnonimous = vote.IsAnonimous,
@@ -649,8 +649,8 @@ public class MessageService : IMessageService
 		message.Text = text;
 		message.UpdatedAt = DateTime.UtcNow;
 
-		var taggedUsers = await ExtractChannelUsersAsync(message.Text, message.TextChannelId);
-		var taggedRoles = await ExtractRolesTagsAsync(message.Text, message.TextChannelId);
+		var taggedUsers = await ExtractChannelUsersAsync(message.Text, (Guid)message.TextChannelId);
+		var taggedRoles = await ExtractRolesTagsAsync(message.Text, (Guid)message.TextChannelId);
 
 		message.TaggedUsers = taggedUsers;
 		message.TaggedRoles = taggedRoles;
@@ -669,7 +669,7 @@ public class MessageService : IMessageService
 			CreatedAt = message.CreatedAt,
 			Text = message.Text,
 			ModifiedAt = message.UpdatedAt,
-			ReplyToMessage = message.ReplyToMessageId != null ? await MapChannelReplyToMessage(message.ReplyToMessageId, message.TextChannelId, channel.ServerId) : null,
+			ReplyToMessage = message.ReplyToMessageId != null ? await MapChannelReplyToMessage(message.ReplyToMessageId, (Guid)message.TextChannelId, channel.ServerId) : null,
 			NestedChannel = message.NestedChannel == null ? null : new MessageSubChannelResponceDTO
 			{
 				SubChannelId = message.NestedChannel.Id,
@@ -842,7 +842,7 @@ public class MessageService : IMessageService
 		var messageDto = new DeletedMessageResponceDTO
 		{
 			ServerId = channel.ServerId,
-			ChannelId = message.TextChannelId,
+			ChannelId = (Guid)message.TextChannelId,
 			MessageId = message.Id
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
@@ -981,7 +981,7 @@ public class MessageService : IMessageService
 					CreatedAt = classic.CreatedAt,
 					Text = classic.Text,
 					ModifiedAt = classic.UpdatedAt,
-					ReplyToMessage = classic.ReplyToMessageId != null ? await MapChatReplyToMessage(classic.ReplyToMessageId, classic.ChatId) : null,
+					ReplyToMessage = classic.ReplyToMessageId != null ? await MapChatReplyToMessage(classic.ReplyToMessageId, (Guid)classic.ChatId) : null,
 					NestedChannel = null,
 					Files = classic.Files.Select(f => new FileMetaResponseDTO
 					{
@@ -1019,7 +1019,7 @@ public class MessageService : IMessageService
 					Id = vote.Id,
 					AuthorId = vote.AuthorId,
 					CreatedAt = vote.CreatedAt,
-					ReplyToMessage = vote.ReplyToMessageId != null ? await MapChatReplyToMessage(vote.ReplyToMessageId, vote.ChatId) : null,
+					ReplyToMessage = vote.ReplyToMessageId != null ? await MapChatReplyToMessage(vote.ReplyToMessageId, (Guid)vote.ChatId) : null,
 					Title = vote.Title,
 					Content = vote.Content,
 					IsAnonimous = vote.IsAnonimous,
@@ -1211,7 +1211,7 @@ public class MessageService : IMessageService
 
 		var messageDto = new DeletedMessageInChatResponceDTO
 		{
-			ChatId = message.ChatId,
+			ChatId = (Guid)message.ChatId,
 			MessageId = message.Id
 		};
 		var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == chat.Id).Select(us => us.UserId).ToListAsync();
@@ -1241,7 +1241,7 @@ public class MessageService : IMessageService
 				throw new CustomException("Variant not found", "Voting", "Variant id", 404, "Вариант не найден", "Голосование");
 			}
 
-			var channelType = await _channelService.GetChannelType(variant.Vote.TextChannelId);
+			var channelType = await _channelService.GetChannelType((Guid)variant.Vote.TextChannelId);
 
 			var userSub = await _hitsContext.UserServer
 				.Include(us => us.SubscribeRoles)
@@ -1311,7 +1311,7 @@ public class MessageService : IMessageService
 				Id = variant.Vote.Id,
 				AuthorId = variant.Vote.AuthorId,
 				CreatedAt = variant.Vote.CreatedAt,
-				ReplyToMessage = variant.Vote.ReplyToMessageId != null ? await MapChannelReplyToMessage(variant.Vote.ReplyToMessageId, variant.Vote.TextChannelId, variant.Vote.TextChannel.ServerId) : null,
+				ReplyToMessage = variant.Vote.ReplyToMessageId != null ? await MapChannelReplyToMessage(variant.Vote.ReplyToMessageId, (Guid)variant.Vote.TextChannelId, variant.Vote.TextChannel.ServerId) : null,
 				Title = variant.Vote.Title,
 				Content = variant.Vote.Content,
 				IsAnonimous = variant.Vote.IsAnonimous,
@@ -1433,7 +1433,7 @@ public class MessageService : IMessageService
 				Id = variant.Vote.Id,
 				AuthorId = variant.Vote.AuthorId,
 				CreatedAt = variant.Vote.CreatedAt,
-				ReplyToMessage = variant.Vote.ReplyToMessageId != null ? await MapChatReplyToMessage(variant.Vote.ReplyToMessageId, variant.Vote.ChatId) : null,
+				ReplyToMessage = variant.Vote.ReplyToMessageId != null ? await MapChatReplyToMessage(variant.Vote.ReplyToMessageId, (Guid)variant.Vote.ChatId) : null,
 				Title = variant.Vote.Title,
 				Content = variant.Vote.Content,
 				IsAnonimous = variant.Vote.IsAnonimous,
@@ -1482,7 +1482,7 @@ public class MessageService : IMessageService
 
 		if (channelVariant != null)
 		{
-			var channelType = await _channelService.GetChannelType(channelVariant.Vote.TextChannelId);
+			var channelType = await _channelService.GetChannelType((Guid)channelVariant.Vote.TextChannelId);
 
 			var userSub = await _hitsContext.UserServer
 				.Include(us => us.SubscribeRoles)
@@ -1541,7 +1541,7 @@ public class MessageService : IMessageService
 				Id = channelVariant.Vote.Id,
 				AuthorId = channelVariant.Vote.AuthorId,
 				CreatedAt = channelVariant.Vote.CreatedAt,
-				ReplyToMessage = channelVariant.Vote.ReplyToMessageId != null ? await MapChannelReplyToMessage(channelVariant.Vote.ReplyToMessageId, channelVariant.Vote.TextChannelId, channelVariant.Vote.TextChannel.ServerId) : null,
+				ReplyToMessage = channelVariant.Vote.ReplyToMessageId != null ? await MapChannelReplyToMessage(channelVariant.Vote.ReplyToMessageId, (Guid)channelVariant.Vote.TextChannelId, channelVariant.Vote.TextChannel.ServerId) : null,
 				Title = channelVariant.Vote.Title,
 				Content = channelVariant.Vote.Content,
 				IsAnonimous = channelVariant.Vote.IsAnonimous,
@@ -1656,7 +1656,7 @@ public class MessageService : IMessageService
 					Id = variant.Vote.Id,
 					AuthorId = variant.Vote.AuthorId,
 					CreatedAt = variant.Vote.CreatedAt,
-					ReplyToMessage = variant.Vote.ReplyToMessageId != null ? await MapChatReplyToMessage(variant.Vote.ReplyToMessageId, variant.Vote.ChatId) : null,
+					ReplyToMessage = variant.Vote.ReplyToMessageId != null ? await MapChatReplyToMessage(variant.Vote.ReplyToMessageId, (Guid)variant.Vote.ChatId) : null,
 					Title = variant.Vote.Title,
 					Content = variant.Vote.Content,
 					IsAnonimous = variant.Vote.IsAnonimous,
@@ -1759,7 +1759,7 @@ public class MessageService : IMessageService
 				Id = vote.Id,
 				AuthorId = vote.AuthorId,
 				CreatedAt = vote.CreatedAt,
-				ReplyToMessage = vote.ReplyToMessageId != null ? await MapChannelReplyToMessage(vote.ReplyToMessageId, vote.TextChannelId, vote.TextChannel.ServerId) : null,
+				ReplyToMessage = vote.ReplyToMessageId != null ? await MapChannelReplyToMessage(vote.ReplyToMessageId, (Guid)vote.TextChannelId, vote.TextChannel.ServerId) : null,
 				Title = vote.Title,
 				Content = vote.Content,
 				IsAnonimous = vote.IsAnonimous,
@@ -1829,7 +1829,7 @@ public class MessageService : IMessageService
 				Id = vote.Id,
 				AuthorId = vote.AuthorId,
 				CreatedAt = vote.CreatedAt,
-				ReplyToMessage = vote.ReplyToMessageId != null ? await MapChatReplyToMessage(vote.ReplyToMessageId, vote.ChatId) : null,
+				ReplyToMessage = vote.ReplyToMessageId != null ? await MapChatReplyToMessage(vote.ReplyToMessageId, (Guid)vote.ChatId) : null,
 				Title = vote.Title,
 				Content = vote.Content,
 				IsAnonimous = vote.IsAnonimous,
@@ -1963,7 +1963,7 @@ public class MessageService : IMessageService
 					.Select(m => (long?)m.Id)
 					.MaxAsync() ?? 0;
 
-				lastRead = new LastReadChannelMessageDbModel { UserId = user.Id, TextChannelId = message.TextChannelId, LastReadedMessageId = max };
+				lastRead = new LastReadChannelMessageDbModel { UserId = user.Id, TextChannelId = (Guid)message.TextChannelId, LastReadedMessageId = max };
 
 				await _hitsContext.LastReadChannelMessage.AddAsync(lastRead);
 				await _hitsContext.SaveChangesAsync();
@@ -2000,7 +2000,7 @@ public class MessageService : IMessageService
 					.Select(m => (long?)m.Id)
 					.MaxAsync() ?? 0;
 
-				lastRead = new LastReadChatMessageDbModel { UserId = user.Id, ChatId = message.ChatId, LastReadedMessageId = max };
+				lastRead = new LastReadChatMessageDbModel { UserId = user.Id, ChatId = (Guid)message.ChatId, LastReadedMessageId = max };
 
 				await _hitsContext.LastReadChatMessage.AddAsync(lastRead);
 				await _hitsContext.SaveChangesAsync();

@@ -639,9 +639,9 @@ public class ServerService : IServerService
 			var lastReadsDict = lastReads.ToDictionary(lr => lr.TextChannelId, lr => lr.LastReadedMessageId);
 
 			var nonReadedMessagesQuery = _hitsContext.ChannelMessage
-				.Where(cm => lastReadsDict.Keys.Contains(cm.TextChannelId))
+				.Where(cm => lastReadsDict.Keys.Contains((Guid)cm.TextChannelId))
 				.AsEnumerable()
-				.Where(cm => cm.Id > lastReadsDict[cm.TextChannelId] && cm.DeleteTime == null)
+				.Where(cm => cm.Id > lastReadsDict[(Guid)cm.TextChannelId] && cm.DeleteTime == null)
 				.ToList();
 
 			nonReadedMessages = nonReadedMessagesQuery.Count();

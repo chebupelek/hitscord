@@ -173,7 +173,7 @@ public class RolesService : IRolesService
 				.ToList();
 
 			var channelLastMessageIds = await _hitsContext.ChannelMessage
-				.Where(m => allChannels.Contains(m.TextChannelId))
+				.Where(m => allChannels.Contains((Guid)m.TextChannelId))
 				.GroupBy(m => m.TextChannelId)
 				.Select(g => new
 				{

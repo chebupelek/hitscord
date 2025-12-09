@@ -67,7 +67,7 @@ public class ChatService : IChatService
 		{
 			MessageType = reply.MessageType,
 			ServerId = null,
-			ChannelId = reply.ChatId,
+			ChannelId = (Guid)reply.ChatId,
 			Id = reply.Id,
 			AuthorId = reply.Author.Id,
 			CreatedAt = reply.CreatedAt,

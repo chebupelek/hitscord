@@ -20,8 +20,7 @@ public class ChatMessageDbModel
 	[ForeignKey(nameof(AuthorId))]
 	public UserDbModel Author { get; set; }
 
-	[Required]
-	public required Guid ChatId { get; set; }
+	public Guid? ChatId { get; set; }
 	[ForeignKey(nameof(ChatId))]
 	public ChatDbModel? Chat { get; set; }
 

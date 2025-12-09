@@ -190,7 +190,7 @@ public class ChannelService : IChannelService
 		{
 			MessageType = reply.MessageType,
 			ServerId = serverId,
-			ChannelId = reply.TextChannelId,
+			ChannelId = (Guid)reply.TextChannelId,
 			Id = reply.Id,
 			AuthorId = reply.Author.Id,
 			CreatedAt = reply.CreatedAt,
