@@ -2133,39 +2133,20 @@ public class ServerService : IServerService
 		}
 
 		var allRoles = await _hitsContext.SystemRole
-			.Include(r => r.ChildRoles)
-			.AsNoTracking()
+			.Include(r => r.ParentRole)
+			.Select(r => new SystemRoleItemDTO
+				{
+					Id = r.Id,
+					Type = r.Type,
+					Name = r.Name,
+					ParentId = r.ParentRoleId,
+					ParentName = r.ParentRole != null ? r.ParentRole.Name : null
+				})	
 			.ToListAsync();
-
-		var roleDtos = allRoles.Select(r => new SystemRoleItemDTO
-			{
-				Id = r.Id,
-				Name = r.Name,
-				Type = r.Type
-			})
-			.ToList();
-
-		var rolesDict = roleDtos.ToDictionary(r => r.Id);
-
-		foreach (var dbRole in allRoles)
-		{
-			if (dbRole.ParentRoleId != null && rolesDict.TryGetValue(dbRole.ParentRoleId.Value, out var parentDto))
-			{
-				parentDto.ChildRoles.Add(rolesDict[dbRole.Id]);
-			}
-		}
-
-		var rootRoles = allRoles
-			.Where(r => r.ParentRoleId == null)
-			.Select(r => rolesDict[r.Id])
-			.ToList();
 
 		var roles = new SystemRolesFullListDTO
 		{
 			Roles = allRoles
-				.Where(r => r.ParentRoleId == null)
-				.Select(r => rolesDict[r.Id])
-				.ToList()
 		};
 
 		return roles;
