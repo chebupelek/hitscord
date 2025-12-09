@@ -207,13 +207,14 @@ namespace hitscord.Contexts
 			{
 				entity.HasOne(f => f.ChannelMessage)
 					.WithOne(m => m.NestedChannel)
-					.HasForeignKey<SubChannelDbModel>(f => new { f.ChannelMessageId, f.TextChannelId })
+					.HasForeignKey<SubChannelDbModel>(f => f.ChannelMessageRealId)
 					.OnDelete(DeleteBehavior.Cascade);
 			});
 
 			modelBuilder.Entity<ChannelMessageDbModel>(entity =>
 			{
-				entity.HasKey(cm => new { cm.Id, cm.TextChannelId });
+				entity.HasIndex(cm => new { cm.Id, cm.TextChannelId })
+					.IsUnique();
 
 				entity.HasDiscriminator<string>("MessageType")
 					.HasValue<ClassicChannelMessageDbModel>("Classic")
@@ -234,7 +235,7 @@ namespace hitscord.Contexts
 			{
 				entity.HasOne(v => v.Vote)
 					.WithMany(m => m.Variants)
-					.HasForeignKey(f => new { f.VoteId, f.TextChannelId })
+					.HasForeignKey(f => f.VoteRealId)
 					.OnDelete(DeleteBehavior.Cascade);
 			});
 
@@ -268,7 +269,8 @@ namespace hitscord.Contexts
 
 			modelBuilder.Entity<ChatMessageDbModel>(entity =>
 			{
-				entity.HasKey(cm => new { cm.Id, cm.ChatId });
+				entity.HasIndex(cm => new { cm.Id, cm.ChatId })
+					.IsUnique();
 
 				entity.HasDiscriminator<string>("MessageType")
 					.HasValue<ClassicChatMessageDbModel>("Classic")
@@ -297,7 +299,7 @@ namespace hitscord.Contexts
 			{
 				entity.HasOne(v => v.Vote)
 					.WithMany(m => m.Variants)
-					.HasForeignKey(f => new { f.VoteId, f.ChatId })
+					.HasForeignKey(f => f.VoteRealId)
 					.OnDelete(DeleteBehavior.Cascade);
 			});
 
@@ -485,12 +487,12 @@ namespace hitscord.Contexts
 			{
 				entity.HasOne(f => f.ChannelMessage)
 					.WithMany(m => m.Files)
-					.HasForeignKey(f => new { f.ChannelMessageId, f.TextChannelId })
+					.HasForeignKey(f => f.ChannelMessageRealId)
 					.OnDelete(DeleteBehavior.Cascade);
 
 				entity.HasOne(f => f.ChatMessage)
 					.WithMany(m => m.Files)
-					.HasForeignKey(f => new { f.ChatMessageId, f.ChatId })
+					.HasForeignKey(f => f.ChatMessageRealId)
 					.OnDelete(DeleteBehavior.Cascade);
 			});
 

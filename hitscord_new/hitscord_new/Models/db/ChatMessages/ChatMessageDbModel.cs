@@ -9,8 +9,11 @@ public class ChatMessageDbModel
     public ChatMessageDbModel()
     {
         CreatedAt = DateTime.UtcNow;
-    }
-    public required long Id { get; set; }
+		RealId = Guid.NewGuid();
+	}
+	[Key]
+	public Guid RealId { get; set; }
+	public required long Id { get; set; }
     public DateTime CreatedAt { get; set; }
 
 	public Guid AuthorId { get; set; }

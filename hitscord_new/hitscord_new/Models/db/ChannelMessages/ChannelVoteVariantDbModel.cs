@@ -26,7 +26,9 @@ public class ChannelVoteVariantDbModel
 	public required long VoteId { get; set; }
 	[Required]
 	public required Guid TextChannelId { get; set; }
-	[ForeignKey(nameof(VoteId) + "," + nameof(TextChannelId))]
+	[Required]
+	public required Guid VoteRealId { get; set; }
+	[ForeignKey(nameof(VoteRealId))]
 	public ChannelVoteDbModel Vote { get; set; }
 
 	public ICollection<ChannelVariantUserDbModel> UsersVariants { get; set; }

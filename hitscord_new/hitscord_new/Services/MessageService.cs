@@ -106,7 +106,7 @@ public class MessageService : IMessageService
 		return (roles == null ? (new List<Guid>()) : roles);
 	}
 
-	private async Task CreateFilesAsync(List<Guid> Files, Guid userId, long? channelMessageId, Guid? textChannelId, long? chatMessageId, Guid? chatId)
+	private async Task CreateFilesAsync(List<Guid> Files, Guid userId, long? channelMessageId, Guid? textChannelId, long? chatMessageId, Guid? chatId, Guid? ChannelRealId, Guid? ChatRealId)
 	{
 		var files = await _hitsContext.File
 			.Where(f => Files.Contains(f.Id) 
@@ -125,6 +125,8 @@ public class MessageService : IMessageService
 			file.TextChannelId = textChannelId;
 			file.ChatMessageId = chatMessageId;
 			file.ChatId = chatId;
+			file.ChannelMessageRealId = ChannelRealId;
+			file.ChatMessageRealId = ChatRealId;
 		}
 
 		_hitsContext.File.UpdateRange(files);
@@ -196,7 +198,7 @@ public class MessageService : IMessageService
 	}
 
 
-	private async Task CreateSubChannelAsync(string text, Guid serverId, long messageId, Guid textChannelId)
+	private async Task CreateSubChannelAsync(string text, Guid serverId, long messageId, Guid textChannelId, Guid RealId)
 	{
 		var newSubhannel = new SubChannelDbModel
 		{
@@ -208,6 +210,7 @@ public class MessageService : IMessageService
 			ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
 			ChannelMessageId = messageId,
 			TextChannelId = textChannelId,
+			ChannelMessageRealId = RealId,
 			ChannelCanUse = new List<ChannelCanUseDbModel>()
 		};
 
@@ -327,12 +330,12 @@ public class MessageService : IMessageService
 
 				if (Content.Classic.Files != null && Content.Classic.Files.Any())
 				{
-					await CreateFilesAsync(Content.Classic.Files, user.Id, newMessage.Id, newMessage.TextChannelId, null, null);
+					await CreateFilesAsync(Content.Classic.Files, user.Id, newMessage.Id, newMessage.TextChannelId, null, null, newMessage.RealId, null);
 				}
 
 				if (Content.Classic != null && Content.Classic.NestedChannel == true && channelType == ChannelTypeEnum.Text)
 				{
-					await CreateSubChannelAsync(Content.Classic.Text, channel.ServerId, newMessage.Id, newMessage.TextChannelId);
+					await CreateSubChannelAsync(Content.Classic.Text, channel.ServerId, newMessage.Id, newMessage.TextChannelId, newMessage.RealId);
 				}
 
 				break;
@@ -353,16 +356,19 @@ public class MessageService : IMessageService
 					IsAnonimous = Content.Vote.IsAnonimous,
 					Multiple = Content.Vote.Multiple,
 					Deadline = Content.Vote.Deadline,
-					Variants = Content.Vote.Variants
-						.Select(v => new ChannelVoteVariantDbModel()
-						{
-							Number = v.Number,
-							Content = v.Content,
-							TextChannelId = Content.ChannelId,
-							VoteId = newId
-						})
-						.ToList()
+					Variants = new List<ChannelVoteVariantDbModel>()
 				};
+
+				((ChannelVoteDbModel)newMessage).Variants = Content.Vote.Variants
+					.Select(v => new ChannelVoteVariantDbModel()
+					{
+						Number = v.Number,
+						Content = v.Content,
+						TextChannelId = Content.ChannelId,
+						VoteId = newId,
+						VoteRealId = newMessage.RealId
+					})
+					.ToList();
 
 				_hitsContext.ChannelMessage.Add(newMessage);
 				await _hitsContext.SaveChangesAsync();
@@ -906,7 +912,7 @@ public class MessageService : IMessageService
 
 				if (Content.Classic.Files != null && Content.Classic.Files.Any())
 				{
-					await CreateFilesAsync(Content.Classic.Files, user.Id, null, null, newMessage.Id, newMessage.ChatId);
+					await CreateFilesAsync(Content.Classic.Files, user.Id, null, null, newMessage.Id, newMessage.ChatId, null, newMessage.RealId);
 				}
 
 				break;
@@ -926,16 +932,19 @@ public class MessageService : IMessageService
 					IsAnonimous = Content.Vote.IsAnonimous,
 					Multiple = Content.Vote.Multiple,
 					Deadline = Content.Vote.Deadline,
-					Variants = Content.Vote.Variants
-						.Select(v => new ChatVoteVariantDbModel()
-						{
-							Number = v.Number,
-							Content = v.Content,
-							ChatId = Content.ChannelId,
-							VoteId = newId
-						})
-						.ToList()
+					Variants = new List<ChatVoteVariantDbModel>()
 				};
+
+				((ChatVoteDbModel)newMessage).Variants = Content.Vote.Variants
+					.Select(v => new ChatVoteVariantDbModel()
+					{
+						Number = v.Number,
+						Content = v.Content,
+						ChatId = Content.ChannelId,
+						VoteId = newId,
+						VoteRealId = newMessage.RealId
+					})
+					.ToList();
 
 				_hitsContext.ChatMessage.Add(newMessage);
 				await _hitsContext.SaveChangesAsync();

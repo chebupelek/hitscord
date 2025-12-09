@@ -26,7 +26,9 @@ public class ChatVoteVariantDbModel
 	public required long VoteId { get; set; }
 	[Required]
 	public required Guid ChatId { get; set; }
-	[ForeignKey(nameof(VoteId) + "," + nameof(ChatId))]
+	[Required]
+	public required Guid VoteRealId { get; set; }
+	[ForeignKey(nameof(VoteRealId))]
 	public ChatVoteDbModel Vote { get; set; }
 
 	public ICollection<ChatVariantUserDbModel> UsersVariants { get; set; }
