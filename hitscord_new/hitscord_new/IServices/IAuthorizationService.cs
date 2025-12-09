@@ -23,4 +23,5 @@ public interface IAuthorizationService
     Task ChangeNotificationLifetimeAsync(string token, int time);
 	Task<UserResponseDTO> GetUserDataByIdAsync(string token, Guid userId);
     Task<FileMetaResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile);
+    Task DeleteUserIconAsync(string token);
 }

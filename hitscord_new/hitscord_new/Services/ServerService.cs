@@ -1599,6 +1599,56 @@ public class ServerService : IServerService
 		}
 	}
 
+	public async Task DeleteServerIconAsync(string token, Guid serverId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == owner.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner not subscriber of this server", "DeleteServerIconAsync", "User", 401, "Владелец не является участником этого сервера", "Удаление иконки сервера");
+		}
+		if (!ownerSub.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Creator))
+		{
+			throw new CustomException("User is not creator of this server", "DeleteServerIconAsync", "User", 401, "Пользователь - не создатель сервера", "Удаление иконки сервера");
+		}
+
+		if (server.IconFileId == null)
+		{
+			throw new CustomException("This server has no icon", "DeleteServerIconAsync", "IconFileId", 404, "У этого сервера нет иконки", "Удаление иконки сервера");
+		}
+
+		var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == server.IconFileId);
+		if (oldIcon == null)
+		{
+			throw new CustomException("Icon not found", "DeleteServerIconAsync", "IconFileId", 404, "Файл не найден", "Удаление иконки сервера");
+		}
+
+		try
+		{
+			await _minioService.DeleteFileAsync(oldIcon.Path);
+		}
+		catch
+		{
+		}
+
+		server.IconFileId = null;
+		_hitsContext.Server.Update(server);
+		_hitsContext.File.Remove(oldIcon);
+		await _hitsContext.SaveChangesAsync();
+
+		var serverIdResponse = new IdRequestDTO { Id = server.Id };
+
+		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+		if (alertedUsers != null && alertedUsers.Any())
+		{
+			await _webSocketManager.BroadcastMessageAsync(serverIdResponse, alertedUsers, "Icon removed from server");
+		}
+	}
+
 	public async Task ChangeServerClosedAsync(string token, Guid serverId, bool isClosed, bool? isApproved)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);

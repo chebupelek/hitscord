@@ -423,4 +423,33 @@ public class AuthorizationService : IAuthorizationService
 			Deleted = file.Deleted,
         });
 	}
+
+	public async Task DeleteUserIconAsync(string token)
+	{
+		var user = await GetUserAsync(token);
+
+		if (user.IconFileId == null)
+		{
+			throw new CustomException("This user has no icon", "DeleteUserIconAsync", "IconFileId", 404, "У этого пользователя нет иконки", "Удаление иконки пользователя");
+		}
+
+		var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == user.IconFileId);
+		if (oldIcon == null)
+		{
+			throw new CustomException("Icon not found", "DeleteUserIconAsync", "IconFileId", 404, "Файл не найден", "Удаление иконки пользователя");
+		}
+
+		try
+		{
+			await _minioService.DeleteFileAsync(oldIcon.Path);
+		}
+		catch
+		{
+		}
+
+		user.IconFileId = null;
+		_hitsContext.User.Update(user);
+		_hitsContext.File.Remove(oldIcon);
+		await _hitsContext.SaveChangesAsync();
+	}
 }

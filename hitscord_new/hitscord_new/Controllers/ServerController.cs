@@ -368,6 +368,27 @@ public class ServerController : ControllerBase
 	}
 
 	[Authorize]
+	[HttpDelete]
+	[Route("unicon")]
+	public async Task<IActionResult> DeleteIconServer([FromForm] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _serverService.DeleteServerIconAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
 	[HttpPut]
 	[Route("isClosed")]
 	public async Task<IActionResult> ChangeServerIsClosed([FromForm] ChangeServerIsClosedDTO data)

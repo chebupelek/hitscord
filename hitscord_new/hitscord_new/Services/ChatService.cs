@@ -5,6 +5,7 @@ using hitscord.Contexts;
 using hitscord.IServices;
 using hitscord.Models.db;
 using hitscord.Models.other;
+using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.nClamUtil;
 using hitscord.Utils;
@@ -223,11 +224,17 @@ public class ChatService : IChatService
 		_hitsContext.Chat.Update(chat);
 		await _hitsContext.SaveChangesAsync();
 
+		var response = new ChatNameRequestDTO
+		{
+			Name = chat.Name,
+			ChatId = chat.Id
+		};
+
 		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			//заменить дбшную модель
-			await _webSocketManager.BroadcastMessageAsync(chat, alertedUsers, "New chat name");
+			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "New chat name");
 		}
 	}
 
@@ -859,6 +866,48 @@ public class ChatService : IChatService
 		if (alertedUsers != null && alertedUsers.Any())
 		{
 			await _webSocketManager.BroadcastMessageAsync(changeIconDto, alertedUsers, "New icon on chat");
+		}
+	}
+
+	public async Task DeleteChatIconAsync(string token, Guid chatId)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var chat = await CheckChatExist(chatId);
+
+		if ((await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == owner.Id)) == null)
+		{
+			throw new CustomException("User not in this chat", "DeleteChatIconAsync", "ChatId", 401, "Пользователь не находится в этом чате", "Удаление иконки чата");
+		}
+
+		if (chat.IconFileId == null)
+		{
+			throw new CustomException("This chat has no icon", "DeleteChatIconAsync", "IconFileId", 404, "У этого чата нет иконки", "Удаление иконки чата");
+		}
+
+		var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == chat.IconFileId);
+		if (oldIcon == null)
+		{
+			throw new CustomException("Icon not found", "DeleteChatIconAsync", "IconFileId", 404, "Файл не найден", "Удаление иконки чата");
+		}
+		try
+		{
+			await _minioService.DeleteFileAsync(oldIcon.Path);
+		}
+		catch
+		{
+		}
+
+		chat.IconFileId = null;
+		_hitsContext.Chat.Update(chat);
+		_hitsContext.File.Remove(oldIcon);
+		await _hitsContext.SaveChangesAsync();
+
+		var chatIdResponse = new IdRequestDTO { Id = chat.Id };
+
+		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
+		if (alertedUsers != null && alertedUsers.Any())
+		{
+			await _webSocketManager.BroadcastMessageAsync(chatIdResponse, alertedUsers, "Icon removed from chat");
 		}
 	}
 

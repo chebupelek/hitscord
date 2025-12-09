@@ -280,4 +280,25 @@ public class AuthorizationController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
+	[Authorize]
+	[HttpDelete]
+	[Route("unicon")]
+	public async Task<IActionResult> DeleteIconUser()
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			await _authService.DeleteUserIconAsync(jwtToken);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }

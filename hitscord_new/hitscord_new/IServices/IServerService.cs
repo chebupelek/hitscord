@@ -26,7 +26,8 @@ public interface IServerService
 
 	Task UnBanUser(string token, Guid serverId, Guid bannedId);
     Task ChangeServerIconAsync(string token, Guid serverId, IFormFile iconFile);
-    Task ChangeServerClosedAsync(string token, Guid serverId, bool isClosed, bool? isApproved);
+    Task DeleteServerIconAsync(string token, Guid serverId);
+	Task ChangeServerClosedAsync(string token, Guid serverId, bool isClosed, bool? isApproved);
 
     Task ApproveApplicationAsync(string token, Guid applicationId);
     Task RemoveApplicationServerAsync(string token, Guid applicationId);

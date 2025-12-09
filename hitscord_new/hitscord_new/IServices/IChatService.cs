@@ -13,5 +13,6 @@ public interface IChatService
 	Task RemoveUserAsync(string token, Guid chatId);
 	Task<MessageListResponseDTO> GetChatMessagesAsync(string token, Guid chatId, int number, long fromMessageId, bool down);
 	Task ChangeChatIconAsync(string token, Guid chatId, IFormFile iconFile);
+	Task DeleteChatIconAsync(string token, Guid chatId);
 	Task ChangeNonNotifiableChatAsync(string token, Guid chatId);
 }
