@@ -103,7 +103,7 @@ public class ChannelController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ex.Message + "/n     " + ex.InnerException.Message);
+            return StatusCode(500, ex.Message);
         }
     }
 

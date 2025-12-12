@@ -192,7 +192,7 @@ public class ChannelService : IChannelService
 			ServerId = serverId,
 			ChannelId = (Guid)reply.TextChannelId,
 			Id = reply.Id,
-			AuthorId = reply.Author.Id,
+			AuthorId = reply.AuthorId,
 			CreatedAt = reply.CreatedAt,
 			Text = text
 		};
