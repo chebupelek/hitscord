@@ -104,13 +104,15 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowSpecificOrigin",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
-        });
+	options.AddPolicy("FrontendPolicy", policy =>
+		{
+			policy.WithOrigins(
+				"https://166664.msk.web.highserver.ru",
+				"https://gambrinusup.github.io")
+			  .AllowAnyHeader()
+			  .AllowAnyMethod()
+			  .AllowCredentials();
+		});
 });
 
 builder.Services.AddQuartz(q =>
@@ -200,15 +202,18 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-app.UseCors("AllowSpecificOrigin");
+app.UseCors("FrontendPolicy");
 
 app.UseWebSockets();
 app.UseMiddleware<WebSocketMiddleware>();
 
 app.MapGet("/", () => "WebSocket server is running!");
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+	app.UseSwagger();
+	app.UseSwaggerUI();
+}
 
 app.UseAuthentication();
 
