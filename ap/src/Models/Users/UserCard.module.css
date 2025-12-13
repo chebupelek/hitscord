@@ -1,0 +1,24 @@
+.userCard {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #f6f6fb;
+    margin-top: 1%;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.userCard:hover:not(:has(.roleTag:hover)) {
+    background-color: #e6e6f0;
+}
+
+.roleTag {
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.roleTag:hover {
+    background-color: #cce0ff !important;
+    opacity: 0.9;
+}
