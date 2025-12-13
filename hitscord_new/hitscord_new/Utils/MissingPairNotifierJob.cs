@@ -13,13 +13,11 @@ public class MissingPairNotifierJob : IJob
 {
 	private readonly HitsContext _hitsContext;
 	private readonly IServiceScopeFactory _scopeFactory;
-	private readonly ILogger<MissingPairNotifierJob> _logger;
 
-	public MissingPairNotifierJob(HitsContext hitsContext, IServiceScopeFactory scopeFactory, ILogger<MissingPairNotifierJob> logger)
+	public MissingPairNotifierJob(HitsContext hitsContext, IServiceScopeFactory scopeFactory)
 	{
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_scopeFactory = scopeFactory;
-		_logger = logger;
 	}
 
 	public async Task Execute(IJobExecutionContext context)
@@ -56,8 +54,6 @@ public class MissingPairNotifierJob : IJob
 
 				if (schedulePair == null)
 				{
-					_logger.LogWarning("Для пары {PairId} не найдено соответствие в расписании.", pair.Id);
-
 					var pairChannel = pair.PairVoiceChannel;
 
 					var newPairResponse = new NewPairResponseDTO
@@ -117,7 +113,7 @@ public class MissingPairNotifierJob : IJob
 		}
 		catch (Exception ex)
 		{
-			_logger.LogError(ex, "Ошибка в MissingPairNotifierJob");
+
 		}
 	}
 }

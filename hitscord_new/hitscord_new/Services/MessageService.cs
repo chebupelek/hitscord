@@ -30,19 +30,19 @@ public class MessageService : IMessageService
 {
 	private readonly HitsContext _hitsContext;
 	private readonly IServices.IAuthorizationService _authService;
-	private readonly ILogger<MessageService> _logger;
+	//private readonly ILogger<MessageService> _logger;
 	private readonly nClamService _clamService;
 	private readonly IChannelService _channelService;
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly MinioService _minioService;
 
 
-	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, ILogger<MessageService> logger, nClamService clamService, IChannelService channelService, WebSocketsManager webSocketManager, MinioService minioService)
+	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, /*ILogger<MessageService> logger,*/ nClamService clamService, IChannelService channelService, WebSocketsManager webSocketManager, MinioService minioService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
-		_logger = logger;
+		//_logger = logger;
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
@@ -1888,7 +1888,7 @@ public class MessageService : IMessageService
 				}
 				catch (Exception ex)
 				{
-					_logger.LogWarning(ex, "Не удалось удалить файл из MinIO: {Path}", file.Path);
+					//_logger.LogWarning(ex, "Не удалось удалить файл из MinIO: {Path}", file.Path);
 				}
 			}
 

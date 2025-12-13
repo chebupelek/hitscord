@@ -26,11 +26,11 @@ public class ChatService : IChatService
 	private readonly IFileService _fileService;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
-	private readonly ILogger<ChatService> _logger;
+	//private readonly ILogger<ChatService> _logger;
 
-	public ChatService(ILogger<ChatService> logger, HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
+	public ChatService(/*ILogger<ChatService> logger, */HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
 	{
-		_logger = logger;
+		//_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));

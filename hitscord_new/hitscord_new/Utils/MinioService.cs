@@ -20,9 +20,8 @@ public class MinioService
 	private readonly string _bucket;
 	private readonly string _endpoint;
 	private readonly bool _useSSL;
-	private readonly ILogger<MinioService> _logger;
 
-	public MinioService(IOptions<MinioSettings> options, ILogger<MinioService> logger)
+	public MinioService(IOptions<MinioSettings> options)
 	{
 		var settings = options.Value;
 		_bucket = settings.BucketName;
@@ -34,8 +33,6 @@ public class MinioService
 			.WithCredentials(settings.AccessKey, settings.SecretKey)
 			.WithSSL(settings.UseSSL)
 			.Build();
-
-		_logger = logger;
 	}
 
 	public async Task UploadFileAsync(string objectName, byte[] data, string contentType)

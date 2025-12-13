@@ -20,17 +20,17 @@ public class FileService : IFileService
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly IChannelService _channelService;
 	private readonly nClamService _clamService;
-	private readonly ILogger<FileService> _logger;
+	//private readonly ILogger<FileService> _logger;
 	private readonly MinioService _minioService;
 
-	public FileService(HitsContext hitsContext, ILogger<FileService> logger, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IChannelService channelService, nClamService clamService, MinioService minioService)
+	public FileService(HitsContext hitsContext, /*ILogger<FileService> logger,*/ IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IChannelService channelService, nClamService clamService, MinioService minioService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
-		_logger = logger;
+		//_logger = logger;
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
@@ -80,31 +80,24 @@ public class FileService : IFileService
 	{
 		var user = await _authorizationService.GetUserAsync(token);
 
-		_logger.LogInformation("1");
-
 		var file = await _hitsContext.File
 			.Include(f => f.ChannelMessage)
 				.ThenInclude(cm => cm.TextChannel)
 			.Include(f => f.ChatMessage)
 			.FirstOrDefaultAsync(f => f.Id == fileId && f.Deleted == false);
-		_logger.LogInformation("2 {file}", file);
+
 		if (file == null)
 		{
-			_logger.LogInformation("3");
 			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
 		}
-		_logger.LogInformation("4");
 
 		if (file.ChatMessageId == null && file.ChannelMessageId == null)
 		{
-			_logger.LogInformation("5");
 			throw new CustomException("File not 'file'", "Get file", "File id", 400, "Файл не является приложенным к сообщению файлом", "Получение файла");
 		}
-		_logger.LogInformation("6");
+
 		if (file.ChatMessageId != null && file.ChatMessage != null)
 		{
-			_logger.LogInformation("7 {file.ChatMessage}", file.ChatMessage);
-			_logger.LogInformation("8 {file.ChatMessageId}", file.ChatMessageId);
 			var isInChat = await _hitsContext.UserChat
 				.AnyAsync(uc => uc.ChatId == file.ChatMessage.ChatId && uc.UserId == user.Id);
 
@@ -113,12 +106,9 @@ public class FileService : IFileService
 				throw new CustomException("User is not participant of this chat", "Get file", "User rights", 403, "Пользователь не является участником чата", "Получение файла");
 			}
 		}
-		_logger.LogInformation("9");
+
 		if (file.ChannelMessageId != null && file.ChannelMessage != null)
 		{
-			_logger.LogInformation("9 {file.ChannelMessage}", file.ChannelMessage);
-			_logger.LogInformation("10 {file.ChannelMessageId}", file.ChannelMessageId);
-
 			var channelId = file.ChannelMessage.TextChannelId;
 
 			var userSub = await _hitsContext.UserServer
@@ -401,7 +391,7 @@ public class FileService : IFileService
 				}
 				catch (Exception fileEx)
 				{
-					Console.WriteLine($"Ошибка при удалении файла {file.Path}: {fileEx.Message}");
+
 				}
 			}
 
@@ -410,7 +400,7 @@ public class FileService : IFileService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"Ошибка при удалении файла");
+
 		}
 	}
 
@@ -435,7 +425,7 @@ public class FileService : IFileService
 				}
 				catch (Exception fileEx)
 				{
-					Console.WriteLine($"Ошибка при удалении файла {file.Path}: {fileEx.Message}");
+
 				}
 
 				file.Deleted = true;
@@ -446,7 +436,7 @@ public class FileService : IFileService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"Ошибка при удалении файла");
+
 		}
 	}
 }

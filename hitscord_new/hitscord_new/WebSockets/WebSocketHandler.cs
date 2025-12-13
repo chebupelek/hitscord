@@ -9,14 +9,14 @@ namespace hitscord.WebSockets;
 public class WebSocketHandler
 {
     private readonly WebSocketsManager _webSocketManager;
-    private readonly ILogger<WebSocketMiddleware> _logger;
+    //private readonly ILogger<WebSocketMiddleware> _logger;
 	private readonly IMessageService _messageService;
 
-	public WebSocketHandler(WebSocketsManager webSocketManager, ILogger<WebSocketMiddleware> logger, IMessageService messageService)
+	public WebSocketHandler(WebSocketsManager webSocketManager, /*ILogger<WebSocketMiddleware> logger,*/ IMessageService messageService)
     {
 		_messageService = messageService ?? throw new ArgumentNullException(nameof(messageService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
-		_logger = logger;
+		//_logger = logger;
 	}
 
     public async Task HandleAsync(Guid userId, WebSocket socket)
@@ -25,14 +25,14 @@ public class WebSocketHandler
 
         try
         {
-            _logger.LogInformation("WebSocket connection established for user {UserId}", userId);
+            //_logger.LogInformation("WebSocket connection established for user {UserId}", userId);
             var buffer = new byte[1024 * 4];
             while (socket.State == WebSocketState.Open)
             {
                 var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    _logger.LogInformation("WebSocket connection closed by user {UserId}", userId);
+                    //_logger.LogInformation("WebSocket connection closed by user {UserId}", userId);
                     await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed", CancellationToken.None);
                 }
                 else
@@ -41,7 +41,7 @@ public class WebSocketHandler
                     await HandleMessageAsync(userId, json);
                 }
             }
-            _logger.LogInformation("WebSocket connection ended for user {UserId}", userId);
+            //_logger.LogInformation("WebSocket connection ended for user {UserId}", userId);
         }
         finally
         {
@@ -53,11 +53,11 @@ public class WebSocketHandler
 	{
 		var messageBase = System.Text.Json.JsonSerializer.Deserialize<WebSocketMessageBase>(json);
 
-		_logger.LogInformation("Received WebSocket message: {Json}", json);
-		_logger.LogInformation("Parsed Type: {type}", messageBase.Type);
+		//_logger.LogInformation("Received WebSocket message: {Json}", json);
+		//_logger.LogInformation("Parsed Type: {type}", messageBase.Type);
 
 		var messageBaseJson = System.Text.Json.JsonSerializer.Serialize(messageBase);
-		_logger.LogInformation("Parsed WebSocket message: {MessageBaseJson}", messageBaseJson);
+		//_logger.LogInformation("Parsed WebSocket message: {MessageBaseJson}", messageBaseJson);
 
 		try
 		{
@@ -65,7 +65,7 @@ public class WebSocketHandler
 			{
 				case "New message":
 					var newMessage = System.Text.Json.JsonSerializer.Deserialize<NewMessageWebsocket>(json);
-					_logger.LogInformation("new message", newMessage);
+					//_logger.LogInformation("new message", newMessage);
 					if (newMessage != null)
 					{
 						var newMesssageData = newMessage.Content;
@@ -75,7 +75,6 @@ public class WebSocketHandler
 
 				case "Delete message":
 					var deleteMessage = System.Text.Json.JsonSerializer.Deserialize<DeleteMessageWebsocket>(json);
-					Console.WriteLine($"User {userId} sent text: {deleteMessage?.Content}");
 					if (deleteMessage != null)
 					{
 						var deleteMesssageData = deleteMessage.Content;
@@ -85,7 +84,6 @@ public class WebSocketHandler
 
 				case "Update message":
 					var updateMessage = System.Text.Json.JsonSerializer.Deserialize<UpdateMessageWebsocket>(json);
-					Console.WriteLine($"User {userId} sent text: {updateMessage?.Content}");
 					if (updateMessage != null)
 					{
 						var updateMessageData = updateMessage.Content;
@@ -97,7 +95,7 @@ public class WebSocketHandler
 
 				case "New message chat":
 					var newMessagechat = System.Text.Json.JsonSerializer.Deserialize<NewMessageWebsocket>(json);
-					_logger.LogInformation("new message chat", newMessagechat);
+					//_logger.LogInformation("new message chat", newMessagechat);
 					if (newMessagechat != null)
 					{
 						var newMesssageData = newMessagechat.Content;
@@ -107,7 +105,6 @@ public class WebSocketHandler
 
 				case "Delete message chat":
 					var deleteMessagechat = System.Text.Json.JsonSerializer.Deserialize<DeleteMessageWebsocket>(json);
-					Console.WriteLine($"User {userId} sent text: {deleteMessagechat?.Content}");
 					if (deleteMessagechat != null)
 					{
 						var deleteMesssageData = deleteMessagechat.Content;
@@ -117,7 +114,6 @@ public class WebSocketHandler
 
 				case "Update message chat":
 					var updateMessagechat = System.Text.Json.JsonSerializer.Deserialize<UpdateMessageWebsocket>(json);
-					Console.WriteLine($"User {userId} sent text: {updateMessagechat?.Content}");
 					if (updateMessagechat != null)
 					{
 						var updateMessageData = updateMessagechat.Content;
@@ -128,7 +124,6 @@ public class WebSocketHandler
 
 				case "Vote":
 					var vote = System.Text.Json.JsonSerializer.Deserialize<VoteVariantSocket>(json);
-					Console.WriteLine($"User {userId} sent text: {vote?.Content}");
 					if (vote != null)
 					{
 						var voteData = vote.Content;
@@ -138,7 +133,6 @@ public class WebSocketHandler
 
 				case "Unvote":
 					var unvote = System.Text.Json.JsonSerializer.Deserialize<VoteVariantSocket>(json);
-					Console.WriteLine($"User {userId} sent text: {unvote?.Content}");
 					if (unvote != null)
 					{
 						var unvoteData = unvote.Content;
@@ -148,7 +142,6 @@ public class WebSocketHandler
 
 				case "Get vote":
 					var voteget = System.Text.Json.JsonSerializer.Deserialize<VoteSocket>(json);
-					Console.WriteLine($"User {userId} sent text: {voteget?.Content}");
 					if (voteget != null)
 					{
 						var votegetData = voteget.Content;
@@ -163,7 +156,6 @@ public class WebSocketHandler
 
 				case "See message":
 					var seeMessage = System.Text.Json.JsonSerializer.Deserialize<SeeMessage>(json);
-					Console.WriteLine($"User {userId} sent text: {seeMessage?.Content}");
 					if (seeMessage != null)
 					{
 						var seeMessageData = seeMessage.Content;
@@ -175,14 +167,11 @@ public class WebSocketHandler
 
 
 				default:
-					Console.WriteLine("Unknown message type.");
 					break;
 			}
 		}
 		catch (CustomException ex)
 		{
-			_logger.LogError(ex, "Error processing message of type {Type}", messageBase?.Type);
-
 			await _webSocketManager.SendMessageAsync(userId, new
 			{
 				Type = "Custom error",
@@ -196,8 +185,6 @@ public class WebSocketHandler
 		}
 		catch (Exception ex)
 		{
-			_logger.LogError(ex, "Error processing message of type {Type}", messageBase?.Type);
-
 			await _webSocketManager.SendMessageAsync(userId, new
 			{
 				Type = "Error",

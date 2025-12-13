@@ -7,12 +7,12 @@ namespace hitscord.WebSockets;
 public class WebSocketsManager
 {
     private readonly WebSocketConnectionStore _connectionStore;
-    private readonly ILogger<WebSocketMiddleware> _logger;
+    //private readonly ILogger<WebSocketMiddleware> _logger;
 
-    public WebSocketsManager(WebSocketConnectionStore connectionStore, ILogger<WebSocketMiddleware> logger)
+    public WebSocketsManager(WebSocketConnectionStore connectionStore/*, ILogger<WebSocketMiddleware> logger*/)
     {
         _connectionStore = connectionStore;
-        _logger = logger;
+        //_logger = logger;
     }
 
     public void AddConnection(Guid userId, WebSocket socket)
@@ -38,10 +38,10 @@ public class WebSocketsManager
     public async Task SendMessageAsync<T>(Guid userId, T message)
     {
         var socket = _connectionStore.GetConnection(userId);
-		_logger.LogInformation("Received third message from user {UserId}", userId);
+		//_logger.LogInformation("Received third message from user {UserId}", userId);
 		if (socket != null && socket.State == WebSocketState.Open)
         {
-			_logger.LogInformation("Received fourth message from user {UserId}", userId);
+			//_logger.LogInformation("Received fourth message from user {UserId}", userId);
 			var json = JsonSerializer.Serialize(message);
             var buffer = Encoding.UTF8.GetBytes(json);
             await socket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -62,10 +62,10 @@ public class WebSocketsManager
         foreach (var userId in userIds)
         {
             var connection = _connectionStore.GetConnection(userId);
-            _logger.LogInformation("Received message from user {UserId}: {Message}", userId, wrapper);
+            //_logger.LogInformation("Received message from user {UserId}: {Message}", userId, wrapper);
             if (connection != null && connection.State == WebSocketState.Open)
             {
-				_logger.LogInformation("Received second message from user {UserId}: {Message}", userId, wrapper);
+				//_logger.LogInformation("Received second message from user {UserId}: {Message}", userId, wrapper);
 				await connection.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
             }
         }

@@ -26,10 +26,10 @@ public class ScheduleService : IScheduleService
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly HttpClient _httpClient;
 	private readonly string _baseUrl;
-	private readonly ILogger<ScheduleService> _logger;
+	//private readonly ILogger<ScheduleService> _logger;
 	private readonly INotificationService _notificationsService;
 
-	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IChannelService channelService, IServerService serverService, WebSocketsManager webSocketManager, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, ILogger<ScheduleService> logger, INotificationService notificationsService)
+	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IChannelService channelService, IServerService serverService, WebSocketsManager webSocketManager, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, /*ILogger<ScheduleService> logger,*/ INotificationService notificationsService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -38,7 +38,7 @@ public class ScheduleService : IScheduleService
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_httpClient = httpClientFactory.CreateClient();
 		_baseUrl = apiSettings.Value.BaseUrl;
-		_logger = logger;
+		//_logger = logger;
 		_notificationsService = notificationsService ?? throw new ArgumentNullException(nameof(notificationsService));
 	}
 
@@ -254,8 +254,6 @@ public class ScheduleService : IScheduleService
 
 		var response = await _httpClient.GetAsync(uri);
 		var responseContent = await response.Content.ReadAsStringAsync();
-
-		_logger.LogInformation("Schedule API Response: {Response}", responseContent);
 
 		var jsonOptions = new JsonSerializerOptions
 		{

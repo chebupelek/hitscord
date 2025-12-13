@@ -26,6 +26,8 @@ using static System.Net.Mime.MediaTypeNames;
 
 namespace hitscord.Services;
 
+//_logger.LogInformation("applicationId {applicationId}", applicationId);
+
 public class ServerService : IServerService
 {
     private readonly HitsContext _hitsContext;
@@ -33,11 +35,11 @@ public class ServerService : IServerService
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
-	private readonly ILogger<ServerService> _logger;
+	//private readonly ILogger<ServerService> _logger;
 
-	public ServerService(ILogger<ServerService> logger, HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, INotificationService notificationsService, nClamService clamService, MinioService minioService)
+	public ServerService(/*ILogger<ServerService> logger, */HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, INotificationService notificationsService, nClamService clamService, MinioService minioService)
 	{
-		_logger = logger;
+		//_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
@@ -1532,31 +1534,23 @@ public class ServerService : IServerService
 		var objectName = $"icons/{safeFileName}";
 
 		await _minioService.UploadFileAsync(objectName, fileBytes, iconFile.ContentType);
-		_logger.LogInformation("1");
 		if (server.IconFileId != null)
 		{
-			_logger.LogInformation("2");
 			var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == server.IconFileId);
-			_logger.LogInformation("3");
 			if (oldIcon != null)
 			{
-				_logger.LogInformation("4");
 				try
 				{
-					_logger.LogInformation("5");
 					await _minioService.DeleteFileAsync(oldIcon.Path);
 				}
 				catch
 				{
-					_logger.LogInformation("6");
 				}
-				_logger.LogInformation("7");
 				_hitsContext.File.Remove(oldIcon);
 				await _hitsContext.SaveChangesAsync();
-				_logger.LogInformation("8");
 			}
 		}
-		_logger.LogInformation("9");
+
 		var file = new FileDbModel
 		{
 			Id = Guid.NewGuid(),
@@ -1570,14 +1564,14 @@ public class ServerService : IServerService
 			Deleted = false,
 			ServerId = server.Id
 		};
-		_logger.LogInformation("10");
+
 		_hitsContext.File.Add(file);
 		await _hitsContext.SaveChangesAsync();
 
 		server.IconFileId = file.Id;
 		_hitsContext.Server.Update(server);
 		await _hitsContext.SaveChangesAsync();
-		_logger.LogInformation("11");
+
 		string base64Icon = Convert.ToBase64String(fileBytes);
 		var changeIconDto = new ServerIconResponseDTO
 		{
@@ -1915,7 +1909,6 @@ public class ServerService : IServerService
 	public async Task RemoveApplicationServerAsync(string token, Guid applicationId)
 	{
 		var owner = await _authorizationService.GetUserAsync(token);
-		_logger.LogInformation("applicationId {applicationId}", applicationId);
 		var application = await _hitsContext.ServerApplications.FirstOrDefaultAsync(sa => sa.Id == applicationId);
 		if (application == null)
 		{

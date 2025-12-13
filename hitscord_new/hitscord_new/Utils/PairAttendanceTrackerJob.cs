@@ -8,12 +8,10 @@ namespace hitscord.Utils;
 public class PairAttendanceTrackerJob : IJob
 {
 	private readonly IServiceScopeFactory _scopeFactory;
-	private readonly ILogger<PairAttendanceTrackerJob> _logger;
 
-	public PairAttendanceTrackerJob(IServiceScopeFactory scopeFactory, ILogger<PairAttendanceTrackerJob> logger)
+	public PairAttendanceTrackerJob(IServiceScopeFactory scopeFactory)
 	{
 		_scopeFactory = scopeFactory;
-		_logger = logger;
 	}
 
 	public async Task Execute(IJobExecutionContext context)
@@ -83,7 +81,7 @@ public class PairAttendanceTrackerJob : IJob
 		}
 		catch (Exception ex)
 		{
-			_logger.LogError(ex, "Ошибка в PairAttendanceTrackerJob");
+
 		}
 	}
 }
