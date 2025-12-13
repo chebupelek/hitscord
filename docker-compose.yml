@@ -19,8 +19,8 @@ services:
 
   frontend:
     build:
-      context: ./ap
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ap/Dockerfile
     depends_on:
       - hitscord
     restart: unless-stopped
