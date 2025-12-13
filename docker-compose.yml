@@ -19,13 +19,19 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: ap/Dockerfile
+      context: ./ap
+      dockerfile: Dockerfile
     depends_on:
       - hitscord
     restart: unless-stopped
+    ports:
+      - "3000:80"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d
     networks:
       - hitscord_network
+
 
   clamav:
     image: clamav/clamav:latest
