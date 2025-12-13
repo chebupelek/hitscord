@@ -2,7 +2,7 @@
   "name": "mis",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://chebupelek.github.io/AdminPanel",
+  "homepage": "/",
   "dependencies": {
     "@ant-design/icons": "^5.3.7",
     "@testing-library/jest-dom": "^5.17.0",
