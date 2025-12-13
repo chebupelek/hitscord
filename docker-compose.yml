@@ -24,8 +24,6 @@ services:
     depends_on:
       - hitscord
     restart: unless-stopped
-    ports:
-      - "3000:80"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./nginx/conf.d:/etc/nginx/conf.d
