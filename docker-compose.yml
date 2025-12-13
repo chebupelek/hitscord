@@ -4,7 +4,7 @@ services:
   hitscord:
     build:
       context: ./hitscord_new
-      dockerfile: hitscord_new/hitscord_new/Dockerfile
+      dockerfile: hitscord_new/Dockerfile
     depends_on:
       - postgres
       - minio
