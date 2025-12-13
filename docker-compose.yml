@@ -21,14 +21,9 @@ services:
     build:
       context: ./ap
       dockerfile: Dockerfile
-    depends_on:
-      - hitscord
-    restart: unless-stopped
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d
-    networks:
-      - hitscord_network
+      - frontend_build:/app/build
+    command: "true"
 
 
   clamav:
@@ -60,8 +55,10 @@ services:
       - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
+      - frontend_build:/usr/share/nginx/html:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
+      - frontend
       - hitscord
     networks:
       - hitscord_network
@@ -100,6 +97,7 @@ services:
 volumes:
   pgdata:
   minio_data:
+  frontend_build:
 
 networks:
   hitscord_network:
