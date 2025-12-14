@@ -243,6 +243,7 @@ function Users()
                                     name={user.accountName}
                                     mail={user.mail}
                                     accountTag={user.accountTag}
+                                    icon={user.icon}
                                     accountCreateDate={user.accountCreateDate}
                                     systemRoles={user.systemRoles}
                                     checked={selectedUsers.includes(user.id)}

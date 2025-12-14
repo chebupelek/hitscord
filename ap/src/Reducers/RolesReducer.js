@@ -6,6 +6,7 @@ const SET_LOADING_ROLES = "SET_LOADING_ROLES";
 const SET_LOADING_CREATE = "SET_LOADING_CREATE";
 const SET_LOADING_UPDATE = "SET_LOADING_UPDATE";
 const SET_LOADING_DELETE = "SET_LOADING_DELETE";
+const CLEAR_ROLES = "CLEAR_ROLES";
 
 let initialRolesState = {
     roles: [/*{
@@ -15,7 +16,11 @@ let initialRolesState = {
             type: 0,
             childRoles: []
         }
-    }*/]
+    }*/],
+    loadingRoles: false,
+    loadingCreate: false,
+    loadingUpdate: false,
+    loadingDelete: false
   }
 
 const rolesReducer = (state = initialRolesState, action) => {
@@ -32,9 +37,15 @@ const rolesReducer = (state = initialRolesState, action) => {
             return {...state, loadingUpdate: action.loading};
         case SET_LOADING_DELETE:
             return {...state, loadingDelete: action.loading};
+        case CLEAR_ROLES:
+            return { ...state, roles: []};
         default:
             return newState;
     }
+}
+
+export function clearRolesActionCreator() {
+    return { type: CLEAR_ROLES };
 }
 
 export function getRolesFullActionCreator(data)

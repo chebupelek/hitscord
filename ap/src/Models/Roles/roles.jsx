@@ -1,7 +1,7 @@
 import { Col, Row, Spin } from "antd";
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getRolesFullThunkCreator } from "../../Reducers/RolesReducer";
+import { getRolesFullThunkCreator, clearRolesActionCreator } from "../../Reducers/RolesReducer";
 import { useNavigate } from "react-router-dom";
 import RoleCard from "./rolesCard";
 
@@ -13,8 +13,9 @@ function Roles()
     const loadingRoles = useSelector(state => state.roles.loadingRoles);
 
     useEffect(() => {
+        dispatch(clearRolesActionCreator());
         dispatch(getRolesFullThunkCreator(navigate));
-    }, [dispatch]);
+    }, [dispatch, navigate]);
 
     return (
         <div style={{ width: '75%', paddingBottom: '50px' }}>
