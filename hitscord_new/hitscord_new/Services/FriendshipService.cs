@@ -294,7 +294,7 @@ public class FriendshipService : IFriendshipService
 
 		var applicationsList = new ApplicationsList()
 		{
-			Applications = await _hitsContext.Friendship
+			Applications = await _hitsContext.FriendshipApplication
 				.Include(f => f.UserTo)
 					.ThenInclude(ut => ut.IconFile)
 				.Include(f => f.UserTo)
@@ -379,6 +379,7 @@ public class FriendshipService : IFriendshipService
 
 		return result;
 	}
+
 	public async Task DeleteFriendAsync(string token, Guid UserId)
 	{
 		var user = await _authorizationService.GetUserAsync(token);
