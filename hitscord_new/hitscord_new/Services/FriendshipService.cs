@@ -72,7 +72,7 @@ public class FriendshipService : IFriendshipService
 		});
 		await _hitsContext.SaveChangesAsync();
 
-		var response = new ApplicationsListItem
+		var responseTo = new ApplicationsListItem
 		{
 			Id = application.Id,
 			User = new UserResponseDTO
@@ -101,7 +101,37 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = application.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { friend.Id }, "New friendship application");
+		await _webSocketManager.BroadcastMessageAsync(responseTo, new List<Guid> { friend.Id }, "New friendship application");
+		var responseFrom = new ApplicationsListItem
+		{
+			Id = application.Id,
+			User = new UserResponseDTO
+			{
+				UserId = friend.Id,
+				UserName = friend.AccountName,
+				UserTag = friend.AccountTag,
+				Icon = friend.IconFile == null ? null : new FileMetaResponseDTO
+				{
+					FileId = friend.IconFile.Id,
+					FileName = friend.IconFile.Name,
+					FileType = friend.IconFile.Type,
+					FileSize = friend.IconFile.Size,
+					Deleted = false
+				},
+				Notifiable = friend.Notifiable,
+				FriendshipApplication = friend.FriendshipApplication,
+				NonFriendMessage = friend.NonFriendMessage,
+				SystemRoles = friend.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
+			},
+			CreatedAt = application.CreatedAt
+		};
+		await _webSocketManager.BroadcastMessageAsync(responseFrom, new List<Guid> { user.Id }, "Created friendship application");
 	}
 
 	public async Task DeleteApplicationAsync(string token, Guid applicationId)
