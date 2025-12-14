@@ -217,7 +217,13 @@ public class FriendshipService : IFriendshipService
 		var app = await _hitsContext.FriendshipApplication.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdTo == user.Id);
 		if (app == null)
 		{
-			throw new CustomException("Application doesnt exist", "ApproveApplicationAsync", "Application", 400, "Заяввка на дружбу не существует", "Подтверждение заявки на дружбу");
+			throw new CustomException("Application doesnt exist", "ApproveApplicationAsync", "Application", 404, "Заяввка на дружбу не существует", "Подтверждение заявки на дружбу");
+		}
+
+		var friend = await _hitsContext.User.Include(u => u.SystemRoles).Include(u => u.IconFile).FirstOrDefaultAsync(u => u.Id == app.UserIdFrom);
+		if (friend == null)
+		{
+			throw new CustomException("Future frind not found", "ApproveApplicationAsync", "Future friend", 404, "Будущий друг не найден", "Подтверждение заявки на дружбу");
 		}
 
 		_hitsContext.FriendshipApplication.Remove(app);
@@ -239,7 +245,7 @@ public class FriendshipService : IFriendshipService
 		});
 		await _hitsContext.SaveChangesAsync();
 
-		var response = new ApplicationsListItem
+		var responseFrom = new ApplicationsListItem
 		{
 			Id = app.Id,
 			User = new UserResponseDTO
@@ -268,7 +274,38 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdFrom, app.UserIdTo }, "Friendship application approved");
+		await _webSocketManager.BroadcastMessageAsync(responseFrom, new List<Guid> { app.UserIdFrom }, "Friendship application approved");
+
+		var responseTo = new ApplicationsListItem
+		{
+			Id = app.Id,
+			User = new UserResponseDTO
+			{
+				UserId = friend.Id,
+				UserName = friend.AccountName,
+				UserTag = friend.AccountTag,
+				Icon = friend.IconFile == null ? null : new FileMetaResponseDTO
+				{
+					FileId = friend.IconFile.Id,
+					FileName = friend.IconFile.Name,
+					FileType = friend.IconFile.Type,
+					FileSize = friend.IconFile.Size,
+					Deleted = false
+				},
+				Notifiable = friend.Notifiable,
+				FriendshipApplication = friend.FriendshipApplication,
+				NonFriendMessage = friend.NonFriendMessage,
+				SystemRoles = friend.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
+			},
+			CreatedAt = app.CreatedAt
+		};
+		await _webSocketManager.BroadcastMessageAsync(responseTo, new List<Guid> { app.UserIdTo }, "You approved application");
 	}
 
 	public async Task<ApplicationsList> GetApplicationListTo(string token)
