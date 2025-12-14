@@ -22,4 +22,5 @@ public interface IAdminService
 	Task AddSystemRoleAsync(string token, Guid RoleId, List<Guid> UsersIds);
 	Task RemoveSystemRoleAsync(string token, Guid RoleId, Guid UserId);
 	Task<AdminDbModel> CreateAccountOnce();
+	Task<FileResponseDTO> GetIconAsync(string token, Guid fileId);
 }

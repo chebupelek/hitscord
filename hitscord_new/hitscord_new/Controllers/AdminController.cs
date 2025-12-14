@@ -304,4 +304,25 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("icon")]
+	public async Task<IActionResult> GetIcon([FromQuery] Guid fileId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			var file = await _adminService.GetIconAsync(jwtToken, fileId);
+			return Ok(file);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message + " " + ex.InnerException != null ? ex.InnerException.Message : "");
+		}
+	}
 }
