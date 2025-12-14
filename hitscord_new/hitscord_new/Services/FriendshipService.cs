@@ -268,7 +268,7 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdFrom }, "Friendship application approved");
+		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdFrom, app.UserIdTo }, "Friendship application approved");
 	}
 
 	public async Task<ApplicationsList> GetApplicationListTo(string token)
