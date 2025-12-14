@@ -4,6 +4,7 @@ import { notification } from "antd";
 const SET_CHANNELLS = "SET_CHANNELLS";
 const SET_LOADING_CHANNELLS = "SET_LOADING_CHANNELLS";
 const SET_LOADING_REWIVING = "SET_LOADING_REWIVING";
+const CLEAR_CHANNELS = "CLEAR_CHANNELS";
 
 let initialChannelsListState = {
     channels: [/*{
@@ -41,9 +42,20 @@ const channelsListReducer = (state = initialChannelsListState, action) => {
         case SET_LOADING_REWIVING:
             newState.loadingRewiving = action.value;
             return newState;
+        case CLEAR_CHANNELS:
+            newState.channels = [];
+            newState.pagination.Page = 0;
+            newState.pagination.Number = 0;
+            newState.pagination.PageCount = 0;
+            newState.pagination.NumberCount = 0;
+            return newState;
         default:
             return newState;
     }
+}
+
+export function clearChannelsActionCreator() {
+    return { type: CLEAR_CHANNELS };
 }
 
 export function setLoadingChannelsActionCreator(value) {return { type: SET_LOADING_CHANNELLS, value }}

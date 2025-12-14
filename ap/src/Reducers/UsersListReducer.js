@@ -170,4 +170,16 @@ export function removeRoleThunkCreator(data, navigate, reloadUsers) {
     };
 }
 
+export function getIconThunkCreator(fileId, navigate) {
+    return (dispatch) => {
+        return usersApi.getIcon(fileId, navigate)
+            .then(response => {
+                if (response !== null) 
+                {
+                    return response;
+                }
+            });
+    };
+}
+
 export default usersListReducer;

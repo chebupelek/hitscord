@@ -23,6 +23,7 @@ function ProfileMenu() {
     const navigate = useNavigate();
     const isAuth = useSelector(state => state.header.isAuth);
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+    const [open, setOpen] = useState(false);
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
@@ -56,10 +57,10 @@ function ProfileMenu() {
     return (
         <div style={{ marginLeft: 'auto'}}>
             {isAuth ? (
-                <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight">
+                <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight" open={open} onOpenChange={setOpen}>
                     <a onClick={(e) => e.preventDefault()} style={{ display: 'inline-flex', alignItems: 'center', justifyItems: 'end' }}>
                         <span style={textStyle}>Меню</span>
-                        <DownOutlined style={{ color: 'white'}} />
+                        <DownOutlined style={{color: 'white', fontSize: '10px', marginLeft: '4px', transition: 'transform 0.2s ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}/>
                     </a>
                 </Dropdown>
             ) : (
