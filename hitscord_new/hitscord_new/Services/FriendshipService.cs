@@ -294,7 +294,7 @@ public class FriendshipService : IFriendshipService
 
 		var applicationsList = new ApplicationsList()
 		{
-			Applications = await _hitsContext.Friendship
+			Applications = await _hitsContext.FriendshipApplication
 				.Include(f => f.UserTo)
 					.ThenInclude(ut => ut.IconFile)
 				.Include(f => f.UserTo)
