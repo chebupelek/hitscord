@@ -1,4 +1,4 @@
-const base = "https://166664.msk.web.highserver.ru/api/admin";
+const base = import.meta.env.VITE_API_BASE_URL;
 const routers = {
     login: `${base}/login`,
     logout: `${base}/logout`,

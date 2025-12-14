@@ -16,6 +16,16 @@ using hitscord.Models.db;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration
+	.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+	.AddEnvironmentVariables();
+
+builder.Services.Configure<ClamAVOptions>(options =>
+{
+	options.Host = builder.Configuration["CLAMAV_HOST"] ?? "clamav";
+	options.Port = int.TryParse(builder.Configuration["CLAMAV_PORT"], out var port) ? port : 3310;
+});
+
 builder.Services.AddDbContext<HitsContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("RoomContext")));
 
@@ -102,17 +112,19 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+var allowedOrigins = builder.Configuration["CORS_ALLOWED_ORIGINS"]?
+	.Split(',', StringSplitOptions.RemoveEmptyEntries)
+	?? Array.Empty<string>();
+
 builder.Services.AddCors(options =>
 {
 	options.AddPolicy("FrontendPolicy", policy =>
-		{
-			policy.WithOrigins(
-				"https://166664.msk.web.highserver.ru",
-				"https://gambrinusup.github.io")
+	{
+		policy.WithOrigins(allowedOrigins)
 			  .AllowAnyHeader()
 			  .AllowAnyMethod()
 			  .AllowCredentials();
-		});
+	});
 });
 
 builder.Services.AddQuartz(q =>
