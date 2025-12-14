@@ -28,14 +28,16 @@ public class AdminService: IAdminService
 	private readonly PasswordHasher<string> _passwordHasher;
 	private readonly TokenContext _tokenContext;
 	private readonly WebSocketsManager _webSocketManager;
+	private readonly MinioService _minioService;
 
-	public AdminService(TokenContext tokenContext, WebSocketsManager webSocketManager, HitsContext hitsContext, IConfiguration configuration)
+	public AdminService(TokenContext tokenContext, WebSocketsManager webSocketManager, HitsContext hitsContext, IConfiguration configuration, MinioService minioService)
 	{
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_passwordHasher = new PasswordHasher<string>();
 		_configuration = configuration;
 		_tokenContext = tokenContext ?? throw new ArgumentNullException(nameof(tokenContext));
+		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
 	public async Task<FileMetaResponseDTO?> GetImageAsync(Guid iconId)
@@ -843,5 +845,47 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 
 		return newAdmin;
+	}
+
+	public async Task<FileResponseDTO> GetIconAsync(string token, Guid fileId)
+	{
+		await GetAdminAsync(token);
+
+		var file = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == fileId);
+		if (file == null)
+		{
+			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
+		}
+
+		if ((file.ServerId == null) && (file.UserId == null) && (file.ChatIcId == null))
+		{
+			throw new CustomException("File is not an icon", "Get file", "Icon", 400, "Файл не является иконкой", "Получение изображения");
+		}
+
+		if (string.IsNullOrWhiteSpace(file.Type) || !file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+		{
+			throw new CustomException("File is not an image", "Get file", "File type", 400, "Файл не является изображением", "Получение изображения");
+		}
+
+		try
+		{
+			await _minioService.StatFileAsync(file.Path);
+		}
+		catch (Minio.Exceptions.ObjectNotFoundException)
+		{
+			throw new CustomException("File not found in storage", "Get file", "Minio object", 404, "Файл не найден в хранилище", "Получение файла");
+		}
+
+		var fileBytes = await _minioService.GetFileAsync(file.Path);
+		var base64File = Convert.ToBase64String(fileBytes);
+
+		return new FileResponseDTO
+		{
+			FileId = file.Id,
+			FileName = file.Name,
+			FileType = file.Type,
+			FileSize = file.Size,
+			Base64File = base64File
+		};
 	}
 }
