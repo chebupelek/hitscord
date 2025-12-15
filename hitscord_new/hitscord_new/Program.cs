@@ -23,7 +23,14 @@ builder.Configuration
 builder.Services.Configure<ClamAVOptions>(options =>
 {
 	options.Host = builder.Configuration["CLAMAV_HOST"] ?? "clamav";
-	options.Port = int.TryParse(builder.Configuration["CLAMAV_PORT"], out var port) ? port : 3310;
+
+	var portStr = builder.Configuration["CLAMAV_PORT"];
+	if (!int.TryParse(portStr, out var port))
+	{
+		port = 3310;
+	}
+
+	options.Port = port;
 });
 
 string dbHost = builder.Configuration["DB_HOST"]!;
