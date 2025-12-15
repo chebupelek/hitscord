@@ -26,11 +26,23 @@ builder.Services.Configure<ClamAVOptions>(options =>
 	options.Port = int.TryParse(builder.Configuration["CLAMAV_PORT"], out var port) ? port : 3310;
 });
 
+string dbHost = builder.Configuration["DB_HOST"]!;
+string dbUser = builder.Configuration["DB_USER"]!;
+string dbPassword = builder.Configuration["DB_PASSWORD"]!;
+string dbNameFirst = builder.Configuration["DB_NAME_FIRST"]!;
+string dbNameSecond = builder.Configuration["DB_NAME_SECOND"]!;
+
+string roomConn =
+	$"Host={dbHost};Database={dbNameFirst};Username={dbUser};Password={dbPassword};";
+
+string tokenConn =
+	$"Host={dbHost};Database={dbNameSecond};Username={dbUser};Password={dbPassword};";
+
 builder.Services.AddDbContext<HitsContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("RoomContext")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString(roomConn)));
 
 builder.Services.AddDbContext<hitscord.Contexts.TokenContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("TokenContext")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString(tokenConn)));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
