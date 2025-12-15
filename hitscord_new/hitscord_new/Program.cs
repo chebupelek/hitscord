@@ -72,17 +72,29 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 
-builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("ApiSettings"));
+builder.Services.Configure<ApiSettings>(options =>
+{
+	options.BaseUrl = Environment.GetEnvironmentVariable("API_BASE_URL") ?? "https://default.url";
+});
 
 builder.Services.AddSingleton<nClamService>();
 
-builder.Services.Configure<MinioSettings>(builder.Configuration.GetSection("Minio"));
+builder.Services.Configure<MinioSettings>(options =>
+{
+	options.Endpoint = Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ?? "minio:9000";
+	options.AccessKey = Environment.GetEnvironmentVariable("MINIO_USER") ?? "";
+	options.SecretKey = Environment.GetEnvironmentVariable("MINIO_PASSWORD") ?? "";
+	options.BucketName = Environment.GetEnvironmentVariable("MINIO_BUCKET") ?? "";
+	options.UseSSL = false;
+});
+
 builder.Services.AddSingleton<MinioService>();
 
 builder.Services.AddSingleton<WebSocketConnectionStore>();
 builder.Services.AddScoped<WebSocketsManager>();
 builder.Services.AddScoped<WebSocketHandler>();
 
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "defaultSecretTooShort";
 builder.Services.AddAuthentication(opt => {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -97,8 +109,8 @@ builder.Services.AddAuthentication(opt => {
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"]!,
             ValidAudience = builder.Configuration["Jwt:Audience"]!,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!))
-        };
+			IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+		};
     });
 
 builder.Services.AddSwaggerGen(c =>
