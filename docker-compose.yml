@@ -20,7 +20,8 @@ services:
 
   frontend:
     build:
-      context: ./ap
+      context: .
+      dockerfile: ap/Dockerfile
     env_file:
       - .env
     volumes:
