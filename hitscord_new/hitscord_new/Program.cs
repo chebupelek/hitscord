@@ -124,21 +124,6 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-var allowedOrigins = builder.Configuration["CORS_ALLOWED_ORIGINS"]?
-	.Split(',', StringSplitOptions.RemoveEmptyEntries)
-	?? Array.Empty<string>();
-
-builder.Services.AddCors(options =>
-{
-	options.AddPolicy("FrontendPolicy", policy =>
-	{
-		policy.WithOrigins(allowedOrigins)
-			  .AllowAnyHeader()
-			  .AllowAnyMethod()
-			  .AllowCredentials();
-	});
-});
-
 builder.Services.AddQuartz(q =>
 {
 	var dailyJobKey = new JobKey("DailyJob");
@@ -225,8 +210,6 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
-
-app.UseCors("FrontendPolicy");
 
 app.UseWebSockets();
 app.UseMiddleware<WebSocketMiddleware>();
