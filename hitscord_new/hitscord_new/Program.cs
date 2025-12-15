@@ -74,7 +74,6 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 
 builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("ApiSettings"));
 
-builder.Services.Configure<ClamAVOptions>(builder.Configuration.GetSection("ClamAV"));
 builder.Services.AddSingleton<nClamService>();
 
 builder.Services.Configure<MinioSettings>(builder.Configuration.GetSection("Minio"));

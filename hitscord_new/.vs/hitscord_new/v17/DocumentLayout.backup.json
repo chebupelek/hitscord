@@ -60,7 +60,7 @@
               "RelativeDocumentMoniker": "hitscord_new\\Program.cs",
               "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Program.cs",
               "RelativeToolTip": "hitscord_new\\Program.cs",
-              "ViewState": "AgIAAMgAAAAAAAAAAAAAANMAAAADAAAAAAAAAA==",
+              "ViewState": "AgIAAAIAAAAAAAAAAAAAAB0AAAAOAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-12-14T21:51:51.831Z",
               "EditorCaption": ""
@@ -75,7 +75,8 @@
               "RelativeToolTip": "hitscord_new\\appsettings.json",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABwAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2025-12-14T21:37:42.497Z"
+              "WhenOpened": "2025-12-14T21:37:42.497Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -85,9 +86,10 @@
               "RelativeDocumentMoniker": "hitscord_new\\Models\\other\\ClamAVOptions.cs",
               "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Models\\other\\ClamAVOptions.cs",
               "RelativeToolTip": "hitscord_new\\Models\\other\\ClamAVOptions.cs",
-              "ViewState": "AgIAAAYAAAAAAAAAAAAAAAYAAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-14T22:06:54.073Z"
+              "WhenOpened": "2025-12-14T22:06:54.073Z",
+              "EditorCaption": ""
             }
           ]
         }
