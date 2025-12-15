@@ -1,4 +1,4 @@
-const base = import.meta.env.VITE_API_BASE_URL;
+const base = process.env.REACT_APP_API_BASE_URL;
 const routers = {
     login: `${base}/login`,
     logout: `${base}/logout`,
