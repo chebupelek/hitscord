@@ -39,10 +39,10 @@ string tokenConn =
 	$"Host={dbHost};Database={dbNameSecond};Username={dbUser};Password={dbPassword};";
 
 builder.Services.AddDbContext<HitsContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString(roomConn)));
+    options.UseNpgsql(roomConn));
 
 builder.Services.AddDbContext<hitscord.Contexts.TokenContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString(tokenConn)));
+    options.UseNpgsql(tokenConn));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
