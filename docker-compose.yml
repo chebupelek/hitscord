@@ -8,22 +8,10 @@ services:
     depends_on:
       - postgres
       - minio
+    env_file:
+      - .env
     environment:
       - ASPNETCORE_URLS=http://+:80
-      - DB_HOST=${DB_HOST}
-      - DB_NAME_FIRST=${DB_NAME_FIRST}
-      - DB_NAME_SECOND=${DB_NAME_SECOND}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - JWT_SECRET=${JWT_SECRET}
-      - CLAMAV_HOST=${CLAMAV_HOST}
-      - CLAMAV_PORT=${CLAMAV_PORT}
-      - API_BASE_URL=${API_BASE_URL}
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
-      - MINIO_USER=${MINIO_USER}
-      - MINIO_PASSWORD=${MINIO_PASSWORD}
-      - MINIO_BUCKET=${MINIO_BUCKET}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
     restart: unless-stopped
     ports:
       - "5000:80"
@@ -36,6 +24,8 @@ services:
     volumes:
       - frontend_build:/app/build
     restart: "no"
+    env_file:
+      - .env
     networks:
     - hitscord_network
 
@@ -52,6 +42,8 @@ services:
   postgres:
     image: postgres:15
     restart: always
+    env_file:
+      - .env
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -71,10 +63,8 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - frontend_build:/usr/share/nginx/html:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
-    environment:
-      - NGINX_SERVER_NAME=${NGINX_SERVER_NAME}
-      - SSL_CERT_PATH=${SSL_CERT_PATH}
-      - SSL_KEY_PATH=${SSL_KEY_PATH}
+    env_file:
+      - .env
     depends_on:
       - frontend
       - hitscord
@@ -86,9 +76,8 @@ services:
     image: minio/minio:latest
     container_name: minio
     restart: always
-    environment:
-      MINIO_ROOT_USER: ${MINIO_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    env_file:
+      - .env
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -102,10 +91,8 @@ services:
     image: minio/mc:latest
     depends_on:
       - minio
-    environment:
-      MINIO_ROOT_USER: ${MINIO_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
-      MINIO_BUCKET: ${MINIO_BUCKET}
+    env_file:
+      - .env
     entrypoint: >
       /bin/sh -c "
       sleep 5;
