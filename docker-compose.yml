@@ -25,7 +25,7 @@ services:
       - frontend_build:/app/build
     restart: "no"
     env_file:
-      - ../.env
+      - .env
     networks:
     - hitscord_network
 
