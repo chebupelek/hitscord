@@ -21,15 +21,12 @@ services:
   frontend:
     build:
       context: ./ap
-      args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL} 
-    volumes:
-      - frontend_build:/app/build
-    restart: "no"
     env_file:
       - .env
+    volumes:
+      - frontend_build:/app/build
     networks:
-    - hitscord_network
+      - hitscord_network
 
 
 
