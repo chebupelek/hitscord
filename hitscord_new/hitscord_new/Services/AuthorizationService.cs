@@ -28,11 +28,11 @@ public class AuthorizationService : IAuthorizationService
     private readonly ITokenService _tokenService;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
-	private readonly ILogger<FileService> _logger;
+	//private readonly ILogger<FileService> _logger;
 
-	public AuthorizationService(ILogger<FileService> logger, HitsContext hitsContext, ITokenService tokenService, nClamService clamService, MinioService minioService)
+	public AuthorizationService(/*ILogger<FileService> logger, */HitsContext hitsContext, ITokenService tokenService, nClamService clamService, MinioService minioService)
     {
-		_logger = logger;
+		//_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_passwordHasher = new PasswordHasher<string>();
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
@@ -330,32 +330,26 @@ public class AuthorizationService : IAuthorizationService
 
 	public async Task<FileMetaResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile)
 	{
-		_logger.LogInformation("1");
 		var user = await GetUserAsync(token);
-		_logger.LogInformation("2");
 		if (iconFile.Length > 10 * 1024 * 1024)
 		{
 			throw new CustomException("Icon too large", "Сhange server icon", "Icon", 400, "Файл слишком большой (макс. 10 МБ)", "Изменение иконки сервера");
 		}
-		_logger.LogInformation("3");
 		if (!iconFile.ContentType.StartsWith("image/"))
 		{
 			throw new CustomException("Invalid file type", "Сhange server icon", "Icon", 400, "Файл не является изображением!", "Изменение иконки сервера");
 		}
-		_logger.LogInformation("4");
 		byte[] fileBytes;
 		using (var ms = new MemoryStream())
 		{
 			await iconFile.CopyToAsync(ms);
 			fileBytes = ms.ToArray();
 		}
-		_logger.LogInformation("5");
 		var scanResult = await _clamService.ScanFileAsync(fileBytes);
 		if (scanResult.Result != ClamScanResults.Clean)
 		{
 			throw new CustomException("Virus detected", "Сhange server icon", "Icon", 400, "Обнаружен вирус в файле", "Изменение иконки сервера");
 		}
-		_logger.LogInformation("6");
 		using var imgStream = new MemoryStream(fileBytes);
 		SixLabors.ImageSharp.Image image;
 		try
@@ -366,18 +360,14 @@ public class AuthorizationService : IAuthorizationService
 		{
 			throw new CustomException("Invalid image file", "Сhange server icon", "Icon", 400, "Файл не является валидным изображением!", "Изменение иконки сервера");
 		}
-		_logger.LogInformation("7");
 		if (image.Width > 650 || image.Height > 650)
 		{
 			throw new CustomException("Icon too large", "Сhange server icon", "Icon", 400, "Изображение слишком большое (макс. 650x650)", "Изменение иконки сервера");
 		}
-		_logger.LogInformation("8");
 		var originalFileName = Path.GetFileName(iconFile.FileName);
 		var safeFileName = $"{Guid.NewGuid()}{Path.GetExtension(originalFileName)}";
 		var objectName = $"icons/{safeFileName}";
-		_logger.LogInformation("9");
 		await _minioService.UploadFileAsync(objectName, fileBytes, iconFile.ContentType);
-		_logger.LogInformation("10");
 		if (user.IconFileId != null)
 		{
 			var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == user.IconFileId);
@@ -393,7 +383,6 @@ public class AuthorizationService : IAuthorizationService
 				_hitsContext.File.Remove(oldIcon);
 			}
 		}
-		_logger.LogInformation("11");
 		var file = new FileDbModel
 		{
 			Id = Guid.NewGuid(),
@@ -407,17 +396,13 @@ public class AuthorizationService : IAuthorizationService
 			Deleted = false,
 			UserId = user.Id
 		};
-		_logger.LogInformation("12");
 		_hitsContext.File.Add(file);
 		await _hitsContext.SaveChangesAsync();
-		_logger.LogInformation("13");
 		user.IconFileId = file.Id;
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
-		_logger.LogInformation("14");
 
 		string base64Icon = Convert.ToBase64String(fileBytes);
-		_logger.LogInformation("15");
 		return (new FileMetaResponseDTO
 		{
             FileId = file.Id,
