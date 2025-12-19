@@ -1,31 +1,95 @@
 import routers from "../Router/routers";
+import { notification } from "antd";
 
-function login(body) {
+function login(body) 
+{
     return fetch(routers.login, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify(body)
-    }).then(response => {
-        if(!response.ok){
-            if (response.status === 400) {
-                alert('Invalid arguments for filtration/pagination');
-                return null;
-            } else if (response.status === 500) {
-                alert('Internal Server Error');
-                return null;
-            } else {
-                alert(`HTTP error! Status: ${response.message}`);
-                return null;
+    })
+    .then(async response => {
+        const text = await response.text();
+        let data;
+        try 
+        {
+            data = text ? JSON.parse(text) : null;
+        } 
+        catch (e) 
+        {
+            data = text;
+        }
+        if (!response.ok) 
+        {
+            switch (response.status) 
+            {
+                case 400:
+                    notification.error(
+                        {
+                            message: "Проблемы с входными данными",
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 404:
+                    notification.error(
+                        {
+                            message: "Объект не найден",
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 401:
+                    notification.error(
+                        {
+                            message: "Ошибка с аутентификацией",
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    localStorage.clear();
+                    return null;
+                case 500:
+                    notification.error(
+                        {
+                            message: "Проблема в работе сервера",
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                default:
+                    notification.error(
+                        {
+                            message: `Ошибка HTTP ${response.status}`,
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
             }
         }
-        return response.json();
-    }).then(data => {
-        localStorage.setItem("token", data.accessToken);
         return data;
-    }).catch(error => {
-        console.log(error);
+    })
+    .catch(error => {
+        console.error(error.message);
+        notification.error(
+            {
+                message: "Ошибка сети",
+                description: error.message,
+                duration: 4,
+                placement: "topLeft"
+            }
+        );
         return null;
     });
 }

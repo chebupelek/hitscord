@@ -9,7 +9,8 @@ public class ServerDbModel
     public ServerDbModel()
     {
         Id = Guid.NewGuid();
-    }
+		ServerCreateDate = DateTime.UtcNow;
+	}
 
     [Key]
     public Guid Id { get; set; }
@@ -26,4 +27,5 @@ public class ServerDbModel
 	public FileDbModel? IconFile { get; set; }
 	public required bool IsClosed { get; set; }
     public required ServerTypeEnum ServerType { get; set; }
+	public DateTime ServerCreateDate { get; set; }
 }

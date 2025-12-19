@@ -8,7 +8,7 @@ namespace hitscord.IServices;
 
 public interface IAdminService
 {
-	Task CreateAccount(AdminRegistrationDTO registrationData);
+	Task CreateAccount(string token, AdminRegistrationDTO registrationData);
 	Task<TokenDTO> LoginAsync(AdminLoginDTO loginData);
 	Task LogoutAsync(string token);
 	Task<UsersAdminListDTO> UsersListAsync(string token, int num, int page, UsersSortEnum? sort, string? name, string? mail, List<Guid>? rolesIds);
@@ -23,4 +23,8 @@ public interface IAdminService
 	Task RemoveSystemRoleAsync(string token, Guid RoleId, Guid UserId);
 	Task<AdminDbModel> CreateAccountOnce();
 	Task<FileResponseDTO> GetIconAsync(string token, Guid fileId);
+	Task<OperationsListDTO> GetOperationHistoryAsync(string token, int num, int page);
+	Task ChangeUserPasswordAsync(string token, Guid userId, string newPassword);
+	Task<ServersAdminListDTO> GetServersListAsync(string token, int num, int page, string? name);
+	Task<ServerAdminInfoDTO> GetServerDataAsync(string token, Guid ServerId);
 }

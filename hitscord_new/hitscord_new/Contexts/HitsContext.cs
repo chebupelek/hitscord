@@ -59,6 +59,8 @@ namespace hitscord.Contexts
 		public DbSet<AdminDbModel> Admin { get; set; }
 		public DbSet<ServerPresetDbModel> Preset { get; set; }
 
+		public DbSet<AdminOperationsHistoryDbModel> OperationsHistory { get; set; }
+
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
 			modelBuilder.Entity<UserDbModel>(entity =>
@@ -499,6 +501,14 @@ namespace hitscord.Contexts
 			modelBuilder.Entity<ServerPresetDbModel>(entity =>
 			{
 				entity.HasKey(p => new { p.ServerRoleId, p.SystemRoleId });
+			});
+
+			modelBuilder.Entity<AdminOperationsHistoryDbModel>(entity =>
+			{
+				entity.HasOne(o => o.Admin)
+					.WithMany()
+					.HasForeignKey(o => o.AdminId)
+					.OnDelete(DeleteBehavior.SetNull);
 			});
 		}
     }

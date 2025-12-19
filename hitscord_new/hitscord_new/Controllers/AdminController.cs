@@ -23,14 +23,17 @@ public class AdminController : ControllerBase
         _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
     }
 
+	[Authorize]
 	[HttpPost]
 	[Route("registration")]
 	public async Task<IActionResult> Registration([FromBody] AdminRegistrationDTO loginData)
 	{
 		try
 		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
 			loginData.Validation();
-			await _adminService.CreateAccount(loginData);
+			await _adminService.CreateAccount(jwtToken, loginData);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -323,6 +326,94 @@ public class AdminController : ControllerBase
 		catch (Exception ex)
 		{
 			return StatusCode(500, ex.Message + " " + ex.InnerException != null ? ex.InnerException.Message : "");
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("operations/list")]
+	public async Task<IActionResult> GetOperationsList([FromQuery] int num, [FromQuery] int page)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			var operations = await _adminService.GetOperationHistoryAsync(jwtToken, num, page);
+			return Ok(operations);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("user/change/password")]
+	public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _adminService.ChangeUserPasswordAsync(jwtToken, data.UserId, data.Password);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("server/list")]
+	public async Task<IActionResult> GetServersList([FromQuery] int num, [FromQuery] int page, [FromQuery] string? name)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			var servers = await _adminService.GetServersListAsync(jwtToken, num, page, name);
+			return Ok(servers);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("server/info")]
+	public async Task<IActionResult> GetServerInfoList([FromQuery] Guid ServerId)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			var serverInfo = await _adminService.GetServerDataAsync(jwtToken, ServerId);
+			return Ok(serverInfo);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
 		}
 	}
 }

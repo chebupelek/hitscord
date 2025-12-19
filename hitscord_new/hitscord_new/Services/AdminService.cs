@@ -19,6 +19,9 @@ using Microsoft.AspNetCore.SignalR;
 using NickBuhro.Translit;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
+using System.Threading.Channels;
+using System.Data;
+using hitscord_new.Migrations.Token;
 
 namespace hitscord.Services;
 
@@ -100,8 +103,10 @@ public class AdminService: IAdminService
 		return user;
 	}
 
-	public async Task CreateAccount(AdminRegistrationDTO registrationData)
+	public async Task CreateAccount(string token, AdminRegistrationDTO registrationData)
 	{
+		var admin = await GetAdminAsync(token);
+
 		if (await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Login == registrationData.Login) != null)
 		{
 			throw new CustomException("Account with this login already exist", "Account", "Login", 400, "Аккаунт с таким логином уже существует", "Регистрация");
@@ -122,6 +127,15 @@ public class AdminService: IAdminService
 
 		await _hitsContext.Admin.AddAsync(newUser);
 		_hitsContext.SaveChanges();
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Создание аккаунта админа",
+			OperationData = $"Админ {admin.AccountName} создал новый аккаунт админа",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
 	}
 
 	public async Task<TokenDTO> LoginAsync(AdminLoginDTO loginData)
@@ -161,6 +175,15 @@ public class AdminService: IAdminService
 			var inner = ex.InnerException?.Message;
 			throw new Exception($"EF SaveChanges failed: {inner}", ex);
 		}
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Авторизация",
+			OperationData = $"Админ {userData.AccountName} вошел в систему в {DateTime.Now}",
+			AdminId = userData.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
 
 		return new TokenDTO { AccessToken = accessToken };
 	}
@@ -264,6 +287,25 @@ public class AdminService: IAdminService
 			NumberCount = usersCount
 		};
 
+		var rolesString = "[";
+		if (rolesIds != null)
+		{
+			foreach (var id in rolesIds)
+			{
+				rolesString += id.ToString() + ", ";
+			}
+		}
+		rolesString += "]";
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Получение списка пользователей",
+			OperationData = $"Админ {admin.AccountName} запросил список пользователей num {num}, page {page}, sort {sort}, name {name}, mail {mail}, rolesString {rolesString}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
+
 		return usersList;
 	}
 
@@ -306,6 +348,8 @@ public class AdminService: IAdminService
 		var channels = await _hitsContext.Channel
 			.Include(c => c.Server)
 			.Where(c => ((TextChannelDbModel)c).DeleteTime != null)
+			.Skip((page - 1) * num)
+			.Take(num)
 			.Select( c => new TextChannelAdminItemDTO
 			{
 				ChannelId = c.Id,
@@ -325,6 +369,15 @@ public class AdminService: IAdminService
 			NumberCount = chanCount
 		};
 
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Получение списка удаленных каналов",
+			OperationData = $"Админ {admin.AccountName} запросил список удаленных каналов num {num}, page {page}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
+
 		return channelsList;
 	}
 
@@ -343,6 +396,15 @@ public class AdminService: IAdminService
 		((TextChannelDbModel)channel).DeleteTime = null;
 
 		_hitsContext.Channel.Update(channel);
+		await _hitsContext.SaveChangesAsync();
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Восстановление удаленного канала",
+			OperationData = $"Админ {admin.AccountName} восстановил канал с id {ChannelId}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
 		await _hitsContext.SaveChangesAsync();
 	}
 
@@ -385,6 +447,15 @@ public class AdminService: IAdminService
 				.Select(r => rolesDict[r.Id])
 				.ToList()
 		};
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Получение полного списка ролей",
+			OperationData = $"Админ {admin.AccountName} запросил полный список ролей системы",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
 
 		return roles;
 	}
@@ -435,6 +506,15 @@ public class AdminService: IAdminService
 
 		await _hitsContext.SystemRole.AddAsync(newSystemRole);
 		await _hitsContext.SaveChangesAsync();
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Создание системной роли",
+			OperationData = $"Админ {admin.AccountName} создал системную роль name {name}, ParentRoleId {ParentRoleId}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
 	}
 
 	public async Task RenameSystemRoleAsync(string token, Guid RoleId, string name)
@@ -452,6 +532,15 @@ public class AdminService: IAdminService
 		role.Name = name;
 
 		_hitsContext.SystemRole.Update(role);
+		await _hitsContext.SaveChangesAsync();
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Переименование системной роли",
+			OperationData = $"Админ {admin.AccountName} переименовал системную роль RoleId {RoleId}, name {name}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
 		await _hitsContext.SaveChangesAsync();
 	}
 
@@ -582,6 +671,15 @@ public class AdminService: IAdminService
 		}
 
 		_hitsContext.SystemRole.Remove(role);
+		await _hitsContext.SaveChangesAsync();
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Удаление системной роли",
+			OperationData = $"Админ {admin.AccountName} удалил системную роль {role.Name} с id {role.Id}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
 		await _hitsContext.SaveChangesAsync();
 	}
 
@@ -789,6 +887,25 @@ public class AdminService: IAdminService
 		}
 		_hitsContext.User.UpdateRange(users);
 		await _hitsContext.SaveChangesAsync();
+
+		var usersString = "[";
+		if (UsersIds != null)
+		{
+			foreach (var id in UsersIds)
+			{
+				usersString += id.ToString() + ", ";
+			}
+		}
+		usersString += "]";
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Добавление системной роли",
+			OperationData = $"Админ {admin.AccountName} добавил системную роль {role.Name} с id {role.Id} пользователям с id {usersString}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
 	}
 
 	public async Task RemoveSystemRoleAsync(string token, Guid RoleId, Guid UserId)
@@ -825,6 +942,15 @@ public class AdminService: IAdminService
 
 		user.SystemRoles.Remove(role);
 		_hitsContext.User.Update(user);
+		await _hitsContext.SaveChangesAsync();
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Изъятие системной роли",
+			OperationData = $"Админ {admin.AccountName} изъял системную роль {role.Name} с id {role.Id} у пользователя {user.AccountName} с id {user.Id}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
 		await _hitsContext.SaveChangesAsync();
 	}
 
@@ -888,5 +1014,399 @@ public class AdminService: IAdminService
 			FileSize = file.Size,
 			Base64File = base64File
 		};
+	}
+
+	public async Task<OperationsListDTO> GetOperationHistoryAsync(string token, int num, int page)
+	{
+		var admin = await GetAdminAsync(token);
+
+		if (num < 1)
+		{
+			throw new CustomException("Num < 1", "GetOperationHistoryAsync", "Num", 400, "Количество элементов меньше 1", "Получение истории операций админов");
+		}
+
+		if (page < 1)
+		{
+			throw new CustomException("Page < 1", "GetOperationHistoryAsync", "Page", 400, "Номер страницы меньше 1", "Получение истории операций админов");
+		}
+
+		var operationsCount = await _hitsContext.OperationsHistory.CountAsync();
+
+		if (operationsCount == 0)
+		{
+			return (new OperationsListDTO
+			{
+				Operations = new List<OperationItemDTO>(),
+				Page = page,
+				Number = num,
+				PageCount = 0,
+				NumberCount = 0
+			});
+		}
+
+		if ((page - 1) * num >= operationsCount)
+		{
+			throw new CustomException("Pagination error", "GetOperationHistoryAsync", "Pagination", 400, "Запрашиваются элементы превышающие их количество", "Получение истории операций админов");
+		}
+
+
+		var operations = await _hitsContext.OperationsHistory
+			.Include(c => c.Admin)
+			.OrderByDescending(c => c.OperationDate)
+			.Skip((page - 1) * num)
+			.Take(num)
+			.Select(c => new OperationItemDTO
+			{
+				Id = c.Id,
+				OpaerationTime = c.OperationDate,
+				AdminName = c.Admin.AccountName,
+				Operation = c.Operation,
+				OperationData = c.OperationData
+			})
+			.ToListAsync();
+
+		var operationsList = new OperationsListDTO
+		{
+			Operations = operations,
+			Page = page,
+			Number = num,
+			PageCount = (operationsCount + num - 1) / num,
+			NumberCount = operationsCount
+		};
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Получение истории операций админов",
+			OperationData = $"Админ {admin.AccountName} запросил историю операций админов num {num}, page {page}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
+
+		return operationsList;
+	}
+
+	public async Task ChangeUserPasswordAsync(string token, Guid userId, string newPassword)
+	{
+		var admin = await GetAdminAsync(token);
+
+		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
+
+		if (user == null)
+		{
+			throw new CustomException("User not found", "ChangeUserPasswordAsync", "UserId", 404, "Пользователь не найдены", "Изменение пароля пользователя");
+		}
+
+		user.PasswordHash = _passwordHasher.HashPassword(user.Mail, newPassword);
+		_hitsContext.User.Update(user);
+		await _hitsContext.SaveChangesAsync();
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Изменение пароля пользователя",
+			OperationData = $"Админ {admin.AccountName} изменил пароль пользователя {user.AccountName} с id {user.Id}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
+	}
+
+	public async Task<ServersAdminListDTO> GetServersListAsync(string token, int num, int page, string? name)
+	{
+		var admin = await GetAdminAsync(token);
+
+		if (num < 1)
+		{
+			throw new CustomException("Num < 1", "GetServersListAsync", "Num", 400, "Количество элементов меньше 1", "Получение списка серверов");
+		}
+
+		if (page < 1)
+		{
+			throw new CustomException("Page < 1", "GetServersListAsync", "Page", 400, "Номер страницы меньше 1", "Получение списка серверов");
+		}
+
+		var serversCount = await _hitsContext.Server.CountAsync();
+
+		if (serversCount == 0)
+		{
+			return (new ServersAdminListDTO
+			{
+				Servers = new List<ServerItemDTO>(),
+				Page = page,
+				Number = num,
+				PageCount = 0,
+				NumberCount = 0
+			});
+		}
+
+		if ((page - 1) * num >= serversCount)
+		{
+			throw new CustomException("Pagination error", "GetServersListAsync", "Pagination", 400, "Запрашиваются элементы превышающие их количество", "Получение списка серверов");
+		}
+
+
+		var servers = await _hitsContext.Server
+			.Include(s => s.Subscribtions)
+			.Include(s => s.IconFile)
+			.Where(s => (name == null || s.Name.Contains(name)))
+			.OrderByDescending(s => s.ServerCreateDate)
+			.Skip((page - 1) * num)
+			.Take(num)
+			.Select(s => new ServerItemDTO
+			{
+				Id = s.Id,
+				ServerName = s.Name,
+				ServerType = s.ServerType,
+				UsersNumber = s.Subscribtions.Count,
+				Icon = s.IconFile == null ? null : new FileMetaResponseDTO
+				{
+					FileId = s.IconFile.Id,
+					FileName = s.IconFile.Name,
+					FileType = s.IconFile.Type,
+					FileSize = s.IconFile.Size,
+					Deleted = s.IconFile.Deleted
+				}
+			})
+			.ToListAsync();
+
+		var serversList = new ServersAdminListDTO
+		{
+			Servers = servers,
+			Page = page,
+			Number = num,
+			PageCount = (serversCount + num - 1) / num,
+			NumberCount = serversCount
+		};
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Получение списка серверов",
+			OperationData = $"Админ {admin.AccountName} запросил список серверов num {num}, page {page}, name {name}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
+
+		return serversList;
+	}
+
+	public async Task<ServerAdminInfoDTO> GetServerDataAsync(string token, Guid ServerId)
+	{
+		var admin = await GetAdminAsync(token);
+
+		var server = await _hitsContext.Server
+			.Include(s => s.IconFile)
+			.FirstOrDefaultAsync(s => s.Id == ServerId);
+
+		if (server == null)
+		{
+			throw new CustomException("Server not found", "GetServerDataAsync", "ServerId", 404, "Сервер не найден", "Получение информации о сервере");
+		}
+
+		var serverUsers = await _hitsContext.UserServer
+			.Include(us => us.User)
+				.ThenInclude(u => u.IconFile)
+			.Include(us => us.User)
+				.ThenInclude(u => u.SystemRoles)
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.Where(us => us.ServerId == ServerId)
+			.Select(us => new ServerUserAdminDTO
+			{
+				ServerId = us.ServerId,
+				UserId = us.UserId,
+				UserName = us.UserServerName,
+				UserTag = us.User.AccountTag,
+				Icon = us.User.IconFile == null ? null : new FileMetaResponseDTO
+				{
+					FileId = us.User.IconFile.Id,
+					FileName = us.User.IconFile.Name,
+					FileType = us.User.IconFile.Type,
+					FileSize = us.User.IconFile.Size,
+					Deleted = us.User.IconFile.Deleted
+				},
+				IsBanned = us.IsBanned,
+				BanReason = us.BanReason,
+				BanTime = us.BanTime,
+				NonNotifiable = us.NonNotifiable,
+				Roles = us.SubscribeRoles
+					.Select(sr => new UserServerRoleAdminDTO
+					{
+						RoleId = sr.Role.Id,
+						RoleName = sr.Role.Name,
+						RoleType = sr.Role.Role,
+						Colour = sr.Role.Color
+					})
+					.ToList(),
+				SystemRoles = us.User.SystemRoles
+					.Select(sr => new SystemRoleShortItemDTO
+					{
+						Id = null,
+						Name = sr.Name,
+						Type = sr.Type
+					})
+					.ToList()
+			})
+			.ToListAsync();
+
+		var roles = await _hitsContext.Role
+			.Include(r => r.ChannelCanSee)
+				.ThenInclude(c => c.Channel)
+			.Include(r => r.ChannelCanWrite)
+				.ThenInclude(c => c.TextChannel)
+			.Include(r => r.ChannelCanWriteSub)
+				.ThenInclude(c => c.TextChannel)
+			.Include(r => r.ChannelNotificated)
+				.ThenInclude(c => c.NotificationChannel)
+			.Include(r => r.ChannelCanUse)
+				.ThenInclude(c => c.SubChannel)
+			.Include(r => r.ChannelCanJoin)
+				.ThenInclude(c => c.VoiceChannel)
+			.Where(r => r.ServerId == ServerId)
+			.Select(r => new RolesAdminItemDTO
+			{
+				Id = r.ServerId,
+				Name = r.Name,
+				Tag = r.Tag,
+				Color = r.Color,
+				Type = r.Role,
+				Permissions = new SettingsDTO
+				{
+					CanChangeRole = r.ServerCanChangeRole,
+					CanWorkChannels = r.ServerCanWorkChannels,
+					CanDeleteUsers = r.ServerCanDeleteUsers,
+					CanMuteOther = r.ServerCanMuteOther,
+					CanDeleteOthersMessages = r.ServerCanDeleteOthersMessages,
+					CanIgnoreMaxCount = r.ServerCanIgnoreMaxCount,
+					CanCreateRoles = r.ServerCanCreateRoles,
+					CanCreateLessons = r.ServerCanCreateLessons,
+					CanCheckAttendance = r.ServerCanCheckAttendance
+				},
+				ChannelCanSee = r.ChannelCanSee
+					.Select(c => new ChannelShortItemDTO
+					{
+						Id = c.ChannelId,
+						Name = c.Channel.Name
+					})
+					.ToList(),
+				ChannelCanWrite = r.ChannelCanWrite
+					.Select(c => new ChannelShortItemDTO
+					{
+						Id = c.TextChannelId,
+						Name = c.TextChannel.Name
+					})
+					.ToList(),
+				ChannelCanWriteSub = r.ChannelCanWriteSub
+					.Select(c => new ChannelShortItemDTO
+					{
+						Id = c.TextChannelId,
+						Name = c.TextChannel.Name
+					})
+					.ToList(),
+				ChannelNotificated = r.ChannelNotificated
+					.Select(c => new ChannelShortItemDTO
+					{
+						Id = c.NotificationChannelId,
+						Name = c.NotificationChannel.Name
+					})
+					.ToList(),
+				ChannelCanUse = r.ChannelCanUse
+					.Select(c => new ChannelShortItemDTO
+					{
+						Id = c.SubChannelId,
+						Name = c.SubChannel.Name
+					})
+					.ToList(),
+				ChannelCanJoin = r.ChannelCanJoin
+					.Select(c => new ChannelShortItemDTO
+					{
+						Id = c.VoiceChannelId,
+						Name = c.VoiceChannel.Name
+					})
+					.ToList()
+			})
+			.ToListAsync();
+
+		var voiceChannelResponses = await _hitsContext.VoiceChannel
+			.Include(vc => vc.Users)
+			.Where(vc => vc.ServerId == server.Id && EF.Property<string>(vc, "ChannelType") == "Voice")
+			.Select(vc => new VoiceChannelAdminResponseDTO
+			{
+				ChannelName = vc.Name,
+				ChannelId = vc.Id,
+				MaxCount = vc.MaxCount
+			})
+			.ToListAsync();
+
+		var pairVoiceChannelResponses = await _hitsContext.PairVoiceChannel
+			.Include(vc => vc.Users)
+			.Include(vc => vc.ChannelCanSee)
+			.Include(vc => vc.ChannelCanJoin)
+			.Where(vc => vc.ServerId == server.Id && EF.Property<string>(vc, "ChannelType") == "PairVoice")
+			.Select(vc => new VoiceChannelAdminResponseDTO
+			{
+				ChannelName = vc.Name,
+				ChannelId = vc.Id,
+				MaxCount = vc.MaxCount
+			})
+			.ToListAsync();
+
+		var textChannelResponses = await _hitsContext.TextChannel
+			.Include(t => t.Messages)
+			.Where(t => t.ServerId == server.Id && EF.Property<string>(t, "ChannelType") == "Text" && t.DeleteTime == null)
+			.Select(t => new TextChannelAdminResponseDTO
+			{
+				ChannelName = t.Name,
+				ChannelId = t.Id,
+				MessagesNumber = t.Messages.Count
+			})
+			.ToListAsync();
+
+		var notificationChannelResponses = await _hitsContext.NotificationChannel
+			.Include(t => t.Messages)
+			.Where(t => t.ServerId == server.Id && EF.Property<string>(t, "ChannelType") == "Notification" && t.DeleteTime == null)
+			.Select(t => new TextChannelAdminResponseDTO
+			{
+				ChannelName = t.Name,
+				ChannelId = t.Id,
+				MessagesNumber = t.Messages.Count
+			})
+			.ToListAsync();
+
+		var response = new ServerAdminInfoDTO
+		{
+			ServerId = server.Id,
+			ServerName = server.Name,
+			ServerType = server.ServerType,
+			Icon = server.IconFile == null ? null : new FileMetaResponseDTO
+			{
+				FileId = server.IconFile.Id,
+				FileName = server.IconFile.Name,
+				FileType = server.IconFile.Type,
+				FileSize = server.IconFile.Size,
+				Deleted = server.IconFile.Deleted
+			},
+			IsClosed = server.IsClosed,
+			Users = serverUsers,
+			Roles = roles,
+			Channels = new ChannelAdminListDTO
+			{
+				TextChannels = textChannelResponses,
+				NotificationChannels = notificationChannelResponses,
+				VoiceChannels = voiceChannelResponses,
+				PairVoiceChannels = pairVoiceChannelResponses
+			}
+		};
+
+		var newOperation = new AdminOperationsHistoryDbModel
+		{
+			Operation = "Получение информации о сервере",
+			OperationData = $"Админ {admin.AccountName} запросил информацию о сервере {server.Name} с id {server.Id}",
+			AdminId = admin.Id,
+		};
+		await _hitsContext.OperationsHistory.AddAsync(newOperation);
+		await _hitsContext.SaveChangesAsync();
+
+		return response;
 	}
 }

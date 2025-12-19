@@ -49,7 +49,7 @@ function getUsers(queryParams, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -144,7 +144,7 @@ function getRolesShort(queryParams, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -218,7 +218,7 @@ function addRoles(body, navigate)
                 case 400:
                     notification.error(
                         {
-                            message: "Проблемы с пагинацией",
+                            message: "Проблемы с входными данными",
                             description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
@@ -239,7 +239,7 @@ function addRoles(body, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -313,7 +313,7 @@ function removeRole(body, navigate)
                 case 400:
                     notification.error(
                         {
-                            message: "Проблемы с пагинацией",
+                            message: "Проблемы с входными данными",
                             description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
@@ -334,7 +334,7 @@ function removeRole(body, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -406,7 +406,7 @@ function getIcon(fileId, navigate)
                 case 400:
                     notification.error(
                         {
-                            message: "Проблемы с пагинацией",
+                            message: "Проблемы с входными данными",
                             description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
@@ -427,7 +427,7 @@ function getIcon(fileId, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }

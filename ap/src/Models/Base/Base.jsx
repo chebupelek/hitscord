@@ -11,10 +11,6 @@ function Base() {
     const location = useLocation();
     const navigate = useNavigate();
 
-    useEffect(() => {
-        console.log('Navigating to:', location.pathname);
-    }, [location]);
-
     return (
         <Layout.Content style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <Routes>
