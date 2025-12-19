@@ -12,6 +12,8 @@ const routers = {
     roleCreate: `${base}/roles/create`,
     roleUpdate: `${base}/roles/rename`,
     roleDelete: `${base}/roles/delete`,
-    icon: `${base}/icon`
+    icon: `${base}/icon`,
+    operations: `${base}/operations/list`,
+    changePassword: `${base}/user/change/password`
 };
 export default routers;

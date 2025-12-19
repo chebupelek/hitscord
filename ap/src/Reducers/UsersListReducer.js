@@ -1,4 +1,5 @@
 import { usersApi } from "../Api/usersApi";
+import { iconApi } from "../Api/iconApi";
 import { notification } from "antd";
 
 const SET_USERS = "SET_USERS";
@@ -172,13 +173,33 @@ export function removeRoleThunkCreator(data, navigate, reloadUsers) {
 
 export function getIconThunkCreator(fileId, navigate) {
     return (dispatch) => {
-        return usersApi.getIcon(fileId, navigate)
+        return iconApi.getIcon(fileId, navigate)
             .then(response => {
                 if (response !== null) 
                 {
                     return response;
                 }
             });
+    };
+}
+
+export function changePasswordThunkCreator(data, navigate, reloadUsers) {
+    return (dispatch) => {
+        dispatch(setLoadingRemoveRoleActionCreator(true));
+        return usersApi.changePassword(data, navigate)
+            .then(response => {
+                if (response !== null) 
+                {
+                    notification.success({
+                        message: "Успех",
+                        description: "Пароль успешно изменен",
+                        duration: 4,
+                        placement: "topLeft"
+                    });
+                    reloadUsers();
+                }
+            })
+            .finally(() => dispatch(setLoadingRemoveRoleActionCreator(false)));
     };
 }
 

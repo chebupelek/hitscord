@@ -24,7 +24,7 @@ function getRoles(navigate)
 
         if (!response.ok) 
         {
-            const description = typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data;
+            const description = typeof data === 'object' ? data.message || JSON.stringify(data) : data;
             switch (response.status) 
             {
                 case 400:
@@ -34,7 +34,7 @@ function getRoles(navigate)
                     notification.error({ message: "Объект не найден", description, duration: 4, placement: "topLeft" });
                     break;
                 case 401:
-                    notification.error({ message: "Ошибка с аутентификацией", description, duration: 4, placement: "topLeft" });
+                    notification.error({ message: "Ошибка с аутентификацией", description: "Не пройдено", duration: 4, placement: "topLeft" });
                     localStorage.clear();
                     navigate("/login");
                     break;
@@ -84,7 +84,7 @@ function createRole(body, navigate)
                     notification.error(
                         {
                             message: "Проблемы с входными данными",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -94,7 +94,7 @@ function createRole(body, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -104,7 +104,7 @@ function createRole(body, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -116,7 +116,7 @@ function createRole(body, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -126,7 +126,7 @@ function createRole(body, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -179,7 +179,7 @@ function updateRole(body, navigate)
                     notification.error(
                         {
                             message: "Проблемы с входными данными",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -189,7 +189,7 @@ function updateRole(body, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -199,7 +199,7 @@ function updateRole(body, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -211,7 +211,7 @@ function updateRole(body, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -221,7 +221,7 @@ function updateRole(body, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -274,7 +274,7 @@ function deleteRole(body, navigate)
                     notification.error(
                         {
                             message: "Проблемы с входными данными",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -284,7 +284,7 @@ function deleteRole(body, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -294,7 +294,7 @@ function deleteRole(body, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -306,7 +306,7 @@ function deleteRole(body, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -316,7 +316,7 @@ function deleteRole(body, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }

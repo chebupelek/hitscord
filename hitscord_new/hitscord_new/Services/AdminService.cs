@@ -1074,15 +1074,6 @@ public class AdminService: IAdminService
 			NumberCount = operationsCount
 		};
 
-		var newOperation = new AdminOperationsHistoryDbModel
-		{
-			Operation = "Получение истории операций админов",
-			OperationData = $"Админ {admin.AccountName} запросил историю операций админов num {num}, page {page}",
-			AdminId = admin.Id,
-		};
-		await _hitsContext.OperationsHistory.AddAsync(newOperation);
-		await _hitsContext.SaveChangesAsync();
-
 		return operationsList;
 	}
 
@@ -1327,6 +1318,20 @@ public class AdminService: IAdminService
 			})
 			.ToListAsync();
 
+		var presets = await _hitsContext.Preset
+			.Include(p => p.ServerRole)
+			.Include(p => p.SystemRole)
+			.Where(p => p.ServerRole.ServerId == server.Id)
+			.Select(p => new ServerPresetItemDTO
+			{
+				ServerRoleId = p.ServerRoleId,
+				ServerRoleName = p.ServerRole.Name,
+				SystemRoleId = p.SystemRoleId,
+				SystemRoleName = p.SystemRole.Name,
+				SystemRoleType = p.SystemRole.Type
+			})
+			.ToListAsync();
+
 		var voiceChannelResponses = await _hitsContext.VoiceChannel
 			.Include(vc => vc.Users)
 			.Where(vc => vc.ServerId == server.Id && EF.Property<string>(vc, "ChannelType") == "Voice")
@@ -1389,6 +1394,7 @@ public class AdminService: IAdminService
 			IsClosed = server.IsClosed,
 			Users = serverUsers,
 			Roles = roles,
+			Presets = presets,
 			Channels = new ChannelAdminListDTO
 			{
 				TextChannels = textChannelResponses,

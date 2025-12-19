@@ -1,17 +1,17 @@
 import { Button, Col, Row, Card, Select, Pagination, Spin } from "antd";
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getChannelsListThunkCreator } from "../../Reducers/ChannelsListReducer";
+import { getOperationsThunkCreator } from "../../Reducers/OperationsReducer";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import ChannelCard from "./channelCard";
+import OperationCard from "./operationCard";
 
-function Channels() 
+function Operations() 
 {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const channels = useSelector(state => state.channels.channels)  || [];
-    const pagination = useSelector(state => state.channels.pagination);
-    const loadingChannels = useSelector(state => state.channels.loadingChannels);
+    const operations = useSelector(state => state.operations.operations)  || [];
+    const pagination = useSelector(state => state.operations.pagination);
+    const loadingOperations = useSelector(state => state.operations.loadingOperations);
 
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -30,7 +30,7 @@ function Channels()
             `num=${sizeParam}`
         ].filter(Boolean).join('&');
 
-        dispatch(getChannelsListThunkCreator(queryParams, navigate));
+        dispatch(getOperationsThunkCreator(queryParams, navigate));
     }, [searchParams, dispatch]);
 
     const handleSearch = () => {
@@ -51,13 +51,13 @@ function Channels()
     return (
         <div style={{ width: '75%' }}>
             <Row align="middle">
-                <h1>Удаленные каналы</h1>
+                <h1>История операций администраторов</h1>
             </Row>
             <Card style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#f6f6fb' }}>
                 <div style={{ width: '100%' }}>
                     <Row gutter={16} align="middle">
                         <Col span={8}>
-                            <span>Число каналов на странице</span>
+                            <span>Число операций на странице</span>
                             <Select style={{ width: '100%' }} value={selectedSize} onChange={value => setSelectedSize(value)}>
                                 <Select.Option value="6">6</Select.Option>
                                 <Select.Option value="7">7</Select.Option>
@@ -79,18 +79,18 @@ function Channels()
                     </Row>
                 </div>
             </Card>
-            <Spin spinning={loadingChannels}>
-                {channels ? 
+            <Spin spinning={loadingOperations}>
+                {operations ? 
                     <div>
                         <Row gutter={16} style={{ marginTop: '2%' }}>
-                            {channels.map(channel => (
-                                <Col key={channel.id} span={24 / (window.innerWidth > 1200 ? 2 : 1)}>
-                                    <ChannelCard
-                                        id={channel.channelId}
-                                        name={channel.channelName}
-                                        serverId={channel.serverID}
-                                        serverName={channel.serverName}
-                                        DelteTime={channel.deleteTime}
+                            {operations.map(operation => (
+                                <Col key={operation.id} span={24}>
+                                    <OperationCard
+                                        id={operation.id}
+                                        opaerationTime={operation.opaerationTime}
+                                        adminName={operation.adminName}
+                                        operation={operation.operation}
+                                        operationData={operation.operationData}
                                     />
                                 </Col>
                             ))}
@@ -107,4 +107,4 @@ function Channels()
     );
 }
 
-export default Channels;
+export default Operations;

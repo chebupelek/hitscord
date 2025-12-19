@@ -81,7 +81,7 @@ function UsersPagination({ current, total, onChange })
         return null;
     }
     return (
-        <Row justify="center" style={{ marginTop: '2%' }}>
+        <Row justify="center" style={{ marginTop: '2%', marginBottom: '2%' }}>
             <Pagination current={parseInt(current)} pageSize={1} total={total} onChange={onChange} showSizeChanger={false}/>
         </Row>
     );

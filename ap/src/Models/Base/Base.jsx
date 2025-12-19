@@ -6,6 +6,7 @@ import Login from '../Login/Login';
 import Users from '../Users/users';
 import Channels from '../Channels/channels';
 import Roles from '../Roles/roles';
+import Operations from '../Operations/operations';
 
 function Base() {
     const location = useLocation();
@@ -19,6 +20,7 @@ function Base() {
                 <Route path="/users" element={<Users />} />
                 <Route path="/roles" element={<Roles />} />
                 <Route path='/channels' element={<Channels />} />
+                <Route path='/operations' element={<Operations />} />
             </Routes>
         </Layout.Content>
     );

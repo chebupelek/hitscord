@@ -29,7 +29,7 @@ function getChannels(queryParams, navigate)
                     notification.error(
                         {
                             message: "Проблемы с пагинацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -39,7 +39,7 @@ function getChannels(queryParams, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -49,7 +49,7 @@ function getChannels(queryParams, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -61,7 +61,7 @@ function getChannels(queryParams, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -71,7 +71,7 @@ function getChannels(queryParams, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -124,7 +124,7 @@ function rewiveChannel(body, navigate)
                     notification.error(
                         {
                             message: "Проблемы с входными данными",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -134,7 +134,7 @@ function rewiveChannel(body, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -144,7 +144,7 @@ function rewiveChannel(body, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -156,7 +156,7 @@ function rewiveChannel(body, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -166,7 +166,7 @@ function rewiveChannel(body, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
