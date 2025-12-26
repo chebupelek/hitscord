@@ -1,10 +1,14 @@
 import { Card, Typography, Checkbox, Tag, Avatar, Spin, Space, Button, Modal, Input, notification } from "antd";
 import { useState, useEffect } from 'react';
 import { CloseOutlined, UserOutlined, DeleteOutlined, KeyOutlined } from "@ant-design/icons";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from "react-router-dom";
 import { removeRoleThunkCreator, getIconThunkCreator, changePasswordThunkCreator } from "../../Reducers/UsersListReducer";
 import styles from "./UserCard.module.css";
+import { PlusOutlined } from "@ant-design/icons";
+import { Popover, Select } from "antd";
+import { addRoleThunkCreator, getRolesShortListThunkCreator } from "../../Reducers/UsersListReducer";
+
 
 function formatDate(dateString) 
 {
@@ -38,6 +42,11 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
     const [passwordError, setPasswordError] = useState('');
     const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
+    const rolesShort = useSelector(state => state.users.roles) || [];
+    const [selectedRoleId, setSelectedRoleId] = useState(null);
+    const [addRoleLoading, setAddRoleLoading] = useState(false);
+    const [popoverOpen, setPopoverOpen] = useState(false);
+
     useEffect(() => {
         if (!icon?.fileId) 
         {
@@ -69,7 +78,18 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
         }
     };
 
-    const renderRoles = () => systemRoles.map(role => <RoleTag key={role.id} role={role} onRemove={handleRemoveRole} />);
+    const renderRoles = () => (
+        <>
+            {systemRoles.map(role => (
+                <RoleTag key={role.id} role={role} onRemove={handleRemoveRole} />
+            ))}
+            <Popover content={addRolePopoverContent} trigger="click" open={popoverOpen} onOpenChange={setPopoverOpen}>
+                <Tag className={styles.roleTag} style={{ cursor: "pointer", borderStyle: "dashed", color: "#1677ff" }} icon={<PlusOutlined />} onClick={e => e.stopPropagation()}>
+                    Добавить
+                </Tag>
+            </Popover>
+        </>
+    );
 
     const openModal = (e) => {
         e.stopPropagation();
@@ -128,6 +148,47 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
         setIsConfirmVisible(false);
     };
 
+    const fetchRoles = (query = "name=") => {
+        dispatch(getRolesShortListThunkCreator(query, navigate));
+    };
+
+    const handleAddRole = () => {
+        if (!selectedRoleId)
+        {
+            return;
+        }
+
+        setAddRoleLoading(true);
+
+        const payload = {
+            roleId: selectedRoleId,
+            usersIds: [id],
+        };
+
+        dispatch(addRoleThunkCreator(
+            payload,
+            navigate,
+            () => { setSelectedRoleId(null); },
+            () => { setPopoverOpen(false); },
+            reloadUsers
+        ));
+    };
+
+    const addRolePopoverContent = (
+        <div onClick={e => e.stopPropagation()}>
+            <Space direction="vertical" size="small" style={{ width: 200 }}>
+                <Select showSearch placeholder="Выберите роль" value={selectedRoleId} onFocus={() => fetchRoles()} onSearch={value => fetchRoles(`name=${value}`)} onChange={setSelectedRoleId} filterOption={false} style={{ width: "100%" }} >
+                    {rolesShort.map(role => (
+                        <Select.Option key={role.id} value={role.id}>
+                            {role.name}
+                        </Select.Option>
+                    ))}
+                </Select>
+                <Button type="primary" size="small" block disabled={!selectedRoleId} loading={addRoleLoading} onClick={handleAddRole}>Добавить</Button>
+            </Space>
+        </div>
+    );
+
     return (
         <>
             <Card className={styles.userCard} onClick={handleCardClick}>
@@ -153,7 +214,6 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                     </div>
                 </div>
             </Card>
-
             <Modal
                 title={isConfirmVisible ? "Подтверждение изменения пароля" : "Новый пароль"}
                 visible={isModalVisible}

@@ -48,11 +48,9 @@ export function logoutThunkCreator(navigate) {
     return (dispatch) => {
         return logoutApi.logout()
             .then(response => {
-                if(response !== null){
-                    localStorage.clear();
-                    dispatch(logoutActionCreator());
-                    navigate("/login");
-                }
+                localStorage.clear();
+                dispatch(logoutActionCreator());
+                navigate("/login");
             })
     };
 }
