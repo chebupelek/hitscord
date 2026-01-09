@@ -36,7 +36,7 @@ function SideMenu() {
                         items={[
                             { key: '/users', icon: <UserOutlined />, label: <Link to="/users">Пользователи</Link> },
                             { key: '/roles', icon: <TeamOutlined />, label: <Link to="/roles">Роли</Link> },
-                            { key: '/channels', icon: <MessageOutlined />, label: <Link to="/channels">Каналы</Link> },
+                            { key: '/channels', icon: <MessageOutlined />, label: <Link to="/channels">Удаленные каналы</Link> },
                             { key: '/admin', icon: <UserAddOutlined />, label: <Link to="/admin">Добавление администратора</Link> },
                             { key: '/servers', icon: <DatabaseOutlined />, label: <Link to="/servers">Сервера</Link> },
                             { key: '/chats', icon: <CommentOutlined />, label: <Link to="/chats">Чаты</Link> },

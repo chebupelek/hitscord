@@ -1256,7 +1256,7 @@ public class AdminService: IAdminService
 			.Where(r => r.ServerId == ServerId)
 			.Select(r => new RolesAdminItemDTO
 			{
-				Id = r.ServerId,
+				Id = r.Id,
 				Name = r.Name,
 				Tag = r.Tag,
 				Color = r.Color,
@@ -1274,6 +1274,7 @@ public class AdminService: IAdminService
 					CanCheckAttendance = r.ServerCanCheckAttendance
 				},
 				ChannelCanSee = r.ChannelCanSee
+					.Where(c => !(c.Channel is TextChannelDbModel) || ((TextChannelDbModel)c.Channel).DeleteTime == null)
 					.Select(c => new ChannelShortItemDTO
 					{
 						Id = c.ChannelId,
@@ -1281,6 +1282,7 @@ public class AdminService: IAdminService
 					})
 					.ToList(),
 				ChannelCanWrite = r.ChannelCanWrite
+					.Where(c => c.TextChannel.DeleteTime == null)
 					.Select(c => new ChannelShortItemDTO
 					{
 						Id = c.TextChannelId,
@@ -1288,6 +1290,7 @@ public class AdminService: IAdminService
 					})
 					.ToList(),
 				ChannelCanWriteSub = r.ChannelCanWriteSub
+					.Where(c => c.TextChannel.DeleteTime == null)
 					.Select(c => new ChannelShortItemDTO
 					{
 						Id = c.TextChannelId,
@@ -1295,6 +1298,7 @@ public class AdminService: IAdminService
 					})
 					.ToList(),
 				ChannelNotificated = r.ChannelNotificated
+					.Where(c => c.NotificationChannel.DeleteTime == null)
 					.Select(c => new ChannelShortItemDTO
 					{
 						Id = c.NotificationChannelId,
