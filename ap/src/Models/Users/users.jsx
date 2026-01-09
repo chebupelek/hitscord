@@ -216,7 +216,7 @@ function Users()
     }, [searchParams, dispatch]);
 
     return (
-        <div style={{ width: '75%', marginBottom: '2%' }}>
+        <div style={{ width: '80%', marginBottom: '2%' }}>
             <Row align="middle">
                 <h1>Пользователи</h1>
                 <Button type="primary" style={{ backgroundColor: '#317dba', marginLeft: 'auto' }} disabled={isAddDisabled} onClick={showModal}>Добавить роль</Button>

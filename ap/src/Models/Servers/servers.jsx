@@ -85,15 +85,6 @@ function Servers()
         setSearchParams(queryParams);
     };
 
-    const reloadUsers = () => {
-        const queryParams = [
-            name ? `name=${encodeURIComponent(name)}` : '',
-            `page=${selectedPage}`,
-            `num=${selectedSize}`
-        ].filter(Boolean).join('&');
-        dispatch(getServersListThunkCreator(queryParams, navigate));
-    };
-
     const handleChangePage = (page) => {
         setSelectedPage(page.toString());
         searchParams.set('page', page.toString());
@@ -126,22 +117,14 @@ function Servers()
             <ServersFilter name={name} selectedSize={selectedSize} setName={setName} setSelectedSize={setSelectedSize} handleSearch={handleSearch}/>
             {loadingServers ? (
                 <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    {[...Array(parseInt(selectedSize))].map((_, i) => (
-                        <Skeleton key={i} active paragraph={{ rows: 4 }} />
-                    ))}
+                    {[...Array(parseInt(selectedSize))].map((_, i) => (<Skeleton key={i} active paragraph={{ rows: 4 }} />))}
                 </Space>
             ) : (
                 <>
                     <Row gutter={16} style={{ marginTop: '2%' }}>
                         {servers.map(server => (
                             <Col key={server.id} span={24}>
-                                <ServerCard
-                                    id={server.id}
-                                    serverName={server.serverName}
-                                    serverType={server.serverType}
-                                    usersNumber={server.usersNumber}
-                                    icon={server.icon}
-                                />
+                                <ServerCard id={server.id} serverName={server.serverName} serverType={server.serverType} usersNumber={server.usersNumber} icon={server.icon}/>
                             </Col>
                         ))}
                     </Row>

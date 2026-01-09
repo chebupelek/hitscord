@@ -39,7 +39,7 @@ function SideMenu() {
                             { key: '/channels', icon: <MessageOutlined />, label: <Link to="/channels">Удаленные каналы</Link> },
                             { key: '/admin', icon: <UserAddOutlined />, label: <Link to="/admin">Добавление администратора</Link> },
                             { key: '/servers', icon: <DatabaseOutlined />, label: <Link to="/servers">Сервера</Link> },
-                            { key: '/chats', icon: <CommentOutlined />, label: <Link to="/chats">Чаты</Link> },
+                            //{ key: '/chats', icon: <CommentOutlined />, label: <Link to="/chats">Чаты</Link> },
                             { key: '/operations', icon: <HistoryOutlined />, label: <Link to="/operations">История операций</Link> },
                         ]}
                     />

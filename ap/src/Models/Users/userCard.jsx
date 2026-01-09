@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from "react-router-dom";
 import { removeRoleThunkCreator, getIconThunkCreator, changePasswordThunkCreator } from "../../Reducers/UsersListReducer";
 import styles from "./UserCard.module.css";
-import { PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined, MoreOutlined, UploadOutlined } from "@ant-design/icons";
 import { Popover, Select } from "antd";
 import { addRoleThunkCreator, getRolesShortListThunkCreator } from "../../Reducers/UsersListReducer";
 
@@ -41,6 +41,14 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
     const [isConfirmVisible, setIsConfirmVisible] = useState(false);
     const [passwordError, setPasswordError] = useState('');
     const [confirmPasswordError, setConfirmPasswordError] = useState('');
+
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [editName, setEditName] = useState(name);
+    const [editMail, setEditMail] = useState(mail);
+
+    const [iconModalVisible, setIconModalVisible] = useState(false);
+    const [newIconFile, setNewIconFile] = useState(null);
+    const [iconHover, setIconHover] = useState(false);
 
     const rolesShort = useSelector(state => state.users.roles) || [];
     const [selectedRoleId, setSelectedRoleId] = useState(null);
@@ -189,15 +197,38 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
         </div>
     );
 
+    const openIconModal = () => { setIconModalVisible(true); setNewIconFile(null); };
+    const handleIconChange = (e) => setNewIconFile(e.target.files[0]);
+    const handleIconRemove = () => { console.log("Удалить иконку"); setNewIconFile(null); setIconModalVisible(false); };
+
     return (
         <>
             <Card className={styles.userCard} onClick={handleCardClick}>
                 <div className={styles.cardContent}>
-                    <Avatar
-                        src={!iconLoading ? iconSrc : null}
-                        icon={iconLoading ? <Spin size="small" /> : !iconSrc && <UserOutlined />}
-                        className={styles.userAvatar}
-                    />
+                    <div style={{ position: "relative", display: "inline-block" }} className={styles.avatarContainer}
+                        onMouseEnter={() => setIconHover(true)}
+                        onMouseLeave={() => setIconHover(false)}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <Avatar
+                            size={64}
+                            src={!iconLoading ? iconSrc : null}
+                            icon={iconLoading ? <Spin size="small" /> : !iconSrc && <UserOutlined />}
+                            style={{ cursor: "pointer", transition: "0.2s", filter: iconHover ? "brightness(70%)" : "brightness(100%)" }}
+                        />
+                        {iconHover && (
+                            <div
+                                style={{
+                                    position: "absolute", top: 0, left: 0, width: 64, height: 64,
+                                    display: "flex", justifyContent: "center", alignItems: "center",
+                                    cursor: "pointer"
+                                }}
+                                onClick={openIconModal}
+                            >
+                                <MoreOutlined style={{ color: "#fff", fontSize: 24 }} />
+                            </div>
+                        )}
+                    </div>
                     <div className={styles.textBlock}>
                         <Checkbox checked={checked} style={{ pointerEvents: 'none' }}>
                             <Typography.Title level={4} style={{ margin: 0 }}>{name}</Typography.Title>
@@ -208,7 +239,7 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                         <div style={{ marginBottom: "6px" }}>Роли:</div>
                         <div className={styles.roles}>{renderRoles()}</div>
                         <Space className={styles.userCardButtons} style={{ marginTop: '12px' }}>
-                            <Button type="primary" danger onClick={(e) => { e.stopPropagation(); }} icon={<DeleteOutlined />}>Удалить пользователя</Button>
+                            <Button type="primary" danger onClick={(e) => { e.stopPropagation(); }} icon={<DeleteOutlined />}>Удалить</Button>
                             <Button type="default" onClick={openModal} icon={<KeyOutlined />}>Сменить пароль</Button>
                         </Space>
                     </div>
@@ -232,6 +263,16 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                 ) : (
                     <Typography.Text>Вы уверены, что хотите изменить пароль пользователя <strong>{name}</strong>?</Typography.Text>
                 )}
+            </Modal>
+            <Modal title="Иконка пользователя" open={iconModalVisible} onCancel={() => setIconModalVisible(false)} footer={null}>
+                <Space direction="vertical" style={{ width: "100%", alignItems: "center" }}>
+                    <Avatar size={128} src={iconSrc} icon={<UserOutlined />} />
+                    <Space>
+                        <Button icon={<UploadOutlined />} onClick={() => document.getElementById(`userIconInput-${id}`).click()}>Заменить</Button>
+                        <Button icon={<CloseOutlined />} onClick={handleIconRemove} danger>Удалить</Button>
+                    </Space>
+                    <input type="file" id={`userIconInput-${id}`} style={{ display: "none" }} onChange={handleIconChange} />
+                </Space>
             </Modal>
         </>
     );

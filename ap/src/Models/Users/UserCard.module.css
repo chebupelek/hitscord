@@ -7,7 +7,7 @@
     transition: background-color 0.2s;
 }
 
-.userCard:hover:not(:has(.roleTag:hover)):not(:has(.userCardButtons:hover)) {
+.userCard:hover:not(:has(.roleTag:hover)):not(:has(.userCardButtons:hover)):not(:has(.avatarContainer:hover)) {
     background-color: #e6e6f0;
 }
 

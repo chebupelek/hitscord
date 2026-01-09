@@ -1,26 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import {
-    Spin,
-    Card,
-    Typography,
-    Avatar,
-    Tag,
-    Space,
-    Divider,
-    Button,
-    Collapse,
-    Popover,
-    Modal,
-    Input,
-    Select,
-    Switch,
-    message, InputNumber, ColorPicker 
-} from "antd";
+import { Spin, Card, Typography, Avatar, Tag, Space, Divider, Button, Collapse, Popover, Modal, Input, Select, Switch, message, InputNumber, ColorPicker } from "antd";
 import { PlusOutlined, MoreOutlined, UserOutlined, DatabaseOutlined, TeamOutlined, DeleteOutlined, EditOutlined, UploadOutlined, CloseOutlined } from "@ant-design/icons";
-
-
 import { getServerDataThunkCreator, clearServerDataActionCreator } from "../../Reducers/ServersReducer";
 import { getIconThunkCreator } from "../../Reducers/UsersListReducer";
 
@@ -168,9 +150,6 @@ export default function ServerInfoPage()
         </Space>
     );
 
-    console.log("565656565")
-    console.log(serverData)
-
 
     return (
         <div style={{ width: "85%", margin: "20px auto" }}>
@@ -237,15 +216,15 @@ export default function ServerInfoPage()
                         </Panel>
                     )}
 
-                    {(serverData.channels.textChannels.length > 0 || serverData.channels.voiceChannels.length > 0 ||
-                        serverData.channels.notificationChannels.length > 0 || serverData.channels.pairVoiceChannels.length > 0) && (
+                    {(serverData.channels.textChannels.length > 0 || serverData.channels.voiceChannels.length > 0 || serverData.channels.notificationChannels.length > 0 || serverData.channels.pairVoiceChannels.length > 0) && (
                             <Panel header={panelHeader("Каналы", () => setAddChannelVisible(true))} key="channels">
-                                {[...serverData.channels.textChannels.map(c => ({ ...c, type: "Текстовый" })),
-                                ...serverData.channels.voiceChannels.map(c => ({ ...c, type: "Голосовой" })),
-                                ...serverData.channels.notificationChannels.map(c => ({ ...c, type: "Уведомления" })),
-                                ...serverData.channels.pairVoiceChannels.map(c => ({ ...c, type: "Парный голосовой" }))
+                                {[
+                                    ...serverData.channels.textChannels.map(c => ({ ...c, channelKey: "textChannels" })),
+                                    ...serverData.channels.voiceChannels.map(c => ({ ...c, channelKey: "voiceChannels" })),
+                                    ...serverData.channels.notificationChannels.map(c => ({ ...c, channelKey: "notificationChannels" })),
+                                    ...serverData.channels.pairVoiceChannels.map(c => ({ ...c, channelKey: "pairVoiceChannels" }))
                                 ].map(channel => (
-                                    <ServerChannelCard key={channel.channelId} channel={channel} roles={serverData.roles} />
+                                    <ServerChannelCard key={channel.channelId} channel={channel} roles={serverData.roles} channelKey={channel.channelKey}/>
                                 ))}
                             </Panel>
                     )}
@@ -366,7 +345,7 @@ export default function ServerInfoPage()
                     setChannelType("Text");
                     setMaxUsers(2);
                 }}
-                okButtonProps={{disabled: channelName.length < 1 || channelName.length > 100 || (channelType === "Voice" && (maxUsers < 2 || maxUsers > 99))}}
+                okButtonProps={{disabled: channelName.length < 1 || channelName.length > 100 || (channelType === "Voice" && (maxUsers < 2 || maxUsers > 999))}}
             >
                 <Space direction="vertical" style={{ width: "100%" }}>
                     <Text strong>Название канала</Text>
@@ -424,27 +403,27 @@ function ServerRoleCard({ role, usersByRole })
     return (
         <Card size="small" style={{ marginBottom: 12 }}>
             <Space direction="vertical" style={{ width: "100%" }} size={4}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between"}}>
-                    <Tag color={role.color} style={{ color: textColor, fontWeight: 500, padding: "4px 10px" }}>{role.name}</Tag>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                    <Space align="center">
+                        <Tag color={role.color} style={{ color: textColor, fontWeight: 500, padding: "4px 10px" }}>{role.name}</Tag>
+                        {role.type === 2 && (<Button size="small" type="text" icon={<EditOutlined />} onClick={() => {setEditName(role.name); setEditColor(role.color); setEditVisible(true);}}/>)}
+                    </Space>
                     <Space size="small">
                         {users.length > 0 && (
                             <Popover title="Пользователи роли"
                                 content={
-                                    <div style={{maxHeight: 250, overflowY: "auto", paddingRight: 4}}>
-                                        <Space direction="vertical" style={{ width: "100%" }}>
-                                            {users.map(u => (<Text key={u.userId}>{u.userName}</Text>))}
-                                        </Space>
+                                    <div style={{ maxHeight: 250, overflowY: "auto", paddingRight: 4 }}>
+                                        <Space direction="vertical" style={{ width: "100%" }}>{users.map(u => (<Text key={u.userId}>{u.userName}</Text>))}</Space>
                                     </div>
                                 }
                             >
                                 <Button size="small">Пользователи</Button>
                             </Popover>
                         )}
-                        {role.type === 2 && (<Button size="small" icon={<EditOutlined />} onClick={() => {setEditName(role.name); setEditColor(role.color); setEditVisible(true);}}>Редактировать</Button>)}
                         {role.type === 2 && (<Button size="small" danger type="text" onClick={handleDeleteRole}>Удалить</Button>)}
                     </Space>
                 </div>
-                {role.roleType !== 3 && (
+                {role.type !== 3 && (
                     <>
                         <Text strong>Глобальные права:</Text>
                         <Space wrap>
@@ -484,11 +463,7 @@ function ServerRoleCard({ role, usersByRole })
             <Modal title="Редактировать роль" open={editVisible} onCancel={() => setEditVisible(false)} okText="Сохранить" cancelText="Отмена"
                 okButtonProps={{disabled: editName.length < 1 || editName.length > 100 || !/^#[0-9A-Fa-f]{6}$/.test(editColor)}}
                 onOk={() => {
-                    console.log("Сохранить роль:", {
-                        id: role.id,
-                        name: editName,
-                        color: editColor
-                    });
+                    console.log("Сохранить роль:", {id: role.id, name: editName, color: editColor});
                     message.success("Роль обновлена");
                     setEditVisible(false);
                 }}
@@ -520,8 +495,8 @@ function ServerRoleCard({ role, usersByRole })
     );
 }
 
-
-function ServerUserCard({ user, roles, serverData }) {
+function ServerUserCard({ user, roles, serverData }) 
+{
     const dispatch = useDispatch();
 
     const [iconSrc, setIconSrc] = useState(null);
@@ -531,7 +506,8 @@ function ServerUserCard({ user, roles, serverData }) {
     const [editUserName, setEditUserName] = useState(user.userName);
 
     useEffect(() => {
-        if (!user.icon?.fileId) {
+        if(!user.icon?.fileId) 
+        {
             setIconSrc(null);
             setIconLoading(false);
             return;
@@ -545,14 +521,20 @@ function ServerUserCard({ user, roles, serverData }) {
     const perms = {};
     user.roles.forEach(ur => {
         const role = serverData.roles.find(r => r.name === ur.roleName);
-        if (!role) return;
+        if(!role) 
+        {
+            return;
+        }
         Object.entries(role.permissions).forEach(([k, v]) => { perms[k] = perms[k] || v; });
     });
 
     const channels = { see: new Set(), write: new Set(), writeSub: new Set(), notify: new Set(), join: new Set(), use: new Set() };
     user.roles.forEach(ur => {
         const role = serverData.roles.find(r => r.name === ur.roleName);
-        if (!role) return;
+        if(!role) 
+        {
+            return;
+        }
         role.channelCanSee.forEach(c => channels.see.add(c.name));
         role.channelCanWrite.forEach(c => channels.write.add(c.name));
         role.channelCanWriteSub.forEach(c => channels.writeSub.add(c.name));
@@ -562,60 +544,68 @@ function ServerUserCard({ user, roles, serverData }) {
     });
 
     const hasGlobalPerms = Object.values(perms).some(Boolean);
-    const hasChannelPerms = channels.see.size || channels.write.size || channels.writeSub.size || channels.notify.size || channels.join.size || channels.use.size;
+    const hasChannelPerms = channels.see.size > 0 || channels.write.size > 0 || channels.writeSub.size > 0 || channels.notify.size > 0 || channels.join.size > 0 || channels.use.size > 0;
 
     const handleRemoveRole = roleId => {
-        console.log("Удалить роль у пользователя:", {
-            userId: user.userId,
-            roleId
-        });
+        console.log("Удалить роль у пользователя:", { userId: user.userId, roleId });
         message.info("Роль удалена у пользователя (пока локально)");
     };
 
     const userRoleIds = user.roles.map(r => r.roleId);
-    console.log("1212112")
-    console.log(userRoleIds)
-    const availableRoles = roles.filter(
-        r =>
-            (r.type === 1 || r.type === 2 || r.type === 3) &&
-            !userRoleIds.includes(r.id)
-    );
-    console.log("4343434")
-    console.log(roles)
-
+    const hasRootRole = user.roles.some(r => r.roleType === 0);
+    const availableRoles = hasRootRole ? [] : roles.filter(r => (r.type === 1 || r.type === 2 || r.type === 3) && !userRoleIds.includes(r.id));
 
     const handleAddRole = role => {
-        console.log("Добавить роль пользователю:", {
-            userId: user.userId,
-            roleId: role.id
-        });
+        console.log("Добавить роль пользователю:", { userId: user.userId, roleId: role.id });
         message.success(`Роль "${role.name}" добавлена (пока локально)`);
     };
 
+    const handleDeleteUser = () => {
+        if(hasRootRole)
+        {
+            return;
+        }
+
+        Modal.confirm({
+            title: `Удалить пользователя "${user.userName}"?`,
+            content: "Это действие невозможно отменить.",
+            okText: "Удалить",
+            okType: "danger",
+            cancelText: "Отмена",
+            onOk() {
+                console.log("Удалить пользователя:", user.userId);
+                message.success(`Пользователь "${user.userName}" удалён (пока локально)`);
+            }
+        });
+    };
 
     return (
         <Card size="small" style={{ marginBottom: 12 }}>
-            <Space direction="vertical" style={{ width: "100%" }}>
-                <Space align="center">
-                    <Avatar
-                        size={40}
-                        src={!iconLoading ? iconSrc : null}
-                        icon={iconLoading ? <Spin size="small" /> : <UserOutlined />}
-                    />
-                    <Text strong>
-                        {user.userName} ({user.userName}) {user.userTag}
-                    </Text>
-                    <Button
-                        size="small"
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={() => {
-                            setEditUserName(user.userName);
-                            setEditNameVisible(true);
-                        }}
-                    />
-                </Space>
-
+            <Space direction="vertical" style={{ width: "100%" }} size={4}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                    <Space align="center">
+                        <Avatar size={40} src={!iconLoading ? iconSrc : null} icon={iconLoading ? <Spin size="small" /> : <UserOutlined />}/>
+                        <Text strong>{user.userName} ({user.userName}) {user.userTag}</Text>
+                        <Button size="small" type="text" icon={<EditOutlined />} onClick={() => { setEditUserName(user.userName); setEditNameVisible(true); }}/>
+                        {!hasRootRole && (<Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={handleDeleteUser}/>)}
+                    </Space>
+                    {hasChannelPerms && (
+                        <Popover title="Права в каналах"
+                            content={
+                                <Space direction="vertical">
+                                    {channels.see.size > 0 && <Text>Может видеть: {[...channels.see].join(", ")}</Text>}
+                                    {channels.write.size > 0 && <Text>Может писать: {[...channels.write].join(", ")}</Text>}
+                                    {channels.writeSub.size > 0 && <Text>Может создавать подканалы: {[...channels.writeSub].join(", ")}</Text>}
+                                    {channels.notify.size > 0 && <Text>Получает обязательные уведомления: {[...channels.notify].join(", ")}</Text>}
+                                    {channels.join.size > 0 && <Text>Может присоединяться: {[...channels.join].join(", ")}</Text>}
+                                    {channels.use.size > 0 && <Text>Может пользоваться: {[...channels.use].join(", ")}</Text>}
+                                </Space>
+                            }
+                        >
+                            <Button size="small">Права в каналах</Button>
+                        </Popover>
+                    )}
+                </div>
                 {user.roles.length > 0 && (
                     <>
                         <Text strong>Роли:</Text>
@@ -626,168 +616,250 @@ function ServerUserCard({ user, roles, serverData }) {
                                     color={r.colour}
                                     style={{ color: getContrastTextColor(r.colour) }}
                                     closable={r.roleType === 1 || r.roleType === 2}
-                                    closeIcon={
-                                        <CloseOutlined
-                                            style={{
-                                                color: getContrastTextColor(r.colour),
-                                                opacity: 0.8
-                                            }}
-                                        />
-                                    }
-                                    onClose={e => {
-                                        e.preventDefault();
-                                        handleRemoveRole(r.roleId);
-                                    }}
+                                    closeIcon={<CloseOutlined style={{ color: getContrastTextColor(r.colour), opacity: 0.8 }} />}
+                                    onClose={e => { e.preventDefault(); handleRemoveRole(r.roleId); }}
                                 >
                                     {r.roleName}
                                 </Tag>
                             ))}
-
-                            {availableRoles.length > 0 && (
-                                <Popover
-                                    title="Добавить роль"
-                                    trigger="click"
+                            {availableRoles.length > 0 && !hasRootRole && (
+                                <Popover title="Добавить роль" trigger="click"
                                     content={
-                                        <Space direction="vertical" style={{ maxWidth: 240 }}>
-                                            {availableRoles.map(role => (
-                                                <Button
-                                                    key={role.id}
-                                                    type="text"
-                                                    size="small"
-                                                    onClick={() => handleAddRole(role)}
-                                                >
-                                                    <Tag
-                                                        color={role.color}
-                                                        style={{
-                                                            color: getContrastTextColor(role.color),
-                                                            marginRight: 6
-                                                        }}
-                                                    >
-                                                        {role.name}
-                                                    </Tag>
-                                                </Button>
-                                            ))}
-                                        </Space>
+                                        <div style={{ maxWidth: 240, maxHeight: 300, overflowY: "auto" }}>
+                                            <Space direction="vertical" style={{ width: "100%" }}>
+                                                {availableRoles.map(role => (
+                                                    <Button key={role.id} type="text" size="small" onClick={() => handleAddRole(role)} style={{ width: "100%", textAlign: "left" }}>
+                                                        <Tag color={role.color} style={{ color: getContrastTextColor(role.color), marginRight: 6 }}>{role.name}</Tag>
+                                                    </Button>
+                                                ))}
+                                            </Space>
+                                        </div>
                                     }
                                 >
-                                    <Button size="small" icon={<PlusOutlined />}>
-                                        Добавить
-                                    </Button>
+                                    <Button size="small" icon={<PlusOutlined />}>Добавить</Button>
                                 </Popover>
                             )}
                         </Space>
                     </>
                 )}
-
-
                 {user.systemRoles.length > 0 && (
                     <>
                         <Text strong>Системные роли:</Text>
-                        <Space wrap>{user.systemRoles.map(sr => (
-                            <Tag key={sr.name} color={sr.type === 1 ? "gold" : "blue"}>{sr.name}</Tag>
-                        ))}</Space>
+                        <Space wrap>{user.systemRoles.map(sr => (<Tag key={sr.name} color={sr.type === 1 ? "gold" : "blue"}>{sr.name}</Tag>))}</Space>
                     </>
                 )}
-
                 {hasGlobalPerms && (
                     <>
-                        <Divider />
                         <Text strong>Суммарные права:</Text>
                         <Space wrap>{Object.entries(perms).filter(([, v]) => v).map(([k]) => <Tag key={k}>{PERMISSION_LABELS[k]}</Tag>)}</Space>
                     </>
                 )}
-
-                {hasChannelPerms && (
-                    <>
-                        <Divider />
-                        <Popover title="Права в каналах" content={
-                            <Space direction="vertical">
-                                {channels.see.size > 0 && <Text>Может видеть: {[...channels.see].join(", ")}</Text>}
-                                {channels.write.size > 0 && <Text>Может писать: {[...channels.write].join(", ")}</Text>}
-                                {channels.writeSub.size > 0 && <Text>Может создавать подканалы: {[...channels.writeSub].join(", ")}</Text>}
-                                {channels.notify.size > 0 && <Text>Получает обязательные уведомления: {[...channels.notify].join(", ")}</Text>}
-                                {channels.join.size > 0 && <Text>Может присоединяться: {[...channels.join].join(", ")}</Text>}
-                                {channels.use.size > 0 && <Text>Может пользоваться: {[...channels.join].join(", ")}</Text>}
-                            </Space>
-                        }>
-                            <Button size="small">Права в каналах</Button>
-                        </Popover>
-                    </>
-                )}
             </Space>
-            <Modal
-                title="Редактировать имя пользователя"
-                open={editNameVisible}
-                onCancel={() => setEditNameVisible(false)}
-                okText="Сохранить"
-                cancelText="Отмена"
-                okButtonProps={{
-                    disabled: editUserName.length < 3 || editUserName.length > 50
-                }}
+            <Modal title="Редактировать имя пользователя" open={editNameVisible}
+                onCancel={() => setEditNameVisible(false)} okText="Сохранить" cancelText="Отмена"
+                okButtonProps={{ disabled: editUserName.trim().length < 6 || editUserName.trim().length > 50 }}
                 onOk={() => {
-                    console.log("Изменить имя пользователя:", {
-                        userId: user.userId,
-                        userName: editUserName
-                    });
+                    console.log("Изменить имя пользователя:", { userId: user.userId, userName: editUserName.trim() });
                     message.success("Имя обновлено (пока локально)");
                     setEditNameVisible(false);
                 }}
             >
-                <Input
-                    value={editUserName}
-                    onChange={e => setEditUserName(e.target.value)}
-                    maxLength={50}
-                />
+                <Input value={editUserName} onChange={e => setEditUserName(e.target.value)} maxLength={50} />
+                <Text type={editUserName.trim().length >= 6 ? "secondary" : "danger"}>Имя должно быть от 6 до 50 символов</Text>
             </Modal>
         </Card>
     );
 }
 
-/* ==================== ServerChannelCard ==================== */
-function ServerChannelCard({ channel, roles }) {
-    const rolesWithRights = roles
-        .map(role => {
-            const rights = [];
-            if (role.channelCanSee.some(c => c.id === channel.channelId)) rights.push("Видит");
-            if (role.channelCanWrite.some(c => c.id === channel.channelId)) rights.push("Пишет");
-            if (role.channelCanWriteSub.some(c => c.id === channel.channelId)) rights.push("Пишет в подканалы");
-            if (role.channelCanJoin.some(c => c.id === channel.channelId)) rights.push("Может заходить");
-            if (role.channelNotificated.some(c => c.id === channel.channelId)) rights.push("Получает уведомления");
-            return rights.length ? { role, rights } : null;
-        })
-        .filter(Boolean);
+const CHANNEL_TYPE_LABELS = {
+    textChannels: "Текстовый",
+    voiceChannels: "Голосовой",
+    notificationChannels: "Уведомления",
+    pairVoiceChannels: "Парный голосовой"
+};
+
+function ServerChannelCard({ channel, roles, channelKey }) 
+{
+    const [editVisible, setEditVisible] = useState(false);
+    const [editName, setEditName] = useState(channel.channelName);
+    const [editMaxCount, setEditMaxCount] = useState(channel.maxCount || 2);
+
+    const rightsMap = {};
+    roles.forEach(role => {
+        const addRole = (perm, roleChannels) => {
+            if(roleChannels?.some(c => c.id === channel.channelId || c.channelId === channel.channelId)) 
+            {
+                if(!rightsMap[perm]) 
+                {
+                    rightsMap[perm] = [];
+                }
+                rightsMap[perm].push(role);
+            }
+        };
+        if(channelKey === "textChannels")
+        {
+            addRole("Могут видеть", role.channelCanSee);
+            addRole("Могут писать", role.channelCanWrite);
+            addRole("Могут создавать подканалы", role.channelCanWriteSub);
+        } 
+        else if(channelKey === "notificationChannels") 
+        {
+            addRole("Могут видеть", role.channelCanSee);
+            addRole("Могут писать", role.channelCanWrite);
+            addRole("Получают обязательные уведомления", role.channelNotificated);
+        } 
+        else if(channelKey === "voiceChannels") 
+        {
+            addRole("Могут видеть", role.channelCanSee);
+            addRole("Могут присоединяться", role.channelCanJoin);
+        }
+    });
+
+    let extraInfo = null;
+    if(channel.messagesNumber !== undefined) 
+    {
+        extraInfo = `${channel.messagesNumber} сообщений`;
+    } 
+    else if(channel.maxCount !== undefined) 
+    {
+        extraInfo = `Макс. пользователей: ${channel.maxCount}`;
+    }
+
+    const handleRemoveRoleFromPerm = (perm, role) => {
+        if(role.type === 0)
+        {
+            return;
+        }
+        console.log(`Удалить роль "${role.name}" из права "${perm}"`);
+        message.info(`Роль "${role.name}" удалена из права "${perm}" (пока локально)`);
+    };
+
+    const handleAddRoleToPerm = (perm, role) => {
+        console.log(`Добавить роль "${role.name}" к праву "${perm}"`);
+        message.success(`Роль "${role.name}" добавлена к праву "${perm}" (пока локально)`);
+    };
+
+    const getAvailableRolesForPerm = (permRoles) => {
+        return roles.filter(r => !permRoles.some(pr => pr.id === r.id));
+    };
+
+    const handleDeleteChannel = () => {
+        Modal.confirm({
+            title: `Удалить канал "${channel.channelName}"?`,
+            content: "Это действие невозможно отменить.",
+            okText: "Удалить",
+            okType: "danger",
+            cancelText: "Отмена",
+            onOk() {
+                console.log("Удалить канал:", channel.channelId);
+                message.success(`Канал "${channel.channelName}" удалён (пока локально)`);
+            }
+        });
+    };
 
     return (
         <Card size="small" style={{ marginBottom: 12 }}>
-            <Space direction="vertical">
-                <Text strong>{channel.channelName}</Text>
-                <Tag>{channel.type}</Tag>
-
-                {rolesWithRights.length > 0 && (
+            <Space direction="vertical" style={{ width: "100%" }} size={4}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                    <Space align="center">
+                        <Text strong>{channel.channelName}</Text>
+                        <Tag color="blue" style={{ fontWeight: 500 }}>{CHANNEL_TYPE_LABELS[channelKey]}</Tag>
+                        <Button size="small" type="text" icon={<EditOutlined />}
+                            onClick={() => {
+                                setEditName(channel.channelName);
+                                if(channel.maxCount !== undefined)
+                                {
+                                    setEditMaxCount(channel.maxCount);
+                                }
+                                setEditVisible(true);
+                            }}
+                        />
+                        <Button size="small" type="text" icon={<DeleteOutlined />} danger onClick={handleDeleteChannel}/>
+                    </Space>
+                    {extraInfo && <Text type="secondary">{extraInfo}</Text>}
+                </div>
+                {Object.keys(rightsMap).length > 0 && (
                     <>
-                        <Divider />
-                        <Text strong>Роли и права:</Text>
-                        {rolesWithRights.map(({ role, rights }) => (
-                            <Card key={role.name} size="small">
-                                <Tag color={role.color}>{role.name}</Tag>
-                                <Space wrap>{rights.map(r => <Tag key={r}>{r}</Tag>)}</Space>
+                        <Text strong>Роли по правам:</Text>
+                        {Object.entries(rightsMap).map(([perm, rolesList]) => (
+                            <Card key={perm} size="small" style={{ marginBottom: 4 }}>
+                                <div style={{ display: "flex", alignItems: "center" }}>
+                                    <Text style={{ minWidth: 200, fontWeight: 500 }}>{perm}:</Text>
+                                    <Space wrap>
+                                        {rolesList.map(r => (
+                                            <Tag key={r.id} closable={r.type !== 0} onClose={e => {e.preventDefault(); handleRemoveRoleFromPerm(perm, r);}}
+                                                style={{backgroundColor: r.color, color: getContrastTextColor(r.color), fontWeight: 500, opacity: r.type === 0 ? 0.6 : 1}}
+                                            >
+                                                {r.name}
+                                            </Tag>
+                                        ))}
+                                        {getAvailableRolesForPerm(rolesList).length > 0 && (
+                                            <Popover title={`Добавить роль к "${perm}"`} trigger="click"
+                                                content={
+                                                    <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                                                        <Space direction="vertical" style={{ width: "100%" }}>
+                                                            {getAvailableRolesForPerm(rolesList).map(r => (
+                                                                <Button key={r.id} type="text" size="small" style={{ width: "100%", textAlign: "left" }} onClick={() => handleAddRoleToPerm(perm, r)}>
+                                                                    <Tag color={r.color} style={{ color: getContrastTextColor(r.color), marginRight: 6 }}>{r.name}</Tag>
+                                                                </Button>
+                                                            ))}
+                                                        </Space>
+                                                    </div>
+                                                }
+                                            >
+                                                <Button size="small" icon={<PlusOutlined />} />
+                                            </Popover>
+                                        )}
+                                    </Space>
+                                </div>
                             </Card>
                         ))}
                     </>
                 )}
             </Space>
+            <Modal title="Редактировать канал" open={editVisible} onCancel={() => setEditVisible(false)} okText="Сохранить" cancelText="Отмена"
+                okButtonProps={{disabled: editName.trim().length < 1 || editName.trim().length > 100 || (channel.maxCount !== undefined && (editMaxCount < 2 || editMaxCount > 999))}}
+                onOk={() => {
+                    console.log("Сохранить канал:", { channelId: channel.channelId, name: editName.trim(), maxCount: editMaxCount });
+                    message.success("Канал обновлен (пока локально)");
+                    setEditVisible(false);
+                }}
+            >
+                <Space direction="vertical" style={{ width: "100%" }}>
+                    <Text strong>Название канала</Text>
+                    <Input value={editName} onChange={e => setEditName(e.target.value)} maxLength={100} />
+                    {channel.maxCount !== undefined && (
+                        <>
+                            <Text strong>Максимальное количество пользователей</Text>
+                            <Input type="number" value={editMaxCount} onChange={e => setEditMaxCount(Number(e.target.value))} min={2} max={999}/>
+                        </>
+                    )}
+                </Space>
+            </Modal>
         </Card>
     );
 }
 
-/* ==================== ServerPresetCard ==================== */
-function ServerPresetCard({ preset }) {
+function ServerPresetCard({ preset }) 
+{
+    const handleDeletePreset = () => {
+        Modal.confirm({title: `Удалить пресет "${preset.serverRoleName} → ${preset.systemRoleName}"?`, content: "Это действие невозможно отменить.", okText: "Удалить", okType: "danger", cancelText: "Отмена",
+            onOk() {
+                console.log("Удалить пресет:", preset);
+                message.success(`Пресет "${preset.serverRoleName} → ${preset.systemRoleName}" удалён (пока локально)`);
+            }
+        });
+    };
+
     return (
         <Card size="small" style={{ marginBottom: 12 }}>
-            <Text>
-                <Tag color="purple">{preset.serverRoleName}</Tag> →{" "}
-                <Tag color={preset.systemRoleType === 1 ? "gold" : "blue"}>{preset.systemRoleName}</Tag>
-            </Text>
+            <Space align="center" style={{ justifyContent: "space-between", width: "100%" }}>
+                <Text>
+                    <Tag color="purple">{preset.serverRoleName}</Tag> →{" "}
+                    <Tag color={preset.systemRoleType === 1 ? "gold" : "blue"}>{preset.systemRoleName}</Tag>
+                </Text>
+                <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={handleDeletePreset}/>
+            </Space>
         </Card>
     );
 }
