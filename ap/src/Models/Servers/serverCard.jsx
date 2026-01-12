@@ -47,6 +47,7 @@ function ServerCard({ id, serverName, serverType, usersNumber, icon })
                 <Space align="center" size="middle">
                     <Avatar size={42} src={!iconLoading ? iconSrc : null} icon={iconLoading ? <Spin size="small" /> : <DatabaseOutlined style={{ fontSize: '1.2em' }} />}/>
                     <Text strong ellipsis style={{ maxWidth: 300, fontSize: '1.2em' }}>{serverName}</Text>
+                    <Text ellipsis style={{ maxWidth: 320, fontSize: '0.9em' }}>{id}</Text>
                 </Space>
                 <Space align="center" size="small">
                     <Tag color={serverTypeColor} style={{ fontSize: '1em' }}>{serverTypeLabel}</Tag>

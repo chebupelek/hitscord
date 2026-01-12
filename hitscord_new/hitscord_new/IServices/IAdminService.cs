@@ -27,4 +27,26 @@ public interface IAdminService
 	Task ChangeUserPasswordAsync(string token, Guid userId, string newPassword);
 	Task<ServersAdminListDTO> GetServersListAsync(string token, int num, int page, string? name);
 	Task<ServerAdminInfoDTO> GetServerDataAsync(string token, Guid ServerId);
+
+
+
+	Task ChangeServerDataAsync(string token, Guid serverId, string serverName, ServerTypeEnum serverType, bool serverClosed, Guid newCreatorId);
+	Task ChangeServerIconAdminAsync(string token, Guid serverId, IFormFile iconFile);
+	Task DeleteServerIconAdminAsync(string token, Guid serverId);
+	Task<RolesItemDTO> CreateRoleAdminAsync(string token, Guid serverId, string roleName, string color);
+	Task DeleteRoleAdminAsync(string token, Guid serverId, Guid roleId);
+	Task UpdateRoleAsync(string token, Guid serverId, Guid roleId, string name, string color);
+	Task ChangeRoleSettingsAdminAsync(string token, Guid serverId, Guid roleId, SettingsEnum setting, bool settingsData);
+	Task DeleteUserFromServerAdminAsync(string token, Guid serverId, Guid userId);
+	Task ChangeUserNameAdminAsync(Guid serverId, string token, Guid userId, string name);
+	Task AddRoleToUserAdminAsync(string token, Guid serverId, Guid userId, Guid roleId);
+	Task RemoveRoleFromUserAdminAsync(string token, Guid serverId, Guid userId, Guid roleId);
+	Task CreateChannelAdminAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType, int? maxCount);
+	Task<bool> DeleteChannelAdminAsync(Guid chnnelId, string token);
+	Task ChnageChannnelNameAdminAsync(string token, Guid channelId, string name, int? number);
+	Task<bool> ChangeVoiceChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData);
+	Task<bool> ChangeTextChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData);
+	Task<bool> ChangeNotificationChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData);
+	Task<ServerPresetItemDTO> CreatePresetAdminAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
+	Task DeletePresetAdminAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
 }

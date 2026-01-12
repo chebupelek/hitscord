@@ -36,7 +36,7 @@ public class RolesService : IRolesService
 			.Include(r => r.ChannelNotificated)
 			.Include(r => r.ChannelCanUse)
 			.Include(r => r.ChannelCanJoin)
-			.FirstOrDefaultAsync(r => r.Id == roleId);
+			.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == serverId);
 		if (dbCheck == null)
 		{
 			throw new CustomException("Role not found", "Check role for existing", "Role id", 404, "Роль не найдена", "Проверка наличия роли");

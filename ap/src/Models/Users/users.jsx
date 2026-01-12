@@ -1,9 +1,10 @@
-import { Button, Col, Row, Card, Select, Input, Space, Pagination, Modal, Form, Skeleton, Spin } from "antd";
+import { Button, Col, Row, Card, Select, Input, Space, Pagination, Modal, Form, Skeleton, Spin, Avatar } from "antd";
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getUsersListThunkCreator, getRolesShortListThunkCreator, addRoleThunkCreator } from "../../Reducers/UsersListReducer";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import UserCard from "./userCard";
+import { UserAddOutlined, UploadOutlined, UserOutlined, CloseOutlined } from "@ant-design/icons";
 
 function UsersFilter({ name, mail, selectedSort, rolesId, selectedSize, setName, setMail, setSelectedSort, setRolesId, setSelectedSize, handleSearch, rolesShort, fetchRoles, handleSelectAll, isAllSelected, loadingRolesShort }) 
 {
@@ -136,6 +137,15 @@ function Users()
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedRoleId, setSelectedRoleId] = useState(null);
 
+
+    const [isCreateUserModalVisible, setIsCreateUserModalVisible] = useState(false);
+    const [newUserName, setNewUserName] = useState("");
+    const [newUserMail, setNewUserMail] = useState("");
+    const [newUserPassword, setNewUserPassword] = useState("");
+    const [newUserIcon, setNewUserIcon] = useState(null);
+    const [newUserIconPreview, setNewUserIconPreview] = useState(null);
+
+
     const isAddDisabled = selectedUsers.length === 0;
     const isSubmitDisabled = selectedUsers.length === 0 || !selectedRoleId;
 
@@ -215,12 +225,51 @@ function Users()
         dispatch(getUsersListThunkCreator(queryParams, navigate));
     }, [searchParams, dispatch]);
 
-    return (
+
+
+    const handleNewUserIconChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setNewUserIcon(file);
+
+    const reader = new FileReader();
+    reader.onload = () => setNewUserIconPreview(reader.result);
+    reader.readAsDataURL(file);
+};
+
+const handleNewUserIconRemove = () => {
+    setNewUserIcon(null);
+    setNewUserIconPreview(null);
+};
+
+
+
+
+    return (<>
         <div style={{ width: '80%', marginBottom: '2%' }}>
             <Row align="middle">
                 <h1>Пользователи</h1>
-                <Button type="primary" style={{ backgroundColor: '#317dba', marginLeft: 'auto' }} disabled={isAddDisabled} onClick={showModal}>Добавить роль</Button>
+
+                <Space style={{ marginLeft: "auto" }}>
+                    <Button
+                        icon={<UserAddOutlined />}
+                        onClick={() => setIsCreateUserModalVisible(true)}
+                    >
+                        Добавить пользователя
+                    </Button>
+
+                    <Button
+                        type="primary"
+                        style={{ backgroundColor: '#317dba' }}
+                        disabled={isAddDisabled}
+                        onClick={showModal}
+                    >
+                        Добавить роль
+                    </Button>
+                </Space>
             </Row>
+
             <UsersFilter
                 name={name} mail={mail} selectedSort={selectedSort} rolesId={rolesId} selectedSize={selectedSize}
                 setName={setName} setMail={setMail} setSelectedSort={setSelectedSort} setRolesId={setRolesId} setSelectedSize={setSelectedSize}
@@ -269,6 +318,93 @@ function Users()
                 loadingAddRole={loadingAddRole}
             />
         </div>
+
+        <Modal
+    title="Создание пользователя"
+    open={isCreateUserModalVisible}
+    onCancel={() => {
+        setIsCreateUserModalVisible(false);
+        handleNewUserIconRemove();
+    }}
+    okText="Создать"
+    cancelText="Отмена"
+    onOk={() => {
+        // TODO: dispatch(createUserThunkCreator)
+        setIsCreateUserModalVisible(false);
+        handleNewUserIconRemove();
+        setNewUserName("");
+        setNewUserMail("");
+        setNewUserPassword("");
+    }}
+>
+    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+
+        {/* ИКОНКА */}
+        <Space
+            direction="vertical"
+            align="center"
+            style={{
+                width: "100%",
+                padding: "12px 0",
+                borderRadius: 8,
+                background: "#fafafa"
+            }}
+        >
+            <Avatar
+                size={128}
+                src={newUserIconPreview}
+                icon={!newUserIconPreview && <UserOutlined />}
+            />
+
+            <Space>
+                <Button
+                    icon={<UploadOutlined />}
+                    onClick={() => document.getElementById("newUserIconInput").click()}
+                >
+                    Заменить
+                </Button>
+
+                <Button
+                    icon={<CloseOutlined />}
+                    danger
+                    disabled={!newUserIcon}
+                    onClick={handleNewUserIconRemove}
+                >
+                    Удалить
+                </Button>
+            </Space>
+
+            <input
+                type="file"
+                id="newUserIconInput"
+                style={{ display: "none" }}
+                accept="image/*"
+                onChange={handleNewUserIconChange}
+            />
+        </Space>
+
+        {/* ПОЛЯ */}
+        <Input
+            placeholder="Имя пользователя"
+            value={newUserName}
+            onChange={e => setNewUserName(e.target.value)}
+        />
+
+        <Input
+            placeholder="Почта"
+            value={newUserMail}
+            onChange={e => setNewUserMail(e.target.value)}
+        />
+
+        <Input.Password
+            placeholder="Пароль"
+            value={newUserPassword}
+            onChange={e => setNewUserPassword(e.target.value)}
+        />
+    </Space>
+</Modal>
+
+</>
     );
 }
 

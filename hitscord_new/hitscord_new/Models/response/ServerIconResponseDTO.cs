@@ -3,5 +3,5 @@
 public class ServerIconResponseDTO
 {
     public required Guid ServerId { get; set; }
-    public required FileMetaResponseDTO Icon { get; set; }
+    public FileMetaResponseDTO? Icon { get; set; }
 }

@@ -9,7 +9,9 @@ public interface IChannelService
 {
     Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId);
     Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId);
-    Task<ChannelDbModel> CheckTextOrNotificationChannelExistAsync(Guid channelId);
+    Task<VoiceChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers);
+    Task<ChannelDbModel> CheckNotificationChannelExistAsync(Guid channelId);
+	Task<ChannelDbModel> CheckTextOrNotificationChannelExistAsync(Guid channelId);
     Task<ChannelDbModel> CheckTextOrNotificationOrSubChannelExistAsync(Guid channelId);
 	Task<PairVoiceChannelDbModel> CheckPairVoiceChannelExistAsync(Guid channelId, bool joinedUsers);
 	Task CreateChannelAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType, int? maxCount);

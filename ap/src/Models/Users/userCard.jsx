@@ -1,11 +1,11 @@
-import { Card, Typography, Checkbox, Tag, Avatar, Spin, Space, Button, Modal, Input, notification } from "antd";
+import { Card, Typography, Checkbox, Tag, Avatar, Spin, Space, Button, Modal, Input } from "antd";
 import { useState, useEffect } from 'react';
 import { CloseOutlined, UserOutlined, DeleteOutlined, KeyOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from "react-router-dom";
 import { removeRoleThunkCreator, getIconThunkCreator, changePasswordThunkCreator } from "../../Reducers/UsersListReducer";
 import styles from "./UserCard.module.css";
-import { PlusOutlined, MoreOutlined, UploadOutlined } from "@ant-design/icons";
+import { PlusOutlined, MoreOutlined, UploadOutlined, EditOutlined } from "@ant-design/icons";
 import { Popover, Select } from "antd";
 import { addRoleThunkCreator, getRolesShortListThunkCreator } from "../../Reducers/UsersListReducer";
 
@@ -42,10 +42,6 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
     const [passwordError, setPasswordError] = useState('');
     const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
-    const [editModalVisible, setEditModalVisible] = useState(false);
-    const [editName, setEditName] = useState(name);
-    const [editMail, setEditMail] = useState(mail);
-
     const [iconModalVisible, setIconModalVisible] = useState(false);
     const [newIconFile, setNewIconFile] = useState(null);
     const [iconHover, setIconHover] = useState(false);
@@ -54,6 +50,15 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
     const [selectedRoleId, setSelectedRoleId] = useState(null);
     const [addRoleLoading, setAddRoleLoading] = useState(false);
     const [popoverOpen, setPopoverOpen] = useState(false);
+
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [editName, setEditName] = useState(name);
+    const [editMail, setEditMail] = useState(mail);
+
+
+    const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+
+    
 
     useEffect(() => {
         if (!icon?.fileId) 
@@ -230,16 +235,48 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                         )}
                     </div>
                     <div className={styles.textBlock}>
-                        <Checkbox checked={checked} style={{ pointerEvents: 'none' }}>
-                            <Typography.Title level={4} style={{ margin: 0 }}>{name}</Typography.Title>
-                        </Checkbox>
+                        <div className={styles.userNameRow}>
+    <Checkbox checked={checked} />
+
+    <Space align="center">
+        <Typography.Title level={4} style={{ margin: 0 }}>
+            {name}
+        </Typography.Title>
+
+        <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            className={styles.editButton}
+            onClick={(e) => {
+                e.stopPropagation();   // ❗ карточка
+                setEditName(name);
+                setEditMail(mail);
+                setEditModalVisible(true);
+            }}
+        />
+    </Space>
+</div>
+
                         <div>Почта - <strong>{mail}</strong></div>
                         <div>Тэг - <strong>{accountTag}</strong></div>
                         <div>Дата создания аккаунта - <strong>{formatDate(accountCreateDate)}</strong></div>
+                        <div>Является создателем - <strong>нет</strong></div>
                         <div style={{ marginBottom: "6px" }}>Роли:</div>
                         <div className={styles.roles}>{renderRoles()}</div>
                         <Space className={styles.userCardButtons} style={{ marginTop: '12px' }}>
-                            <Button type="primary" danger onClick={(e) => { e.stopPropagation(); }} icon={<DeleteOutlined />}>Удалить</Button>
+                            <Button
+    type="primary"
+    danger
+    icon={<DeleteOutlined />}
+    onClick={(e) => {
+        e.stopPropagation();           // чтобы не триггерить чекбокс
+        setDeleteConfirmVisible(true); // открываем модалку
+    }}
+>
+    Удалить
+</Button>
+
                             <Button type="default" onClick={openModal} icon={<KeyOutlined />}>Сменить пароль</Button>
                         </Space>
                     </div>
@@ -274,6 +311,56 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                     <input type="file" id={`userIconInput-${id}`} style={{ display: "none" }} onChange={handleIconChange} />
                 </Space>
             </Modal>
+            <Modal
+    title="Редактирование пользователя"
+    open={editModalVisible}
+    okText="Сохранить"
+    cancelText="Отмена"
+    onCancel={() => setEditModalVisible(false)}
+    onOk={() => {
+        // TODO: dispatch thunk на изменение
+        console.log("Новое имя:", editName);
+        console.log("Новая почта:", editMail);
+
+        setEditModalVisible(false);
+    }}
+>
+    <Space direction="vertical" style={{ width: "100%" }}>
+        <Input
+            placeholder="Имя пользователя"
+            value={editName}
+            onChange={e => setEditName(e.target.value)}
+        />
+        <Input
+            placeholder="Почта"
+            value={editMail}
+            onChange={e => setEditMail(e.target.value)}
+        />
+    </Space>
+</Modal>
+<Modal
+    title="Подтверждение удаления"
+    visible={deleteConfirmVisible}   // ✅ v4
+    okText="Удалить"
+    cancelText="Отмена"
+    okButtonProps={{ danger: true }}
+    onCancel={() => setDeleteConfirmVisible(false)}
+    onOk={() => {
+        console.log("Удаляем пользователя:", id);
+        setDeleteConfirmVisible(false);
+        // здесь можно вызвать thunk удаления
+    }}
+>
+    <Typography.Text>
+        Вы уверены, что хотите удалить пользователя{" "}
+        <Typography.Text strong>{name}</Typography.Text>?
+        <br />
+        <Typography.Text type="danger">
+            Это действие нельзя отменить.
+        </Typography.Text>
+    </Typography.Text>
+</Modal>
+
         </>
     );
 }

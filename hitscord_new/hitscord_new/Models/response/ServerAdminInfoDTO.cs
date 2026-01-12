@@ -10,6 +10,7 @@ public class ServerAdminInfoDTO
 	public FileMetaResponseDTO? Icon { get; set; }
 	public required bool IsClosed { get; set; }
 	public required List<RolesAdminItemDTO> Roles { get; set; }
+	public required List<SystemRoleItemDTO> SystemRoles { get; set; }
 	public required List<ServerPresetItemDTO> Presets { get; set; }
 	public required List<ServerUserAdminDTO> Users { get; set; }
 	public required ChannelAdminListDTO Channels { get; set; }

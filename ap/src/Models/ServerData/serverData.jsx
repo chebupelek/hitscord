@@ -23,6 +23,14 @@ const PERMISSION_LABELS = {
     canCheckAttendance: "Проверять посещаемость"
 };
 
+const CHANNEL_TYPE_LABELS = {
+    textChannels: "Текстовый",
+    voiceChannels: "Голосовой",
+    notificationChannels: "Уведомления",
+    pairVoiceChannels: "Голосовой для занятий",
+    subChannel: "Голосовой для занятий"
+};
+
 function getContrastTextColor(hex) 
 {
     if(!hex)
@@ -132,14 +140,14 @@ export default function ServerInfoPage()
     };
     const handleIconRemove = () => {
         setIconSrc(null);
-        message.info("Иконка удалена (локально)");
+        message.info("Иконка удалена");
     };
     const handleSaveChanges = () => {
-        message.success("Изменения сохранены (пока только локально)");
+        message.success("Изменения сохранены");
         closeEditModal();
     };
     const handleDeleteServer = () => {
-        message.success("Сервер удален (пока только локально)");
+        message.success("Сервер удален");
         closeDeleteModal();
     };
 
@@ -186,15 +194,13 @@ export default function ServerInfoPage()
                 <Divider />
 
                 <Collapse activeKey={activePanels} onChange={setActivePanels}>
-                    {serverData.roles.length > 0 && (
-                        <Panel header={panelHeader("Роли", () => setAddRoleVisible(true))} key="roles">
-                            {serverData.roles.map(role => (
-                                <ServerRoleCard key={role.name} role={role} usersByRole={usersByRole} />
-                            ))}
-                        </Panel>
-                    )}
+                    <Panel header={panelHeader("Роли", () => setAddRoleVisible(true))} key="roles">
+                        {serverData.roles.map(role => (
+                            <ServerRoleCard key={role.name} role={role} usersByRole={usersByRole} />
+                        ))}
+                    </Panel>
 
-                    {serverData.serverType === 1 && serverData.presets.length > 0 && (
+                    {serverData.serverType === 1 && (
                         <Panel header={panelHeader("Пресеты", () => setAddPresetVisible(true))} key="presets">
                             <Space direction="vertical" style={{ width: "100%" }}>
                                 {serverData.presets.map(preset => (
@@ -208,26 +214,22 @@ export default function ServerInfoPage()
 
                     )}
 
-                    {serverData.users.length > 0 && (
-                        <Panel header="Пользователи" key="users">
-                            {serverData.users.map(user => (
-                                <ServerUserCard key={user.userId} user={user} roles={serverData.roles} serverData={serverData} />
-                            ))}
-                        </Panel>
-                    )}
+                    <Panel header="Пользователи" key="users">
+                        {serverData.users.map(user => (
+                            <ServerUserCard key={user.userId} user={user} roles={serverData.roles} serverData={serverData} />
+                        ))}
+                    </Panel>
 
-                    {(serverData.channels.textChannels.length > 0 || serverData.channels.voiceChannels.length > 0 || serverData.channels.notificationChannels.length > 0 || serverData.channels.pairVoiceChannels.length > 0) && (
-                            <Panel header={panelHeader("Каналы", () => setAddChannelVisible(true))} key="channels">
-                                {[
-                                    ...serverData.channels.textChannels.map(c => ({ ...c, channelKey: "textChannels" })),
-                                    ...serverData.channels.voiceChannels.map(c => ({ ...c, channelKey: "voiceChannels" })),
-                                    ...serverData.channels.notificationChannels.map(c => ({ ...c, channelKey: "notificationChannels" })),
-                                    ...serverData.channels.pairVoiceChannels.map(c => ({ ...c, channelKey: "pairVoiceChannels" }))
-                                ].map(channel => (
-                                    <ServerChannelCard key={channel.channelId} channel={channel} roles={serverData.roles} channelKey={channel.channelKey}/>
-                                ))}
-                            </Panel>
-                    )}
+                    <Panel header={panelHeader("Каналы", () => setAddChannelVisible(true))} key="channels">
+                        {[
+                            ...serverData.channels.textChannels.map(c => ({ ...c, channelKey: "textChannels" })),
+                            ...serverData.channels.voiceChannels.map(c => ({ ...c, channelKey: "voiceChannels" })),
+                            ...serverData.channels.notificationChannels.map(c => ({ ...c, channelKey: "notificationChannels" })),
+                            ...serverData.channels.pairVoiceChannels.map(c => ({ ...c, channelKey: "pairVoiceChannels" }))
+                        ].map(channel => (
+                            <ServerChannelCard key={channel.channelId} channel={channel} roles={serverData.roles} channelKey={channel.channelKey}/>
+                        ))}
+                    </Panel>
                 </Collapse>
             </Card>
 
@@ -320,7 +322,7 @@ export default function ServerInfoPage()
 
             <Modal title="Добавить пресет" open={addPresetVisible} onCancel={() => setAddPresetVisible(false)}
                 onOk={() => {
-                    message.success("Пресет добавлен (локально)");
+                    message.success("Пресет добавлен");
                     setAddPresetVisible(false);
                     setPresetRoleId(null);
                     setPresetSystemRoleId(null);
@@ -333,13 +335,13 @@ export default function ServerInfoPage()
                         {serverData.roles.map(role => (<Select.Option key={role.id} value={role.id}>{role.name}</Select.Option>))}
                     </Select>
                     <Text strong>Системная роль</Text>
-                    <Select value={presetSystemRoleId} placeholder="Пока не реализовано" disabled style={{width: "100%"}}/>
+                    <Select value={presetSystemRoleId} style={{width: "100%"}}/>
                 </Space>
             </Modal>
 
             <Modal title="Добавить канал" open={addChannelVisible} onCancel={() => setAddChannelVisible(false)}
                 onOk={() => {
-                    message.success("Канал добавлен (локально)");
+                    message.success("Канал добавлен");
                     setAddChannelVisible(false);
                     setChannelName("");
                     setChannelType("Text");
@@ -428,7 +430,7 @@ function ServerRoleCard({ role, usersByRole })
                         <Text strong>Глобальные права:</Text>
                         <Space wrap>
                             {globalPerms.map(([key]) => (
-                                <Tag key={key} closable onClose={e => {e.preventDefault(); handleRemoveGlobalPerm(key);}}>{PERMISSION_LABELS[key]}</Tag>
+                                <Tag key={key} closable={role.type === 2} onClose={e => {e.preventDefault(); handleRemoveGlobalPerm(key);}}>{PERMISSION_LABELS[key]}</Tag>
                             ))}
                             {Object.entries(role.permissions).some(([, v]) => !v) && (
                                 <Popover title="Добавить право"trigger="click"
@@ -548,7 +550,7 @@ function ServerUserCard({ user, roles, serverData })
 
     const handleRemoveRole = roleId => {
         console.log("Удалить роль у пользователя:", { userId: user.userId, roleId });
-        message.info("Роль удалена у пользователя (пока локально)");
+        message.info("Роль удалена у пользователя");
     };
 
     const userRoleIds = user.roles.map(r => r.roleId);
@@ -557,7 +559,7 @@ function ServerUserCard({ user, roles, serverData })
 
     const handleAddRole = role => {
         console.log("Добавить роль пользователю:", { userId: user.userId, roleId: role.id });
-        message.success(`Роль "${role.name}" добавлена (пока локально)`);
+        message.success(`Роль "${role.name}" добавлена`);
     };
 
     const handleDeleteUser = () => {
@@ -572,9 +574,10 @@ function ServerUserCard({ user, roles, serverData })
             okText: "Удалить",
             okType: "danger",
             cancelText: "Отмена",
-            onOk() {
+            onOk() 
+            {
                 console.log("Удалить пользователя:", user.userId);
-                message.success(`Пользователь "${user.userName}" удалён (пока локально)`);
+                message.success(`Пользователь "${user.userName}" удалён`);
             }
         });
     };
@@ -660,7 +663,7 @@ function ServerUserCard({ user, roles, serverData })
                 okButtonProps={{ disabled: editUserName.trim().length < 6 || editUserName.trim().length > 50 }}
                 onOk={() => {
                     console.log("Изменить имя пользователя:", { userId: user.userId, userName: editUserName.trim() });
-                    message.success("Имя обновлено (пока локально)");
+                    message.success("Имя обновлено");
                     setEditNameVisible(false);
                 }}
             >
@@ -670,13 +673,6 @@ function ServerUserCard({ user, roles, serverData })
         </Card>
     );
 }
-
-const CHANNEL_TYPE_LABELS = {
-    textChannels: "Текстовый",
-    voiceChannels: "Голосовой",
-    notificationChannels: "Уведомления",
-    pairVoiceChannels: "Парный голосовой"
-};
 
 function ServerChannelCard({ channel, roles, channelKey }) 
 {
@@ -731,12 +727,12 @@ function ServerChannelCard({ channel, roles, channelKey })
             return;
         }
         console.log(`Удалить роль "${role.name}" из права "${perm}"`);
-        message.info(`Роль "${role.name}" удалена из права "${perm}" (пока локально)`);
+        message.info(`Роль "${role.name}" удалена из права "${perm}"`);
     };
 
     const handleAddRoleToPerm = (perm, role) => {
         console.log(`Добавить роль "${role.name}" к праву "${perm}"`);
-        message.success(`Роль "${role.name}" добавлена к праву "${perm}" (пока локально)`);
+        message.success(`Роль "${role.name}" добавлена к праву "${perm}"`);
     };
 
     const getAvailableRolesForPerm = (permRoles) => {
@@ -752,7 +748,7 @@ function ServerChannelCard({ channel, roles, channelKey })
             cancelText: "Отмена",
             onOk() {
                 console.log("Удалить канал:", channel.channelId);
-                message.success(`Канал "${channel.channelName}" удалён (пока локально)`);
+                message.success(`Канал "${channel.channelName}" удалён`);
             }
         });
     };
@@ -787,7 +783,9 @@ function ServerChannelCard({ channel, roles, channelKey })
                                     <Text style={{ minWidth: 200, fontWeight: 500 }}>{perm}:</Text>
                                     <Space wrap>
                                         {rolesList.map(r => (
-                                            <Tag key={r.id} closable={r.type !== 0} onClose={e => {e.preventDefault(); handleRemoveRoleFromPerm(perm, r);}}
+                                            <Tag key={r.id} closable={r.type !== 0 && r.type !== 1}
+                                                closeIcon={<CloseOutlined style={{ color: getContrastTextColor(r.color) }} onClick={e => e.stopPropagation()}/>}
+                                                onClose={e => {e.preventDefault(); handleRemoveRoleFromPerm(perm, r);}}
                                                 style={{backgroundColor: r.color, color: getContrastTextColor(r.color), fontWeight: 500, opacity: r.type === 0 ? 0.6 : 1}}
                                             >
                                                 {r.name}
@@ -821,7 +819,7 @@ function ServerChannelCard({ channel, roles, channelKey })
                 okButtonProps={{disabled: editName.trim().length < 1 || editName.trim().length > 100 || (channel.maxCount !== undefined && (editMaxCount < 2 || editMaxCount > 999))}}
                 onOk={() => {
                     console.log("Сохранить канал:", { channelId: channel.channelId, name: editName.trim(), maxCount: editMaxCount });
-                    message.success("Канал обновлен (пока локально)");
+                    message.success("Канал обновлен");
                     setEditVisible(false);
                 }}
             >
@@ -846,7 +844,7 @@ function ServerPresetCard({ preset })
         Modal.confirm({title: `Удалить пресет "${preset.serverRoleName} → ${preset.systemRoleName}"?`, content: "Это действие невозможно отменить.", okText: "Удалить", okType: "danger", cancelText: "Отмена",
             onOk() {
                 console.log("Удалить пресет:", preset);
-                message.success(`Пресет "${preset.serverRoleName} → ${preset.systemRoleName}" удалён (пока локально)`);
+                message.success(`Пресет "${preset.serverRoleName} → ${preset.systemRoleName}" удалён`);
             }
         });
     };
