@@ -835,9 +835,9 @@ public class AdminService: IAdminService
 		var newAdmin = new AdminDbModel
 		{
 			Id = Guid.NewGuid(),
-			Login = "TetyaDusya",
-			PasswordHash = _passwordHasher.HashPassword("TetyaDusya", "TetyaDusya"),
-			AccountName = "Тётя Дуся",
+			Login = "FirstAdmin",
+			PasswordHash = _passwordHasher.HashPassword("FirstAdmin", "FirstAdmin"),
+			AccountName = "Первый администратор",
 			Approved = true
 		};
 
