@@ -470,7 +470,7 @@ public class AdminController : ControllerBase
 	}
 	[Authorize]
 	[HttpDelete]
-	[Route("server/info")]
+	[Route("server/icon")]
 	public async Task<IActionResult> DeleteServerIconAdmin([FromBody] IdRequestDTO data)
 	{
 		try
@@ -805,7 +805,7 @@ public class AdminController : ControllerBase
 		}
 	}
 	[Authorize]
-	[HttpGet]
+	[HttpDelete]
 	[Route("server/preset/remove")]
 	public async Task<IActionResult> DeletePresetAdmin([FromBody] PresetResponseDTO data)
 	{

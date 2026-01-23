@@ -30,21 +30,8 @@
       "DocumentGroups": [
         {
           "DockedWidth": 120,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 4,
           "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "AdminController.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\AdminController.cs",
-              "RelativeDocumentMoniker": "hitscord_new\\Controllers\\AdminController.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\AdminController.cs",
-              "RelativeToolTip": "hitscord_new\\Controllers\\AdminController.cs",
-              "ViewState": "AgIAAJoBAAAAAAAAAAAgwCkDAABWAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-12T05:24:42.453Z",
-              "EditorCaption": ""
-            },
             {
               "$type": "Bookmark",
               "Name": "ST:2:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
@@ -63,6 +50,19 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "AdminController.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\AdminController.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Controllers\\AdminController.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\AdminController.cs",
+              "RelativeToolTip": "hitscord_new\\Controllers\\AdminController.cs",
+              "ViewState": "AgIAAKsCAAAAAAAAAADwvxEDAAAMAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-12T05:24:42.453Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 4,
               "Title": "ChannelController.cs",
               "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\ChannelController.cs",
@@ -71,8 +71,7 @@
               "RelativeToolTip": "hitscord_new\\Controllers\\ChannelController.cs",
               "ViewState": "AgIAAFsAAAAAAAAAAAA0wHAAAABmAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-23T03:45:52.715Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-23T03:45:52.715Z"
             },
             {
               "$type": "Document",
@@ -84,8 +83,7 @@
               "RelativeToolTip": "hitscord_new\\Controllers\\RolesController.cs",
               "ViewState": "AgIAAFYAAAAAAAAAAAAIwHMAAABqAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-23T03:27:22.612Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-23T03:27:22.612Z"
             },
             {
               "$type": "Document",
@@ -97,8 +95,7 @@
               "RelativeToolTip": "hitscord_new\\Controllers\\ServerController.cs",
               "ViewState": "AgIAADcCAAAAAAAAAAAAAEsCAABnAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-23T03:27:19.527Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-23T03:27:19.527Z"
             },
             {
               "$type": "Document",
@@ -110,8 +107,7 @@
               "RelativeToolTip": "hitscord_new\\Services\\AdminService.cs",
               "ViewState": "AgIAACgLAAAAAAAAAAAzwPMOAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-08T17:38:00.039Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-08T17:38:00.039Z"
             }
           ]
         }
