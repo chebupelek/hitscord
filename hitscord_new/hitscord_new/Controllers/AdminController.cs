@@ -576,7 +576,7 @@ public class AdminController : ControllerBase
 	[Authorize]
 	[HttpDelete]
 	[Route("server/user/delete")]
-	public async Task<IActionResult> DeleteUserFromServerAdmin([[FromBody] DeleteUserFromServerDTO data)
+	public async Task<IActionResult> DeleteUserFromServerAdmin([FromBody] DeleteUserFromServerDTO data)
 	{
 		try
 		{
@@ -639,7 +639,7 @@ public class AdminController : ControllerBase
 	[Authorize]
 	[HttpDelete]
 	[Route("server/user/removerole")]
-	public async Task<IActionResult> RemoveRoleFromUserAdmin([[FromBody] ChangeUserRoleDTO data)
+	public async Task<IActionResult> RemoveRoleFromUserAdmin([FromBody] ChangeUserRoleDTO data)
 	{
 		try
 		{
