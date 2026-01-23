@@ -30,7 +30,7 @@ public interface IAdminService
 
 
 
-	Task ChangeServerDataAsync(string token, Guid serverId, string serverName, ServerTypeEnum serverType, bool serverClosed, Guid newCreatorId);
+	Task ChangeServerDataAsync(string token, Guid serverId, string? serverName, ServerTypeEnum? serverType, bool? serverClosed, Guid? newCreatorId);
 	Task ChangeServerIconAdminAsync(string token, Guid serverId, IFormFile iconFile);
 	Task DeleteServerIconAdminAsync(string token, Guid serverId);
 	Task<RolesItemDTO> CreateRoleAdminAsync(string token, Guid serverId, string roleName, string color);
@@ -42,11 +42,11 @@ public interface IAdminService
 	Task AddRoleToUserAdminAsync(string token, Guid serverId, Guid userId, Guid roleId);
 	Task RemoveRoleFromUserAdminAsync(string token, Guid serverId, Guid userId, Guid roleId);
 	Task CreateChannelAdminAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType, int? maxCount);
-	Task<bool> DeleteChannelAdminAsync(Guid chnnelId, string token);
+	Task DeleteChannelAdminAsync(Guid chnnelId, string token);
 	Task ChnageChannnelNameAdminAsync(string token, Guid channelId, string name, int? number);
-	Task<bool> ChangeVoiceChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData);
-	Task<bool> ChangeTextChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData);
-	Task<bool> ChangeNotificationChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData);
+	Task ChangeVoiceChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData);
+	Task ChangeTextChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData);
+	Task ChangeNotificationChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData);
 	Task<ServerPresetItemDTO> CreatePresetAdminAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
 	Task DeletePresetAdminAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
 }

@@ -1444,7 +1444,7 @@ public class AdminService: IAdminService
 
 
 
-	public async Task ChangeServerDataAsync(string token, Guid serverId, string serverName, ServerTypeEnum serverType, bool serverClosed, Guid newCreatorId)
+	public async Task ChangeServerDataAsync(string token, Guid serverId, string? serverName, ServerTypeEnum? serverType, bool? serverClosed, Guid? newCreatorId)
 	{
 		var admin = await GetAdminAsync(token);
 
@@ -1455,90 +1455,94 @@ public class AdminService: IAdminService
 			throw new CustomException("Server not found", "ChangeServerDataAsync", "ServerId", 404, "Сервер не найден", "Изменение информации о сервере");
 		}
 
-		server.Name = serverName;
-		server.ServerType = serverType;
-		server.IsClosed = serverClosed;
-
-		var oldCreator = await _hitsContext.UserServer
-			.Include(us => us.SubscribeRoles)
-				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => (us.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Creator)) && us.ServerId == server.Id);
-		if (oldCreator == null)
-		{
-			throw new CustomException("OldCreator not found", "ChangeServerDataAsync", "oldCreator", 404, "Нынешний создатель не найден", "Изменение информации о сервере");
-		}
-
-		var adminRole = await _hitsContext.Role.FirstOrDefaultAsync(r => (r.Role == RoleEnum.Admin) && r.ServerId == server.Id);
-		if (adminRole == null)
-		{
-			throw new CustomException("Admin role not found", "ChangeServerDataAsync", "adminRole", 404, "Роль админа не найдена", "Изменение информации о сервере");
-		}
-
-		var newCreator = await _hitsContext.UserServer
-			.Include(us => us.SubscribeRoles)
-				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => !(us.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Creator)) && us.ServerId == server.Id && us.UserId == newCreatorId);
-		if (newCreator == null)
-		{
-			throw new CustomException("NewCreator not found", "ChangeServerDataAsync", "newCreator", 404, "Новый создатель не найден", "Изменение информации о сервере");
-		}
-
-		var creatorRole = await _hitsContext.Role.FirstOrDefaultAsync(r => (r.Role == RoleEnum.Creator) && r.ServerId == server.Id);
-		if (creatorRole == null)
-		{
-			throw new CustomException("Creator role not found", "ChangeServerDataAsync", "creatorRole", 404, "Роль создателя не найдена", "Изменение информации о сервере");
-		}
-
-		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+		server.Name = serverName != null ? serverName : server.Name;
+		server.ServerType = (ServerTypeEnum)(serverType != null ? serverType : server.ServerType);
+		server.IsClosed = (bool)(serverClosed != null ? serverClosed : server.IsClosed);
 
 		_hitsContext.Server.Update(server);
-		var removed = oldCreator.SubscribeRoles.FirstOrDefault(sr => sr.RoleId == creatorRole.Id);
-		oldCreator.SubscribeRoles.Remove(removed);
-		oldCreator.SubscribeRoles.Add(new SubscribeRoleDbModel { UserServerId = oldCreator.Id, RoleId = adminRole.Id });
-		var newAdminRole = new NewUserRoleResponseDTO
+
+		if (newCreatorId != null)
 		{
-			ServerId = serverId,
-			UserId = oldCreator.UserId,
-			RoleId = adminRole.Id,
-		};
-		var removedCreatorRole = new NewUserRoleResponseDTO
-		{
-			ServerId = serverId,
-			UserId = oldCreator.UserId,
-			RoleId = creatorRole.Id,
-		};
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(removedCreatorRole, alertedUsers, "Role removed from user");
-			await _webSocketManager.BroadcastMessageAsync(newAdminRole, alertedUsers, "Role added to user");
-		}
-		foreach (var sr in newCreator.SubscribeRoles)
-		{
-			var removedNewCreatorRole = new NewUserRoleResponseDTO
+			var oldCreator = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+				.FirstOrDefaultAsync(us => (us.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Creator)) && us.ServerId == server.Id);
+			if (oldCreator == null)
+			{
+				throw new CustomException("OldCreator not found", "ChangeServerDataAsync", "oldCreator", 404, "Нынешний создатель не найден", "Изменение информации о сервере");
+			}
+
+			var adminRole = await _hitsContext.Role.FirstOrDefaultAsync(r => (r.Role == RoleEnum.Admin) && r.ServerId == server.Id);
+			if (adminRole == null)
+			{
+				throw new CustomException("Admin role not found", "ChangeServerDataAsync", "adminRole", 404, "Роль админа не найдена", "Изменение информации о сервере");
+			}
+
+			var newCreator = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+				.FirstOrDefaultAsync(us => !(us.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Creator)) && us.ServerId == server.Id && us.UserId == newCreatorId);
+			if (newCreator == null)
+			{
+				throw new CustomException("NewCreator not found", "ChangeServerDataAsync", "newCreator", 404, "Новый создатель не найден", "Изменение информации о сервере");
+			}
+
+			var creatorRole = await _hitsContext.Role.FirstOrDefaultAsync(r => (r.Role == RoleEnum.Creator) && r.ServerId == server.Id);
+			if (creatorRole == null)
+			{
+				throw new CustomException("Creator role not found", "ChangeServerDataAsync", "creatorRole", 404, "Роль создателя не найдена", "Изменение информации о сервере");
+			}
+
+			var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+
+			var removed = oldCreator.SubscribeRoles.FirstOrDefault(sr => sr.RoleId == creatorRole.Id);
+			oldCreator.SubscribeRoles.Remove(removed);
+			oldCreator.SubscribeRoles.Add(new SubscribeRoleDbModel { UserServerId = oldCreator.Id, RoleId = adminRole.Id });
+			var newAdminRole = new NewUserRoleResponseDTO
 			{
 				ServerId = serverId,
-				UserId = newCreator.UserId,
-				RoleId = sr.RoleId,
+				UserId = oldCreator.UserId,
+				RoleId = adminRole.Id,
+			};
+			var removedCreatorRole = new NewUserRoleResponseDTO
+			{
+				ServerId = serverId,
+				UserId = oldCreator.UserId,
+				RoleId = creatorRole.Id,
 			};
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(removedNewCreatorRole, alertedUsers, "Role removed from user");
+				await _webSocketManager.BroadcastMessageAsync(removedCreatorRole, alertedUsers, "Role removed from user");
+				await _webSocketManager.BroadcastMessageAsync(newAdminRole, alertedUsers, "Role added to user");
 			}
+			foreach (var sr in newCreator.SubscribeRoles)
+			{
+				var removedNewCreatorRole = new NewUserRoleResponseDTO
+				{
+					ServerId = serverId,
+					UserId = newCreator.UserId,
+					RoleId = sr.RoleId,
+				};
+				if (alertedUsers != null && alertedUsers.Count() > 0)
+				{
+					await _webSocketManager.BroadcastMessageAsync(removedNewCreatorRole, alertedUsers, "Role removed from user");
+				}
+			}
+			newCreator.SubscribeRoles.Clear();
+			newCreator.SubscribeRoles.Add(new SubscribeRoleDbModel { UserServerId = newCreator.Id, RoleId = creatorRole.Id });
+			var newCreatorRole = new NewUserRoleResponseDTO
+			{
+				ServerId = serverId,
+				UserId = newCreator.UserId,
+				RoleId = creatorRole.Id,
+			};
+			if (alertedUsers != null && alertedUsers.Count() > 0)
+			{
+				await _webSocketManager.BroadcastMessageAsync(newCreatorRole, alertedUsers, "Role added to user");
+			}
+			_hitsContext.UserServer.Update(oldCreator);
+			_hitsContext.UserServer.Update(newCreator);
 		}
-		newCreator.SubscribeRoles.Clear();
-		newCreator.SubscribeRoles.Add(new SubscribeRoleDbModel { UserServerId = newCreator.Id, RoleId = creatorRole.Id });
-		var newCreatorRole = new NewUserRoleResponseDTO
-		{
-			ServerId = serverId,
-			UserId = newCreator.UserId,
-			RoleId = creatorRole.Id,
-		};
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(newCreatorRole, alertedUsers, "Role added to user");
-		}
-		_hitsContext.UserServer.Update(oldCreator);
-		_hitsContext.UserServer.Update(newCreator);
 		await _hitsContext.SaveChangesAsync();
 	}
 
@@ -2850,7 +2854,7 @@ public class AdminService: IAdminService
 		}
 	}
 
-	public async Task<bool> DeleteChannelAdminAsync(Guid chnnelId, string token)
+	public async Task DeleteChannelAdminAsync(Guid chnnelId, string token)
 	{
 		var admin = await GetAdminAsync(token);
 		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId && ((TextChannelDbModel)c).DeleteTime == null);
@@ -2909,8 +2913,6 @@ public class AdminService: IAdminService
 		{
 			await _webSocketManager.BroadcastMessageAsync(deletedChannelResponse, alertedUsers, "Channel deleted");
 		}
-
-		return true;
 	}
 
 	public async Task ChnageChannnelNameAdminAsync(string token, Guid channelId, string name, int? number)
@@ -2968,7 +2970,7 @@ public class AdminService: IAdminService
 		}
 	}
 
-	public async Task<bool> ChangeVoiceChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
+	public async Task ChangeVoiceChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
 	{
 		var admin = await GetAdminAsync(token);
 		var channel = await _channelService.CheckVoiceChannelExistAsync(settingsData.ChannelId, false);
@@ -3065,11 +3067,9 @@ public class AdminService: IAdminService
 		{
 			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Voice channel settings edited");
 		}
-
-		return true;
 	}
 
-	public async Task<bool> ChangeTextChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
+	public async Task ChangeTextChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
 	{
 		var admin = await GetAdminAsync(token);
 		var channel = await _channelService.CheckTextChannelExistAsync(settingsData.ChannelId);
@@ -3293,11 +3293,9 @@ public class AdminService: IAdminService
 		{
 			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Text channel settings edited");
 		}
-
-		return true;
 	}
 
-	public async Task<bool> ChangeNotificationChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
+	public async Task ChangeNotificationChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
 	{
 		var admin = await GetAdminAsync(token);
 		var channel = await _channelService.CheckNotificationChannelExistAsync(settingsData.ChannelId);
@@ -3500,8 +3498,6 @@ public class AdminService: IAdminService
 		{
 			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Notification channel settings edited");
 		}
-
-		return true;
 	}
 
 	public async Task<ServerPresetItemDTO> CreatePresetAdminAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)
