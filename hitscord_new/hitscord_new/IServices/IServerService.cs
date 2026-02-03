@@ -10,7 +10,7 @@ public interface IServerService
     Task<ServerDbModel> GetServerFullModelAsync(Guid serverId);
 
     Task<ServerIdDTO> CreateServerAsync(string token, string severName, ServerTypeEnum? type);
-    Task SubscribeAsync(Guid serverId, string token, string? userName);
+	Task SubscribeAsync(string token, string invitationToken, string? userName);
     Task UnsubscribeAsync(Guid serverId, string token);
     Task UnsubscribeForCreatorAsync(Guid serverId, string token, Guid newCreatorId);
     Task DeleteServerAsync(Guid serverId, string token);
@@ -39,4 +39,7 @@ public interface IServerService
     Task<SystemRolesFullListNoneChildsDTO> RolesFullListAsync(string token, Guid serverId);
     Task<ServerPresetItemDTO> CreatePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
     Task DeletePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
+
+
+    Task<ServerInvitationResponseDTO> CreateInvitationToken(string token, Guid serverId, DateTime expiresAt);
 }

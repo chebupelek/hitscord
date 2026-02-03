@@ -78,6 +78,7 @@ public class RolesService : IRolesService
 			ServerCanCreateRoles = false,
 			ServerCanCreateLessons = false,
 			ServerCanCheckAttendance = false,
+			ServerCanUseInvitations = false,
 			ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 			ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 			ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
@@ -364,7 +365,8 @@ public class RolesService : IRolesService
 					CanIgnoreMaxCount = role.ServerCanIgnoreMaxCount,
 					CanCreateRoles = role.ServerCanCreateRoles,
 					CanCreateLessons = role.ServerCanCreateLessons,
-					CanCheckAttendance = role.ServerCanCheckAttendance
+					CanCheckAttendance = role.ServerCanCheckAttendance,
+					CanUseInvitations = role.ServerCanUseInvitations
 				}
 			});
 		}
@@ -545,6 +547,21 @@ public class RolesService : IRolesService
 				}
 				break;
 
+			case SettingsEnum.CanUseInvitations:
+				if (settingsData)
+				{
+					role.ServerCanUseInvitations = true;
+					_hitsContext.Role.Update(role);
+					await _hitsContext.SaveChangesAsync();
+				}
+				else
+				{
+					role.ServerCanUseInvitations = false;
+					_hitsContext.Role.Update(role);
+					await _hitsContext.SaveChangesAsync();
+				}
+				break;
+
 			default: throw new CustomException("Setting not found", "Change role settings", "Setting", 404, "Настройка не найдена", "Изменение настроек роли");
 		}
 
@@ -569,7 +586,8 @@ public class RolesService : IRolesService
 				CanIgnoreMaxCount = role.ServerCanIgnoreMaxCount,
 				CanCreateRoles = role.ServerCanCreateRoles,
 				CanCreateLessons = role.ServerCanCreateLessons,
-				CanCheckAttendance = role.ServerCanCheckAttendance
+				CanCheckAttendance = role.ServerCanCheckAttendance,
+				CanUseInvitations = role.ServerCanUseInvitations
 			}
 		};
 

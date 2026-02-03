@@ -50,7 +50,9 @@ public class RoleDbModel
 
     public required bool ServerCanCheckAttendance { get; set; }
 
-    public ICollection<ChannelCanSeeDbModel> ChannelCanSee { get; set; }
+	public required bool ServerCanUseInvitations { get; set; }
+
+	public ICollection<ChannelCanSeeDbModel> ChannelCanSee { get; set; }
     public ICollection<ChannelCanWriteDbModel> ChannelCanWrite { get; set; }
     public ICollection<ChannelCanWriteSubDbModel> ChannelCanWriteSub { get; set; }
     public ICollection<ChannelNotificatedDbModel> ChannelNotificated { get; set; }

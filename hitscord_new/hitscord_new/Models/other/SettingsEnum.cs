@@ -10,5 +10,6 @@ public enum SettingsEnum
 	CanIgnoreMaxCount,
 	CanCreateRole,
 	CanCreateLessons,
-	CanCheckAttendance
+	CanCheckAttendance,
+	CanUseInvitations
 }

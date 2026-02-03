@@ -16,9 +16,9 @@ public class ChatMessageDbModel
 	public required long Id { get; set; }
     public DateTime CreatedAt { get; set; }
 
-	public Guid AuthorId { get; set; }
+	public Guid? AuthorId { get; set; }
 	[ForeignKey(nameof(AuthorId))]
-	public UserDbModel Author { get; set; }
+	public UserDbModel? Author { get; set; }
 
 	public Guid? ChatId { get; set; }
 	[ForeignKey(nameof(ChatId))]

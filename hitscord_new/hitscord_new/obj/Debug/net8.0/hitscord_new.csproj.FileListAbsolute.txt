@@ -183,7 +183,6 @@ C:\Users\misti\Documents\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\hit
 C:\Users\misti\Documents\hitscord\hitscord_new\hitscord_new\obj\Debug\net8.0\ref\hitscord_new.dll
 C:\Users\misti\Documents\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\HitscordLibrary.dll
 C:\Users\misti\Documents\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\HitscordLibrary.pdb
-C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\appsettings.Development.json
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\appsettings.json
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\hitscord_new.exe
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\hitscord_new.deps.json
