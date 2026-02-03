@@ -1014,7 +1014,7 @@ public class ServerService : IServerService
 				Users = vc.Users.Select(u => new VoiceChannelUserDTO
 				{
 					UserId = u.UserId,
-					MuteStatus = u.MuteStatus,
+					MuteStatus = u.MutedOther == true ? MuteStatusEnum.Muted : (u.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted),
 					IsStream = u.IsStream
 				})
 				.ToList()
@@ -1036,7 +1036,7 @@ public class ServerService : IServerService
 				Users = vc.Users.Select(u => new VoiceChannelUserDTO
 				{
 					UserId = u.UserId,
-					MuteStatus = u.MuteStatus,
+					MuteStatus = u.MutedOther == true ? MuteStatusEnum.Muted : (u.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted),
 					IsStream = u.IsStream
 				})
 				.ToList()
