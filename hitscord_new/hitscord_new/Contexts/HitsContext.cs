@@ -201,8 +201,8 @@ namespace hitscord.Contexts
 
 
 				entity.HasOne(uvc => uvc.User)
-                    .WithOne()
-                    .HasForeignKey<UserVoiceChannelDbModel>(uvc => uvc.UserId)
+                    .WithMany()
+                    .HasForeignKey(uvc => uvc.UserId)
                     .IsRequired();
 
                 entity.HasOne(uvc => uvc.VoiceChannel)
