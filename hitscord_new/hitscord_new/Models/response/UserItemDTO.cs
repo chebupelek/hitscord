@@ -13,7 +13,7 @@ public class UserItemDTO
 	public required string AccountTag { get; set; }
 	public required int AccountNumber { get; set; }
 	public DateTime AccountCreateDate { get; set; }
-	public List<ServersListItemDTO>? WhereCreator { get; set; }
+	public List<ServersShortListItemDTO>? WhereCreator { get; set; }
 	public required bool Notifiable { get; set; }
 	public required bool FriendshipApplication { get; set; }
 	public required bool NonFriendMessage { get; set; }

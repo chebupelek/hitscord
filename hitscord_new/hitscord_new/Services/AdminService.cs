@@ -262,7 +262,27 @@ public class AdminService: IAdminService
 				AccountTag = u.AccountTag,
 				AccountNumber = u.AccountNumber,
 				AccountCreateDate = u.AccountCreateDate,
-				WhereCreator = null,
+				WhereCreator = _hitsContext.UserServer
+					.Where(us => us.UserId == u.Id)
+					.Where(us => us.SubscribeRoles
+						.Any(sr => sr.Role.Role == RoleEnum.Creator))
+					.Select(us => us.Server)
+					.Distinct()
+					.Select(s => new ServersShortListItemDTO
+					{
+						ServerId = s.Id,
+						ServerName = s.Name,
+						ServerType = s.ServerType,
+						Icon = s.IconFile == null ? null : new FileMetaResponseDTO
+						{
+							FileId = s.IconFile.Id,
+							FileName = s.IconFile.Name,
+							FileType = s.IconFile.Type,
+							FileSize = s.IconFile.Size,
+							Deleted = s.IconFile.Deleted
+						}
+					})
+					.ToList(),
 				Notifiable = u.Notifiable,
 				FriendshipApplication = u.FriendshipApplication,
 				NonFriendMessage = u.NonFriendMessage,
