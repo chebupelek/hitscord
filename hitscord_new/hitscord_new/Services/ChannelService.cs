@@ -413,7 +413,7 @@ public class ChannelService : IChannelService
 		}
 	}
 
-	public async Task<bool> JoinToVoiceChannelAsync(Guid chnnelId, string token)
+	public async Task<UserVoiceChannelResponseDTO> JoinToVoiceChannelAsync(Guid chnnelId, string token)
 	{
 		var user = await _authService.GetUserAsync(token);
 		var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
@@ -446,19 +446,19 @@ public class ChannelService : IChannelService
 		}
 
 		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.VoiceChannelId == chnnelId);
-		if (userthischannel != null)
+		if (userthischannel != null && userthischannel.Inside == true)
 		{
 			throw new CustomException("User is already on this channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится на этом канале", "Присоединение к голосовому каналу");
 		}
 
-		var uvcCount = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).CountAsync();
+		var uvcCount = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id && uvc.Inside == true).CountAsync();
 
 		if ((channel.MaxCount < uvcCount + 1) && (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanIgnoreMaxCount) == false))
 		{
 			throw new CustomException($"Voice channel max count is {((VoiceChannelDbModel)channel).MaxCount}", "Join to voice channel", "Voice channel", 400, "Пользователь не может писоединиться к голосовому каналу - его максимальная вместимость будет превышена", "Присоединение к голосовому каналу");
 		}
 
-		var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.Inside == true);
 		if (userVoiceChannel != null)
 		{
 			var serverUsers = await _hitsContext.UserServer.Where(us => us.ServerId == userVoiceChannel.VoiceChannel.ServerId).Select(us => us.UserId).ToListAsync();
@@ -469,29 +469,43 @@ public class ChannelService : IChannelService
 					ServerId = userVoiceChannel.VoiceChannel.ServerId,
 					isEnter = false,
 					UserId = user.Id,
-					ChannelId = userVoiceChannel.VoiceChannel.Id
+					ChannelId = userVoiceChannel.VoiceChannel.Id,
+					MuteStatus = userVoiceChannel.MutedOther == true ? MuteStatusEnum.Muted : (userVoiceChannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 				};
 				await _webSocketManager.BroadcastMessageAsync(userRemovedResponse, serverUsers, "User remove from voice channel");
 			}
-			_hitsContext.UserVoiceChannel.Remove(userVoiceChannel);
+			userVoiceChannel.Inside = false;
+			_hitsContext.UserVoiceChannel.Update(userVoiceChannel);
 			await _hitsContext.SaveChangesAsync();
 		}
-		var newUserVoiceChannel = new UserVoiceChannelDbModel
+		if (userthischannel == null)
 		{
-			VoiceChannelId = chnnelId,
-			UserId = user.Id,
-			MuteStatus = MuteStatusEnum.NotMuted,
-			IsStream = false
-		};
-		_hitsContext.UserVoiceChannel.Add(newUserVoiceChannel);
-		await _hitsContext.SaveChangesAsync();
+			userthischannel = new UserVoiceChannelDbModel
+			{
+				VoiceChannelId = chnnelId,
+				UserId = user.Id,
+				Inside = true,
+				MutedHimself = false,
+				MutedOther = false,
+				IsStream = false
+			};
+			await _hitsContext.UserVoiceChannel.AddAsync(userthischannel);
+			await _hitsContext.SaveChangesAsync();
+		}
+		else
+		{
+			userthischannel.Inside = true;
+			_hitsContext.UserVoiceChannel.Update(userthischannel);
+			await _hitsContext.SaveChangesAsync();
+		}
 
 		var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
 		{
 			ServerId = channel.ServerId,
 			isEnter = true,
 			UserId = user.Id,
-			ChannelId = channel.Id
+			ChannelId = channel.Id,
+			MuteStatus = userthischannel.MutedOther == true ? MuteStatusEnum.Muted : (userthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
 		var alertedUsers = await _hitsContext.UserServer
 			.Where(us => us.ServerId == channel.ServerId)
@@ -502,7 +516,7 @@ public class ChannelService : IChannelService
 			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, alertedUsers, "New user in voice channel");
 		}
 
-		return (true);
+		return (newUserInVoiceChannel);
 	}
 
 	public async Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, string token)
@@ -518,22 +532,24 @@ public class ChannelService : IChannelService
 			throw new CustomException("User is not subscriber of this server", "Remove from voice channel", "Owner", 404, "Пользователь не найден", "Выход с голосового канала");
 		}
 
-		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.VoiceChannelId == chnnelId);
+		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.VoiceChannelId == chnnelId && uvc.Inside == true);
         if (userthischannel == null)
         {
             throw new CustomException("User not on this channel", "Remove from voice channel", "Voice channel - User", 400, "Пользователь не находится в этом канале", "Выход с голосового канала");
         }
-        _hitsContext.UserVoiceChannel.Remove(userthischannel);
+		userthischannel.Inside = false;
+
+		_hitsContext.UserVoiceChannel.Update(userthischannel);
         await _hitsContext.SaveChangesAsync();
-		_hitsContext.Entry(userthischannel).State = EntityState.Detached;
 
 		var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
         {
             ServerId = channel.ServerId,
             isEnter = false,
             UserId = user.Id,
-            ChannelId = channel.Id
-        };
+            ChannelId = channel.Id,
+			MuteStatus = userthischannel.MutedOther == true ? MuteStatusEnum.Muted : (userthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
+		};
 		var alertedUsers = await _hitsContext.UserServer
 			.Where(us => us.ServerId == channel.ServerId)
 			.Select(us => us.UserId)
@@ -580,7 +596,7 @@ public class ChannelService : IChannelService
             throw new CustomException("User cant remove himself", "Remove user from voice channel", "Removed user id", 400, "Пользователь не может удалить сам себя", "Удаление пользователя из голосового канала");
         }
 
-        var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == removedUser.Id && uvc.VoiceChannelId == chnnelId);
+        var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == removedUser.Id && uvc.VoiceChannelId == chnnelId && uvc.Inside == true);
         if (userthischannel == null)
         {
             throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400, "Пользователь не находится на этом канале", "Удаление пользователя из голосового канала");
@@ -590,8 +606,8 @@ public class ChannelService : IChannelService
 		{
 			throw new CustomException("User lower in ierarchy than removed user", "Remove user from voice channel", "Removed user role", 401, "Пользователь ниже по иерархии чем удаляемый пользователь", "Удаление пользователя из голосового канала");
 		}
-
-        _hitsContext.UserVoiceChannel.Remove(userthischannel);
+		userthischannel.Inside = false;
+		_hitsContext.UserVoiceChannel.Update(userthischannel);
         await _hitsContext.SaveChangesAsync();
 
         var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
@@ -599,8 +615,9 @@ public class ChannelService : IChannelService
             ServerId = channel.ServerId,
             isEnter = false,
             UserId = user.Id,
-            ChannelId = channel.Id
-        };
+            ChannelId = channel.Id,
+			MuteStatus = userthischannel.MutedOther == true ? MuteStatusEnum.Muted : (userthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
+		};
 		var alertedUsers = await _hitsContext.UserServer
 			.Where(us => us.ServerId == channel.ServerId)
 			.Select(us => us.UserId)
@@ -617,7 +634,7 @@ public class ChannelService : IChannelService
     public async Task<bool> ChangeSelfMuteStatusAsync(string token)
     {
         var user = await _authService.GetUserAsync(token);
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.Inside == true);
         if (userVoiceChannel == null)
         {
             throw new CustomException("User not in voice channel", "Change self mute status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса в голосовом канале");
@@ -632,19 +649,11 @@ public class ChannelService : IChannelService
 		{
 			throw new CustomException("User is not subscriber of this server", "Change self mute status", "Owner", 404, "Пользователь не найден", "Изменение статуса в голосовом канале");
 		}
-		if (userVoiceChannel.MuteStatus == MuteStatusEnum.Muted)
+		if (userVoiceChannel.MutedOther == true)
         {
             throw new CustomException("User cant unmute", "Change self mute status", "Voice channel - User", 401, "Пользователь не может размьютится", "Изменение статуса в голосовом канале");
         }
-
-        if (userVoiceChannel.MuteStatus == MuteStatusEnum.SelfMuted)
-        {
-            userVoiceChannel.MuteStatus = MuteStatusEnum.NotMuted;
-        }
-        else
-        {
-            userVoiceChannel.MuteStatus = MuteStatusEnum.SelfMuted;
-        }
+		userVoiceChannel.MutedHimself = !userVoiceChannel.MutedHimself;
 
         _hitsContext.UserVoiceChannel.Update(userVoiceChannel);
         await _hitsContext.SaveChangesAsync();
@@ -654,8 +663,8 @@ public class ChannelService : IChannelService
             ServerId = channel.ServerId,
             UserId = user.Id,
             ChannelId = channel.Id,
-            MuteStatus = userVoiceChannel.MuteStatus
-        };
+			MuteStatus = userVoiceChannel.MutedOther == true ? MuteStatusEnum.Muted : (userVoiceChannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
+		};
 		var alertedUsers = await _hitsContext.UserServer
 			.Where(us => us.ServerId == channel.ServerId)
 			.Select(us => us.UserId)
@@ -672,7 +681,7 @@ public class ChannelService : IChannelService
 	{
 		var user = await _authService.GetUserAsync(token);
 		var changedUser = await _authService.GetUserAsync(UserId);
-		var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.Inside == true);
 		if (userVoiceChannel == null)
 		{
 			throw new CustomException("User not in voice channel", "Change user mute status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса другого пользователя в голосовом канале");
@@ -705,7 +714,7 @@ public class ChannelService : IChannelService
 			throw new CustomException("User cant change himself", "Change user mute status", "Changed user id", 400, "Пользователь не может замьютить сам себя эти методом", "Изменение статуса другого пользователя в голосовом канале");
 		}
 
-		var changedUserthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == changedUser.Id && uvc.VoiceChannelId == channel.Id);
+		var changedUserthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == changedUser.Id && uvc.VoiceChannelId == channel.Id && uvc.Inside == true);
 		if (changedUserthischannel == null)
 		{
 			throw new CustomException("Changed user not on this channel", "Change user mute status", "Voice channel - Removed user", 400, "Пользователь которому необходимо изменить статус мута не находится в голосовом канале канале", "Изменение статуса другого пользователя в голосовом канале");
@@ -716,14 +725,7 @@ public class ChannelService : IChannelService
 			throw new CustomException("User lower in ierarchy than changed user", "Change user mute status", "Changed user role", 401, "Пользователь ниже по иерархии чем изменяемый пользователь", "Изменение статуса другого пользователя в голосовом канале");
 		}
 
-		if (changedUserthischannel.MuteStatus == MuteStatusEnum.SelfMuted || changedUserthischannel.MuteStatus == MuteStatusEnum.NotMuted)
-		{
-			changedUserthischannel.MuteStatus = MuteStatusEnum.Muted;
-		}
-		else
-		{
-			changedUserthischannel.MuteStatus = MuteStatusEnum.NotMuted;
-		}
+		changedUserthischannel.MutedOther = !changedUserthischannel.MutedOther;
 
 		_hitsContext.UserVoiceChannel.Update(changedUserthischannel);
 		await _hitsContext.SaveChangesAsync();
@@ -733,7 +735,7 @@ public class ChannelService : IChannelService
 			ServerId = channel.ServerId,
 			UserId = changedUser.Id,
 			ChannelId = channel.Id,
-			MuteStatus = changedUserthischannel.MuteStatus
+			MuteStatus = changedUserthischannel.MutedOther == true ? MuteStatusEnum.Muted : (changedUserthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
 		var alertedUsers = await _hitsContext.UserServer
 			.Where(us => us.ServerId == channel.ServerId)
@@ -824,7 +826,8 @@ public class ChannelService : IChannelService
 						ServerId = channel.ServerId,
 						isEnter = false,
 						UserId = userId,
-						ChannelId = channel.Id
+						ChannelId = channel.Id,
+						MuteStatus = MuteStatusEnum.NotMuted
 					};
 
 					await _webSocketManager.BroadcastMessageAsync(removedUser, alertedUsers, "User removed from voice channel");

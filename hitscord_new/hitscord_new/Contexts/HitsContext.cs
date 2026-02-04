@@ -59,6 +59,8 @@ namespace hitscord.Contexts
 		public DbSet<AdminDbModel> Admin { get; set; }
 		public DbSet<ServerPresetDbModel> Preset { get; set; }
 
+		public DbSet<ServerInvitationDbModel> Invitation { get; set; }
+
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
 			modelBuilder.Entity<UserDbModel>(entity =>
@@ -90,6 +92,11 @@ namespace hitscord.Contexts
 					.WithOne(f => f.Server)
 					.HasForeignKey<FileDbModel>(f => f.ServerId)
 					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasMany(s => s.Invitations)
+					.WithOne(s => s.Server)
+					.HasForeignKey(s => s.ServerId)
+					.OnDelete(DeleteBehavior.Cascade);
 			});
 
             modelBuilder.Entity<UserServerDbModel>(entity =>
@@ -103,6 +110,10 @@ namespace hitscord.Contexts
 					.WithMany(s => s.Subscribtions)
 					.HasForeignKey(e => e.ServerId)
 					.IsRequired();
+
+				entity.HasOne(i => i.Invitation)
+					.WithMany()
+					.HasForeignKey(i => i.InvitationId);
 			});
 
 			modelBuilder.Entity<SubscribeRoleDbModel>(entity =>
@@ -131,6 +142,10 @@ namespace hitscord.Contexts
 					.WithMany()
 					.HasForeignKey(sa => sa.ServerId)
 					.IsRequired();
+
+				entity.HasOne(sa => sa.Invitation)
+					.WithMany()
+					.HasForeignKey(sa => sa.InvitationId);
 			});
 
 			modelBuilder.Entity<FriendshipApplicationDbModel>(entity =>
@@ -186,8 +201,8 @@ namespace hitscord.Contexts
 
 
 				entity.HasOne(uvc => uvc.User)
-                    .WithOne()
-                    .HasForeignKey<UserVoiceChannelDbModel>(uvc => uvc.UserId)
+                    .WithMany()
+                    .HasForeignKey(uvc => uvc.UserId)
                     .IsRequired();
 
                 entity.HasOne(uvc => uvc.VoiceChannel)
@@ -222,8 +237,7 @@ namespace hitscord.Contexts
 
 				entity.HasOne(m => m.Author)
 					.WithMany()
-					.HasForeignKey(m => m.AuthorId)
-					.IsRequired();
+					.HasForeignKey(m => m.AuthorId);
 
 				entity.HasOne(m => m.TextChannel)
 					.WithMany(e => e.Messages)
@@ -278,8 +292,7 @@ namespace hitscord.Contexts
 
 				entity.HasOne(m => m.Author)
 					.WithMany()
-					.HasForeignKey(m => m.AuthorId)
-					.IsRequired();
+					.HasForeignKey(m => m.AuthorId);
 
 				entity.HasOne(m => m.Chat)
 					.WithMany(e => e.Messages)
@@ -499,6 +512,13 @@ namespace hitscord.Contexts
 			modelBuilder.Entity<ServerPresetDbModel>(entity =>
 			{
 				entity.HasKey(p => new { p.ServerRoleId, p.SystemRoleId });
+			});
+
+			modelBuilder.Entity<ServerInvitationDbModel>(entity =>
+			{
+				entity.HasOne(e => e.User)
+					.WithMany()
+					.HasForeignKey(e => e.UserId);
 			});
 		}
     }

@@ -18,6 +18,11 @@ public class UserServerDbModel
 	[ForeignKey(nameof(ServerId))]
 	public ServerDbModel Server { get; set; }
 
+	public Guid? InvitationId { get; set; }
+	[ForeignKey(nameof(InvitationId))]
+	public ServerInvitationDbModel? Invitation { get; set; }
+
+
 	public required bool IsBanned { get; set; }
 
 	public string? BanReason { get; set; }

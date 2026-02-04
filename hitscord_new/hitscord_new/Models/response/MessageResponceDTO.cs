@@ -8,7 +8,7 @@ public class MessageResponceDTO
 	public Guid? ChannelId { get; set; }
 	public string? ChannelName { get; set; }
 	public required long Id { get; set; }
-    public required Guid AuthorId { get; set; }
+    public  Guid? AuthorId { get; set; }
     public required DateTime CreatedAt { get; set; }
     public ReplyToMessageResponceDTO? ReplyToMessage { get; set; }
 	public required bool isTagged { get; set; }

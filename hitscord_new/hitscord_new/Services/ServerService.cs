@@ -1,5 +1,4 @@
 ﻿using Authzed.Api.V0;
-using EasyNetQ;
 using Grpc.Core;
 using Grpc.Net.Client.Balancer;
 using hitscord.Contexts;
@@ -20,8 +19,11 @@ using System;
 using System.Data;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using System.Text.Json;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace hitscord.Services;
@@ -63,6 +65,7 @@ public class ServerService : IServerService
         var server = await _hitsContext.Server
                 .Include(s => s.Channels)
                 .Include(s => s.Roles)
+				.Include(s => s.Invitations)
                 .FirstOrDefaultAsync(s => s.Id == serverId);
         if (server == null)
         {
@@ -71,7 +74,7 @@ public class ServerService : IServerService
         return server;
     }
 
-    private async Task<RoleDbModel> CreateRoleAsync(Guid serverId, RoleEnum role, string roleName, string color, bool ServerCanChangeRole, bool ServerCanWorkChannels, bool ServerCanDeleteUsers, bool ServerCanMuteOther, bool ServerCanDeleteOthersMessages, bool ServerCanIgnoreMaxCount, bool ServerCanCreateRoles, bool ServerCanCreateLessons, bool ServerCanCheckAttendance)
+    private async Task<RoleDbModel> CreateRoleAsync(Guid serverId, RoleEnum role, string roleName, string color, bool ServerCanChangeRole, bool ServerCanWorkChannels, bool ServerCanDeleteUsers, bool ServerCanMuteOther, bool ServerCanDeleteOthersMessages, bool ServerCanIgnoreMaxCount, bool ServerCanCreateRoles, bool ServerCanCreateLessons, bool ServerCanCheckAttendance, bool ServerCanUseInvitations)
     {
         var newRole = new RoleDbModel()
         {
@@ -89,6 +92,7 @@ public class ServerService : IServerService
 			ServerCanCreateRoles = ServerCanCreateRoles,
 			ServerCanCreateLessons = ServerCanCreateLessons,
 			ServerCanCheckAttendance = ServerCanCheckAttendance,
+			ServerCanUseInvitations = ServerCanUseInvitations,
 			ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 			ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 			ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
@@ -147,9 +151,9 @@ public class ServerService : IServerService
 		await _hitsContext.Server.AddAsync(newServer);
 		await _hitsContext.SaveChangesAsync();
 
-		var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Создатель", "#FF0000", true, true, true, true, true, true, true, true, true);
-        var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Админ", "#00FF00", true, true, true, true, true, true, true, true, true);
-        var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Неопределенная", "#FFFF00", false, false, false, false, false, false, false, false, false);
+		var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Владелец", "#FF0000", true, true, true, true, true, true, true, true, true, true);
+        var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Администратор", "#00FF00", true, true, true, true, true, true, true, true, true, true);
+        var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Базовая", "#FFFF00", false, false, false, false, false, false, false, false, false, false);
         newServer.Roles = new List<RoleDbModel> { creatorRole, adminRole, uncertainRole };
         _hitsContext.Server.Update(newServer);
         await _hitsContext.SaveChangesAsync();
@@ -259,15 +263,20 @@ public class ServerService : IServerService
 		return (new ServerIdDTO { ServerId = newServer.Id });
     }
 
-	public async Task SubscribeAsync(Guid serverId, string token, string? userName)
+	public async Task SubscribeAsync(string token, string invitationToken, string? userName)
 	{
 		var user = await _authorizationService.GetUserAsync(token);/*
 		if (user.SystemRoles.Count == 0)
 		{
 			throw new CustomException("User cant subscribe to servers", "Subscribe", "User", 403, "Пользователь не имеет права присоединяться к серверам", "Подписка");
 		}*/
-		var server = await CheckServerExistAsync(serverId, true);
-		var existedSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverId);
+		var serverInvitation = await _hitsContext.Invitation.FirstOrDefaultAsync(i => i.Token == invitationToken && i.IsRevoked == false && i.ExpiresAt > DateTime.UtcNow);
+		if (serverInvitation == null)
+		{
+			throw new CustomException("Invitation not found", "Check invitation is exist", "Invitation", 404, "Приглашение не найдено", "Подписка");
+		}
+		var server = await CheckServerExistAsync(serverInvitation.ServerId, true);
+		var existedSub = await _hitsContext.UserServer.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ServerId == serverInvitation.ServerId);
 		if (existedSub != null && existedSub.IsBanned == true)
 		{
 			throw new CustomException("User banned in this server", "Subscribe", "User", 401, "Пользователь забанен на этом сервере", "Подписка");
@@ -288,6 +297,7 @@ public class ServerService : IServerService
 				Id = Guid.NewGuid(),
 				UserId = user.Id,
 				ServerId = server.Id,
+				InvitationId = serverInvitation.Id,
 				UserServerName = user.AccountName,
 				IsBanned = false,
 				NonNotifiable = false,
@@ -320,7 +330,7 @@ public class ServerService : IServerService
 
 			var newSubscriberResponse = new ServerUserDTO
 			{
-				ServerId = serverId,
+				ServerId = server.Id,
 				UserId = user.Id,
 				UserName = user.AccountName,
 				UserTag = user.AccountTag,
@@ -380,6 +390,7 @@ public class ServerService : IServerService
 			{
 				UserId = user.Id,
 				ServerId = server.Id,
+				InvitationId = serverInvitation.Id,
 				ServerUserName = userName,
 				CreatedAt = DateTime.UtcNow
 			};
@@ -1004,7 +1015,7 @@ public class ServerService : IServerService
 				Users = vc.Users.Select(u => new VoiceChannelUserDTO
 				{
 					UserId = u.UserId,
-					MuteStatus = u.MuteStatus,
+					MuteStatus = u.MutedOther == true ? MuteStatusEnum.Muted : (u.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted),
 					IsStream = u.IsStream
 				})
 				.ToList()
@@ -1026,13 +1037,13 @@ public class ServerService : IServerService
 				Users = vc.Users.Select(u => new VoiceChannelUserDTO
 				{
 					UserId = u.UserId,
-					MuteStatus = u.MuteStatus,
+					MuteStatus = u.MutedOther == true ? MuteStatusEnum.Muted : (u.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted),
 					IsStream = u.IsStream
 				})
 				.ToList()
 			})
 			.ToListAsync()
-			: null;
+			: new List<VoiceChannelResponseDTO>();
 
 		var textChannels = await _hitsContext.TextChannel
 			.Include(t => t.ChannelCanSee)
@@ -1188,7 +1199,8 @@ public class ServerService : IServerService
 				CanIgnoreMaxCount = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanIgnoreMaxCount),
 				CanCreateRoles = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateRoles),
 				CanCreateLessons = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateLessons),
-				CanCheckAttendance = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanCheckAttendance)
+				CanCheckAttendance = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanCheckAttendance),
+				CanUseInvitations = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanUseInvitations)
 			},
 			IsNotifiable = sub.NonNotifiable,
 			Users = serverUsers,
@@ -2466,5 +2478,62 @@ public class ServerService : IServerService
 
 		_hitsContext.Preset.Remove(preset);
 		await _hitsContext.SaveChangesAsync();
+	}
+
+	public async Task<ServerInvitationResponseDTO> CreateInvitationToken(string token, Guid serverId, DateTime expiresAt)
+	{
+		var owner = await _authorizationService.GetUserAsync(token);
+		var server = await CheckServerExistAsync(serverId, false);
+
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == owner.Id);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner is not subscriber of this server", "Check owner", "Owner", 404, "Пользователь не найден", "Генерация приглашения");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanUseInvitations) == false)
+		{
+			throw new CustomException("Owner does not have rights to use invitations", "Check user rights to use invitations", "Owner", 403, "Пользователь не имеет права генерировать приглашения", "Генерация приглашения");
+		}
+
+		var invitation = new ServerInvitationDbModel
+		{
+			ServerId = server.Id,
+			UserId = owner.Id,
+			Token = GenerateSecureToken(),
+			ExpiresAt = expiresAt,
+			IsRevoked = false,
+		};
+
+		await _hitsContext.Invitation.AddAsync(invitation);
+		await _hitsContext.SaveChangesAsync();
+
+		var invitationObject = new InvitationPayload
+		{
+			ServerName = server.Name,
+			ServerIconId = server.IconFileId,
+			InvitationToken = invitation.Token
+		};
+
+		var invitationJson = JsonSerializer.Serialize(invitationObject);
+		var invitationString = Convert.ToBase64String(Encoding.UTF8.GetBytes(invitationJson)).Replace("+", "-").Replace("/", "_").TrimEnd('=');
+
+		var response = new ServerInvitationResponseDTO
+		{
+			InvitationString = invitationString
+		};
+
+		return response;
+	}
+
+	private static string GenerateSecureToken()
+	{
+		var bytes = RandomNumberGenerator.GetBytes(32);
+		return Convert.ToBase64String(bytes)
+			.Replace("+", "-")
+			.Replace("/", "_")
+			.TrimEnd('=');
 	}
 }

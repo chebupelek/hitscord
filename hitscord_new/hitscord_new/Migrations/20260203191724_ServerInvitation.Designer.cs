@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using hitscord.Contexts;
@@ -12,9 +13,11 @@ using hitscord.Contexts;
 namespace hitscord_new.Migrations
 {
     [DbContext(typeof(HitsContext))]
-    partial class HitsContextModelSnapshot : ModelSnapshot
+    [Migration("20260203191724_ServerInvitation")]
+    partial class ServerInvitation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1048,19 +1051,16 @@ namespace hitscord_new.Migrations
                     b.Property<Guid>("VoiceChannelId")
                         .HasColumnType("uuid");
 
-                    b.Property<bool>("Inside")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsStream")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("MutedHimself")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("MutedOther")
-                        .HasColumnType("boolean");
+                    b.Property<int>("MuteStatus")
+                        .HasColumnType("integer");
 
                     b.HasKey("UserId", "VoiceChannelId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
 
                     b.HasIndex("VoiceChannelId");
 
@@ -1782,8 +1782,8 @@ namespace hitscord_new.Migrations
             modelBuilder.Entity("hitscord.Models.db.UserVoiceChannelDbModel", b =>
                 {
                     b.HasOne("hitscord.Models.db.UserDbModel", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
+                        .WithOne()
+                        .HasForeignKey("hitscord.Models.db.UserVoiceChannelDbModel", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

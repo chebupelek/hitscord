@@ -52,7 +52,7 @@ public class ServerController : ControllerBase
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validation();
-            await _serverService.SubscribeAsync(data.ServerId, jwtToken, data.UserName);
+            await _serverService.SubscribeAsync(jwtToken, data.InvitationToken, data.UserName);
             return Ok();
         }
         catch (CustomException ex)
@@ -587,6 +587,28 @@ public class ServerController : ControllerBase
 			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			await _serverService.DeletePresetAsync(jwtToken, data.ServerId, data.ServerRoleId, data.SystemRoleId);
 			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("invitation/create")]
+	public async Task<IActionResult> CreateInvitation([FromBody] CreateInvitationDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			data.Validation();
+			var result = await _serverService.CreateInvitationToken(jwtToken, data.ServerId, data.ExpiredAt);
+			return Ok(result);
 		}
 		catch (CustomException ex)
 		{

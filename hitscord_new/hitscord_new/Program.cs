@@ -115,31 +115,36 @@ builder.Services.AddAuthentication(opt => {
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
+	c.SwaggerDoc("v1", new OpenApiInfo
+	{
+		Title = "Your API",
+		Version = "3.0.0",
+		Description = "API для hitscord"
+	});
 
 	c.AddServer(new OpenApiServer { Url = "/api" });
 
 	c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer"
-    });
+	{
+		Description = "JWT Authorization header using the Bearer scheme",
+		Type = SecuritySchemeType.Http,
+		Scheme = "bearer"
+	});
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] { }
-        }
-    });
+	c.AddSecurityRequirement(new OpenApiSecurityRequirement
+	{
+		{
+			new OpenApiSecurityScheme
+			{
+				Reference = new OpenApiReference
+				{
+					Type = ReferenceType.SecurityScheme,
+					Id = "Bearer"
+				}
+			},
+			Array.Empty<string>()
+		}
+	});
 });
 
 builder.Services.AddQuartz(q =>
@@ -239,6 +244,7 @@ if (app.Environment.IsDevelopment())
 	app.UseSwagger();
 	app.UseSwaggerUI();
 }
+
 
 app.UseAuthentication();
 

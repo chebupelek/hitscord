@@ -21,6 +21,7 @@ public class ServerDbModel
     public ICollection<RoleDbModel> Roles { get; set; }
     public ICollection<ChannelDbModel> Channels { get; set; }
 	public ICollection<UserServerDbModel> Subscribtions { get; set; }
+	public ICollection<ServerInvitationDbModel> Invitations { get; set; }
 	public Guid? IconFileId { get; set; }
 	[ForeignKey(nameof(IconFileId))]
 	public FileDbModel? IconFile { get; set; }
