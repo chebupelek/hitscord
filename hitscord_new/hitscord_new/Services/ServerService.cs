@@ -1,5 +1,4 @@
 ﻿using Authzed.Api.V0;
-using EasyNetQ;
 using Grpc.Core;
 using Grpc.Net.Client.Balancer;
 using hitscord.Contexts;
@@ -21,8 +20,10 @@ using System.Data;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using System.Text.Json;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace hitscord.Services;
@@ -151,8 +152,8 @@ public class ServerService : IServerService
 		await _hitsContext.SaveChangesAsync();
 
 		var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Владелец", "#FF0000", true, true, true, true, true, true, true, true, true, true);
-        var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Админ", "#00FF00", true, true, true, true, true, true, true, true, true, true);
-        var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Неопределенная", "#FFFF00", false, false, false, false, false, false, false, false, false, false);
+        var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Администратор", "#00FF00", true, true, true, true, true, true, true, true, true, true);
+        var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Базовая", "#FFFF00", false, false, false, false, false, false, false, false, false, false);
         newServer.Roles = new List<RoleDbModel> { creatorRole, adminRole, uncertainRole };
         _hitsContext.Server.Update(newServer);
         await _hitsContext.SaveChangesAsync();
@@ -2509,9 +2510,19 @@ public class ServerService : IServerService
 		await _hitsContext.Invitation.AddAsync(invitation);
 		await _hitsContext.SaveChangesAsync();
 
+		var invitationObject = new InvitationPayload
+		{
+			ServerName = server.Name,
+			ServerIconId = server.IconFileId,
+			InvitationToken = invitation.Token
+		};
+
+		var invitationJson = JsonSerializer.Serialize(invitationObject);
+		var invitationString = Convert.ToBase64String(Encoding.UTF8.GetBytes(invitationJson)).Replace("+", "-").Replace("/", "_").TrimEnd('=');
+
 		var response = new ServerInvitationResponseDTO
 		{
-			InvitationToken = invitation.Token
+			InvitationString = invitationString
 		};
 
 		return response;

@@ -2,5 +2,5 @@
 
 public class ServerInvitationResponseDTO
 {
-	public required string InvitationToken { get; set; }
+	public required string InvitationString { get; set; }
 }
