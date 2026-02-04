@@ -29,7 +29,10 @@ public interface IAdminService
 	Task<ServerAdminInfoDTO> GetServerDataAsync(string token, Guid ServerId);
 
 	Task AddUserAsync(string token, string Mail, string Name, string Password, IFormFile? iconFile);
-
+	Task ChangeUserIconAdminAsync(string token, Guid userId, IFormFile iconFile);
+	Task DeleteUserIconAdminAsync(string token, Guid userId);
+	Task ChangeUserDataAsync(string token, Guid UserId, string? Mail, string? Name);
+	Task DeleteUserAsync(string token, Guid UserId);
 
 
 	Task ChangeServerDataAsync(string token, Guid serverId, string? serverName, ServerTypeEnum? serverType, bool? serverClosed, Guid? newCreatorId);

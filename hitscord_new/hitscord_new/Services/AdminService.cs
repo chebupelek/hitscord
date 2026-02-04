@@ -1576,11 +1576,167 @@ public class AdminService: IAdminService
 			_hitsContext.SaveChanges();
 		}
 	}
+	public async Task ChangeUserIconAdminAsync(string token, Guid userId, IFormFile iconFile)
+	{
+		var admin = await GetAdminAsync(token);
+		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
+		if (user == null)
+		{
+			throw new CustomException("User not found", "ChangeUserIconAdminAsync", "UserId", 404, "Пользователь не найдены", "Изменение иконки пользователя админом");
+		}
+		if (iconFile.Length > 10 * 1024 * 1024)
+		{
+			throw new CustomException("Icon too large", "ChangeUserIconAdminAsync", "Icon", 400, "Файл слишком большой (макс. 10 МБ)", "Изменение иконки пользователя админом");
+		}
+		if (!iconFile.ContentType.StartsWith("image/"))
+		{
+			throw new CustomException("Invalid file type", "ChangeUserIconAdminAsync", "Icon", 400, "Файл не является изображением!", "Изменение иконки пользователя админом");
+		}
 
+		byte[] fileBytes;
+		using (var ms = new MemoryStream())
+		{
+			await iconFile.CopyToAsync(ms);
+			fileBytes = ms.ToArray();
+		}
 
+		var scanResult = await _clamService.ScanFileAsync(fileBytes);
+		if (scanResult.Result != ClamScanResults.Clean)
+		{
+			throw new CustomException("Virus detected", "ChangeUserIconAdminAsync", "Icon", 400, "Обнаружен вирус в файле", "Изменение иконки пользователя админом");
+		}
 
+		using var imgStream = new MemoryStream(fileBytes);
+		SixLabors.ImageSharp.Image image;
+		try
+		{
+			image = await SixLabors.ImageSharp.Image.LoadAsync(imgStream);
+		}
+		catch (SixLabors.ImageSharp.UnknownImageFormatException)
+		{
+			throw new CustomException("Invalid image file", "ChangeUserIconAdminAsync", "Icon", 400, "Файл не является валидным изображением!", "Изменение иконки пользователя админом");
+		}
 
+		if (image.Width > 650 || image.Height > 650)
+		{
+			throw new CustomException("Icon too large", "ChangeUserIconAdminAsync", "Icon", 400, "Изображение слишком большое (макс. 650x650)", "Изменение иконки пользователя админом");
+		}
 
+		var originalFileName = Path.GetFileName(iconFile.FileName);
+		var safeFileName = $"{Guid.NewGuid()}{Path.GetExtension(originalFileName)}";
+		var objectName = $"icons/{safeFileName}";
+
+		await _minioService.UploadFileAsync(objectName, fileBytes, iconFile.ContentType);
+
+		if (user.IconFileId != null)
+		{
+			var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == user.IconFileId);
+			if (oldIcon != null)
+			{
+				try
+				{
+					await _minioService.DeleteFileAsync(oldIcon.Path);
+				}
+				catch
+				{
+				}
+				_hitsContext.File.Remove(oldIcon);
+			}
+		}
+
+		var file = new FileDbModel
+		{
+			Id = Guid.NewGuid(),
+			Path = objectName,
+			Name = originalFileName,
+			Type = iconFile.ContentType,
+			Size = iconFile.Length,
+			Creator = user.Id,
+			IsApproved = true,
+			CreatedAt = DateTime.UtcNow,
+			Deleted = false,
+			UserId = user.Id
+		};
+
+		_hitsContext.File.Add(file);
+		await _hitsContext.SaveChangesAsync();
+
+		user.IconFileId = file.Id;
+		_hitsContext.User.Update(user);
+		await _hitsContext.SaveChangesAsync();
+	}
+	public async Task DeleteUserIconAdminAsync(string token, Guid userId)
+	{
+		var admin = await GetAdminAsync(token);
+		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
+		if (user == null)
+		{
+			throw new CustomException("User not found", "ChangeUserIconAdminAsync", "UserId", 404, "Пользователь не найдены", "Удаление иконки пользователя админом");
+		}
+
+		if (user.IconFileId == null)
+		{
+			throw new CustomException("Icon not found", "ChangeUserIconAdminAsync", "Icon", 404, "Пользователь не имеет иконки", "Удаление иконки пользователя админом");
+		}
+
+		var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == user.IconFileId);
+		if (oldIcon != null)
+		{
+			try
+			{
+				await _minioService.DeleteFileAsync(oldIcon.Path);
+			}
+			catch
+			{
+			}
+			_hitsContext.File.Remove(oldIcon);
+		}
+
+		user.IconFileId = null;
+		_hitsContext.User.Update(user);
+		await _hitsContext.SaveChangesAsync();
+	}
+	public async Task ChangeUserDataAsync(string token, Guid UserId, string? Mail, string? Name)
+	{
+		var admin = await GetAdminAsync(token);
+
+		if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == Mail) != null)
+		{
+			throw new CustomException("Account with this mail already exist", "ChangeUserDataAsync", "Mail", 400, "Аккаунт с такой почтой уже существует", "Изменение информации о пользователе");
+		}
+
+		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == UserId);
+		if (user == null)
+		{
+			throw new CustomException("User not found", "ChangeUserDataAsync", "UserId", 404, "Пользователь не найдены", "Изменение информации о пользователе");
+		}
+
+		user.Mail = Mail != null ? Mail : user.Mail;
+		user.AccountName = Name != null ? Name : user.AccountName;
+
+		string formattedNumber = user.AccountNumber.ToString("D6");
+		if (formattedNumber.Length > 6)
+		{
+			formattedNumber = formattedNumber.Substring(formattedNumber.Length - 6);
+		}
+		user.AccountTag = Name != null ? Regex.Replace(Transliteration.CyrillicToLatin(Name, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + formattedNumber : user.AccountTag;
+
+		_hitsContext.User.Update(user);
+		await _hitsContext.SaveChangesAsync();
+	}
+	public async Task DeleteUserAsync(string token, Guid UserId)
+	{
+		var admin = await GetAdminAsync(token);
+
+		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == UserId);
+		if (user == null)
+		{
+			throw new CustomException("User not found", "DeleteUserAsync", "UserId", 404, "Пользователь не найдены", "Удаление пользователя");
+		}
+
+		_hitsContext.User.Remove(user);
+		await _hitsContext.SaveChangesAsync();
+	}
 
 
 	public async Task ChangeServerDataAsync(string token, Guid serverId, string? serverName, ServerTypeEnum? serverType, bool? serverClosed, Guid? newCreatorId)

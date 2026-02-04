@@ -19,5 +19,9 @@ const routers = {
     serverList: `${base}/server/list`,
     serverInfo: `${base}/server/info`,
     createUser: `${base}/user/create`,
+    changeUserIcon: `${base}/user/icon/change`,
+    deleteUserIcon: `${base}/user/icon/delete`,
+    changeUserData: `${base}/user/profile/change`,
+    deleteUser: `${base}/user/delete`,
 };
 export default routers;

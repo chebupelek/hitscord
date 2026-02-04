@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { CloseOutlined, UserOutlined, DeleteOutlined, KeyOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from "react-router-dom";
-import { removeRoleThunkCreator, getIconThunkCreator, changePasswordThunkCreator } from "../../Reducers/UsersListReducer";
+import { removeRoleThunkCreator, getIconThunkCreator, changePasswordThunkCreator, deleteUserIconThunkCreator, changeUserIconThunkCreator, changeUserDataThunkCreator, deleteUserThunkCreator } from "../../Reducers/UsersListReducer";
 import styles from "./UserCard.module.css";
 import { PlusOutlined, MoreOutlined, UploadOutlined, EditOutlined } from "@ant-design/icons";
 import { Popover, Select } from "antd";
@@ -27,7 +27,7 @@ function RoleTag({ role, onRemove })
     );
 }
 
-function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemRoles = [], checked, onCheck, reloadUsers }) 
+function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemRoles = [], whereCreator=[], checked, onCheck, reloadUsers }) 
 {
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -58,7 +58,40 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
 
     const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
-    
+    const [creatorServersModalVisible, setCreatorServersModalVisible] = useState(false);
+
+    const isCreator = whereCreator && whereCreator.length > 0;
+    const canDeleteUser = !isCreator;
+
+    const isFormChanged =
+        editName !== name ||
+        editMail !== mail;
+
+    const [editNameError, setEditNameError] = useState("");
+    const [editMailError, setEditMailError] = useState("");
+
+    const validateName = (value) => {
+        if (!value) return "";
+        if (value.length < 6 || value.length > 50)
+            return "Имя должно быть от 6 до 50 символов";
+        if (!/^[a-zA-Zа-яА-ЯёЁ0-9 ]+$/.test(value))
+            return "Допустимы только буквы и цифры";
+        return "";
+    };
+
+    const validateMail = (value) => {
+        if (!value) return "";
+        if (value.length < 6 || value.length > 50)
+            return "Почта должна быть от 6 до 50 символов";
+        if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value))
+            return "Неверный формат почты";
+        return "";
+    };
+
+    const isFormValid =
+        !editNameError &&
+        !editMailError &&
+        (editName || editMail);
 
     useEffect(() => {
         if (!icon?.fileId) 
@@ -204,7 +237,51 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
 
     const openIconModal = () => { setIconModalVisible(true); setNewIconFile(null); };
     const handleIconChange = (e) => setNewIconFile(e.target.files[0]);
-    const handleIconRemove = () => { console.log("Удалить иконку"); setNewIconFile(null); setIconModalVisible(false); };
+    const handleIconRemove = () => {
+        const payload = { Id: id };
+
+        dispatch(deleteUserIconThunkCreator(payload, navigate, reloadUsers))
+            .then(() => {
+                setIconModalVisible(false);
+                setNewIconFile(null);
+                setIconSrc(null);
+            });
+    };
+    const handleIconSave = () => {
+        if (!newIconFile) return;
+
+        const formData = new FormData();
+        formData.append("UserId", id);
+        formData.append("IconFile", newIconFile);
+
+        dispatch(changeUserIconThunkCreator(formData, navigate, reloadUsers))
+            .then(() => {
+                setIconModalVisible(false);
+                setNewIconFile(null);
+            });
+    };
+
+    const handleSaveUserData = () => {
+        const payload = {
+            UserId: id,
+            Name: editName !== name ? editName : null,
+            Mail: editMail !== mail ? editMail : null
+        };
+
+        dispatch(changeUserDataThunkCreator(payload, navigate, reloadUsers))
+            .then(() => {
+                setEditModalVisible(false);
+            });
+    };
+
+    const handleDeleteUser = () => {
+        const payload = { Id: id };
+
+        dispatch(deleteUserThunkCreator(payload, navigate, reloadUsers))
+            .then(() => {
+                setDeleteConfirmVisible(false);
+            });
+    };
 
     return (
         <>
@@ -256,21 +333,34 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                         <div>Почта - <strong>{mail}</strong></div>
                         <div>Тэг - <strong>{accountTag}</strong></div>
                         <div>Дата создания аккаунта - <strong>{formatDate(accountCreateDate)}</strong></div>
-                        <div>Является создателем - <strong>нет</strong></div>
+                        <div>
+                            Является создателем —{" "}
+                            <strong style={{ color: isCreator ? "green" : "gray" }}>
+                                {isCreator ? "Да" : "Нет"}
+                            </strong>
+                            {isCreator && (
+                                <Button
+                                    type="link"
+                                    size="small"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCreatorServersModalVisible(true);
+                                    }}
+                                >
+                                    Посмотреть
+                                </Button>
+                            )}
+                        </div>
                         <div style={{ marginBottom: "6px" }}>Роли:</div>
                         <div className={styles.roles}>{renderRoles()}</div>
                         <Space className={styles.userCardButtons} style={{ marginTop: '12px' }}>
-                            <Button
-                                type="primary"
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteConfirmVisible(true);
-                                }}
-                            >
-                                Удалить
-                            </Button>
+                            {canDeleteUser && (
+                                <Button type="primary" danger icon={<DeleteOutlined />}
+                                    onClick={(e) => { e.stopPropagation(); setDeleteConfirmVisible(true); }}
+                                >
+                                    Удалить
+                                </Button>
+                            )}
 
                             <Button type="default" onClick={openModal} icon={<KeyOutlined />}>Сменить пароль</Button>
                         </Space>
@@ -300,8 +390,30 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                 <Space direction="vertical" style={{ width: "100%", alignItems: "center" }}>
                     <Avatar size={128} src={iconSrc} icon={<UserOutlined />} />
                     <Space>
-                        <Button icon={<UploadOutlined />} onClick={() => document.getElementById(`userIconInput-${id}`).click()}>Заменить</Button>
-                        <Button icon={<CloseOutlined />} onClick={handleIconRemove} danger>Удалить</Button>
+                        <Button
+                            icon={<UploadOutlined />}
+                            onClick={() => document.getElementById(`userIconInput-${id}`).click()}
+                        >
+                            Выбрать файл
+                        </Button>
+
+                        <Button
+                            type="primary"
+                            disabled={!newIconFile}
+                            onClick={handleIconSave}
+                        >
+                            Сохранить
+                        </Button>
+
+                        {iconSrc && (
+                            <Button
+                                icon={<CloseOutlined />}
+                                onClick={handleIconRemove}
+                                danger
+                            >
+                                Удалить
+                            </Button>
+                        )}
                     </Space>
                     <input type="file" id={`userIconInput-${id}`} style={{ display: "none" }} onChange={handleIconChange} />
                 </Space>
@@ -309,26 +421,48 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
             <Modal
                 title="Редактирование пользователя"
                 open={editModalVisible}
-                okText="Сохранить"
-                cancelText="Отмена"
                 onCancel={() => setEditModalVisible(false)}
-                onOk={() => {
-                    console.log("Новое имя:", editName);
-                    console.log("Новая почта:", editMail);
-                    setEditModalVisible(false);
-                }}
+                footer={[
+                    <Button key="cancel" onClick={() => setEditModalVisible(false)}>
+                        Отмена
+                    </Button>,
+                    <Button
+                        key="save"
+                        type="primary"
+                        disabled={!isFormValid || !isFormChanged}
+                        onClick={handleSaveUserData}
+                    >
+                        Сохранить
+                    </Button>
+                ]}
             >
                 <Space direction="vertical" style={{ width: "100%" }}>
                     <Input
                         placeholder="Имя пользователя"
                         value={editName}
-                        onChange={e => setEditName(e.target.value)}
+                        status={editNameError ? "error" : ""}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setEditName(value);
+                            setEditNameError(validateName(value));
+                        }}
                     />
+                    {editNameError && (
+                        <Typography.Text type="danger">{editNameError}</Typography.Text>
+                    )}
                     <Input
                         placeholder="Почта"
                         value={editMail}
-                        onChange={e => setEditMail(e.target.value)}
+                        status={editMailError ? "error" : ""}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setEditMail(value);
+                            setEditMailError(validateMail(value));
+                        }}
                     />
+                    {editMailError && (
+                        <Typography.Text type="danger">{editMailError}</Typography.Text>
+                    )}
                 </Space>
             </Modal>
             <Modal
@@ -338,10 +472,7 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                 cancelText="Отмена"
                 okButtonProps={{ danger: true }}
                 onCancel={() => setDeleteConfirmVisible(false)}
-                onOk={() => {
-                    console.log("Удаляем пользователя:", id);
-                    setDeleteConfirmVisible(false);
-                }}
+                onOk={handleDeleteUser}
             >
                 <Typography.Text>
                     Вы уверены, что хотите удалить пользователя{" "}
@@ -352,8 +483,48 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                     </Typography.Text>
                 </Typography.Text>
             </Modal>
+            <Modal
+                title={`Сервера, где ${name} является создателем`}
+                open={creatorServersModalVisible}
+                onCancel={() => setCreatorServersModalVisible(false)}
+                footer={null}
+            >
+                <Space direction="vertical" style={{ width: "100%" }}>
+                    {whereCreator.map(server => (
+                        <ServerItem key={server.serverId} server={server} />
+                    ))}
+                </Space>
+            </Modal>
         </>
     );
 }
+
+function ServerItem({ server }) {
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const [iconSrc, setIconSrc] = useState(null);
+
+    useEffect(() => {
+        if (!server.icon?.fileId) return;
+
+        dispatch(getIconThunkCreator(server.icon.fileId, navigate))
+            .then(data => {
+                if (!data) return;
+                setIconSrc(`data:${data.fileType};base64,${data.base64File}`);
+            });
+    }, [server.icon?.fileId, dispatch, navigate]);
+
+    return (
+        <Space>
+            <Avatar
+                size={40}
+                src={iconSrc}
+                icon={!iconSrc && <UserOutlined />}
+            />
+            <Typography.Text>{server.serverName}</Typography.Text>
+        </Space>
+    );
+}
+
 
 export default UserCard;

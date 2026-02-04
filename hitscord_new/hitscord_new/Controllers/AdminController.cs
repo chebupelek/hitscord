@@ -447,6 +447,94 @@ public class AdminController : ControllerBase
 		}
 	}
 
+	[Authorize]
+	[HttpPut]
+	[Route("user/icon/change")]
+	public async Task<IActionResult> ChangeUserIcon([FromForm] UserChangeIconDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _adminService.ChangeUserIconAdminAsync(jwtToken, data.UserId, data.IconFile);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpDelete]
+	[Route("user/icon/delete")]
+	public async Task<IActionResult> DeleteUserIcon([FromBody] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _adminService.DeleteUserIconAdminAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("user/profile/change")]
+	public async Task<IActionResult> ChangeUserProfile([FromBody] ChangeUserProfileAdminDTO newUserData)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			newUserData.Validation();
+			await _adminService.ChangeUserDataAsync(jwtToken, newUserData.UserId, newUserData.Mail, newUserData.Name);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpDelete]
+	[Route("user/delete")]
+	public async Task<IActionResult> DeleteUser([FromBody] IdRequestDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			await _adminService.DeleteUserAsync(jwtToken, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 
 
 

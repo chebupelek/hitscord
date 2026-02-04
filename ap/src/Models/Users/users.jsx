@@ -292,6 +292,7 @@ function Users()
                                     icon={user.icon}
                                     accountCreateDate={user.accountCreateDate}
                                     systemRoles={user.systemRoles}
+                                    whereCreator={user.whereCreator}
                                     checked={selectedUsers.includes(user.id)}
                                     onCheck={handleSelectUser}
                                     reloadUsers={reloadUsers}
