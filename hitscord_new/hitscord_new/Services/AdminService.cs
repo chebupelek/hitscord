@@ -1440,6 +1440,125 @@ public class AdminService: IAdminService
 
 
 
+	public async Task AddUserAsync(string token, string Mail, string Name, string Password, IFormFile? iconFile)
+	{
+		var admin = await GetAdminAsync(token);
+
+		if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == Mail) != null)
+		{
+			throw new CustomException("Account with this mail already exist", "Create user", "Mail", 400, "Аккаунт с такой почтой уже существует", "Создание пользователя");
+		}
+
+		var count = (await _hitsContext.User.Select(u => (int?)u.AccountNumber).MaxAsync() ?? 0) + 1;
+
+		string formattedNumber = count.ToString("D6");
+
+		if (formattedNumber.Length > 6)
+		{
+			formattedNumber = formattedNumber.Substring(formattedNumber.Length - 6);
+		}
+
+		var studentRole = await _hitsContext.SystemRole.FirstOrDefaultAsync(sr => sr.ParentRoleId == null && sr.Type == SystemRoleTypeEnum.Student);
+		if (studentRole == null)
+		{
+			throw new CustomException("Student role not found", "Create user", "Student role", 404, "Стартовая роль не найдена", "Создание пользователя");
+		}
+
+		var newUser = new UserDbModel
+		{
+			Mail = Mail,
+			PasswordHash = _passwordHasher.HashPassword(Mail, Password),
+			AccountName = Name,
+			AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(Name, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + formattedNumber,
+			AccountNumber = count,
+			Notifiable = true,
+			FriendshipApplication = true,
+			NonFriendMessage = true,
+			NotificationLifeTime = 4,
+			SystemRoles = new List<SystemRoleDbModel>()
+		};
+		newUser.SystemRoles.Add(studentRole);
+
+		if (iconFile != null)
+		{
+			if (iconFile.Length > 10 * 1024 * 1024)
+			{
+				throw new CustomException("Icon too large", "Create user", "Icon", 400, "Файл слишком большой (макс. 10 МБ)", "Создание пользователя");
+			}
+
+			if (!iconFile.ContentType.StartsWith("image/"))
+			{
+				throw new CustomException("Invalid file type", "Create user", "Icon", 400, "Файл не является изображением!", "Создание пользователя");
+			}
+
+			byte[] fileBytes;
+			using (var ms = new MemoryStream())
+			{
+				await iconFile.CopyToAsync(ms);
+				fileBytes = ms.ToArray();
+			}
+
+			var scanResult = await _clamService.ScanFileAsync(fileBytes);
+			if (scanResult.Result != ClamScanResults.Clean)
+			{
+				throw new CustomException("Virus detected", "Create user", "Icon", 400, "Обнаружен вирус в файле", "Создание пользователя");
+			}
+
+			using var imgStream = new MemoryStream(fileBytes);
+			SixLabors.ImageSharp.Image image;
+			try
+			{
+				image = await SixLabors.ImageSharp.Image.LoadAsync(imgStream);
+			}
+			catch (SixLabors.ImageSharp.UnknownImageFormatException)
+			{
+				throw new CustomException("Invalid image file", "Create user", "Icon", 400, "Файл не является валидным изображением!", "Создание пользователя");
+			}
+
+			if (image.Width > 650 || image.Height > 650)
+			{
+				throw new CustomException("Icon too large", "Create user", "Icon", 400, "Изображение слишком большое (макс. 650x650)", "Создание пользователя");
+			}
+
+			var originalFileName = Path.GetFileName(iconFile.FileName);
+			var safeFileName = $"{Guid.NewGuid()}{Path.GetExtension(originalFileName)}";
+			var objectName = $"icons/{safeFileName}";
+
+			await _minioService.UploadFileAsync(objectName, fileBytes, iconFile.ContentType);
+
+			var file = new FileDbModel
+			{
+				Id = Guid.NewGuid(),
+				Path = objectName,
+				Name = originalFileName,
+				Type = iconFile.ContentType,
+				Size = iconFile.Length,
+				Creator = newUser.Id,
+				IsApproved = true,
+				CreatedAt = DateTime.UtcNow,
+				Deleted = false,
+				UserId = newUser.Id
+			};
+
+			await _hitsContext.User.AddAsync(newUser);
+			_hitsContext.SaveChanges();
+
+			_hitsContext.File.Add(file);
+			await _hitsContext.SaveChangesAsync();
+
+			newUser.IconFileId = file.Id;
+			_hitsContext.User.Update(newUser);
+			await _hitsContext.SaveChangesAsync();
+		}
+		else
+		{
+			await _hitsContext.User.AddAsync(newUser);
+			_hitsContext.SaveChanges();
+		}
+	}
+
+
+
 
 
 

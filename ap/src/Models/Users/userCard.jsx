@@ -236,27 +236,22 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                     </div>
                     <div className={styles.textBlock}>
                         <div className={styles.userNameRow}>
-    <Checkbox checked={checked} />
+                            <Checkbox checked={checked} />
 
-    <Space align="center">
-        <Typography.Title level={4} style={{ margin: 0 }}>
-            {name}
-        </Typography.Title>
+                            <Space align="center">
+                                <Typography.Title level={4} style={{ margin: 0 }}>
+                                    {name}
+                                </Typography.Title>
 
-        <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            className={styles.editButton}
-            onClick={(e) => {
-                e.stopPropagation();   // ❗ карточка
-                setEditName(name);
-                setEditMail(mail);
-                setEditModalVisible(true);
-            }}
-        />
-    </Space>
-</div>
+                                <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<EditOutlined />}
+                                    className={styles.editButton}
+                                    onClick={(e) => { e.stopPropagation(); setEditName(name); setEditMail(mail); setEditModalVisible(true); }}
+                                />
+                            </Space>
+                        </div>
 
                         <div>Почта - <strong>{mail}</strong></div>
                         <div>Тэг - <strong>{accountTag}</strong></div>
@@ -266,16 +261,16 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                         <div className={styles.roles}>{renderRoles()}</div>
                         <Space className={styles.userCardButtons} style={{ marginTop: '12px' }}>
                             <Button
-    type="primary"
-    danger
-    icon={<DeleteOutlined />}
-    onClick={(e) => {
-        e.stopPropagation();           // чтобы не триггерить чекбокс
-        setDeleteConfirmVisible(true); // открываем модалку
-    }}
->
-    Удалить
-</Button>
+                                type="primary"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteConfirmVisible(true);
+                                }}
+                            >
+                                Удалить
+                            </Button>
 
                             <Button type="default" onClick={openModal} icon={<KeyOutlined />}>Сменить пароль</Button>
                         </Space>
@@ -312,55 +307,51 @@ function UserCard({ id, name, mail, accountTag, icon, accountCreateDate, systemR
                 </Space>
             </Modal>
             <Modal
-    title="Редактирование пользователя"
-    open={editModalVisible}
-    okText="Сохранить"
-    cancelText="Отмена"
-    onCancel={() => setEditModalVisible(false)}
-    onOk={() => {
-        // TODO: dispatch thunk на изменение
-        console.log("Новое имя:", editName);
-        console.log("Новая почта:", editMail);
-
-        setEditModalVisible(false);
-    }}
->
-    <Space direction="vertical" style={{ width: "100%" }}>
-        <Input
-            placeholder="Имя пользователя"
-            value={editName}
-            onChange={e => setEditName(e.target.value)}
-        />
-        <Input
-            placeholder="Почта"
-            value={editMail}
-            onChange={e => setEditMail(e.target.value)}
-        />
-    </Space>
-</Modal>
-<Modal
-    title="Подтверждение удаления"
-    visible={deleteConfirmVisible}   // ✅ v4
-    okText="Удалить"
-    cancelText="Отмена"
-    okButtonProps={{ danger: true }}
-    onCancel={() => setDeleteConfirmVisible(false)}
-    onOk={() => {
-        console.log("Удаляем пользователя:", id);
-        setDeleteConfirmVisible(false);
-        // здесь можно вызвать thunk удаления
-    }}
->
-    <Typography.Text>
-        Вы уверены, что хотите удалить пользователя{" "}
-        <Typography.Text strong>{name}</Typography.Text>?
-        <br />
-        <Typography.Text type="danger">
-            Это действие нельзя отменить.
-        </Typography.Text>
-    </Typography.Text>
-</Modal>
-
+                title="Редактирование пользователя"
+                open={editModalVisible}
+                okText="Сохранить"
+                cancelText="Отмена"
+                onCancel={() => setEditModalVisible(false)}
+                onOk={() => {
+                    console.log("Новое имя:", editName);
+                    console.log("Новая почта:", editMail);
+                    setEditModalVisible(false);
+                }}
+            >
+                <Space direction="vertical" style={{ width: "100%" }}>
+                    <Input
+                        placeholder="Имя пользователя"
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                    />
+                    <Input
+                        placeholder="Почта"
+                        value={editMail}
+                        onChange={e => setEditMail(e.target.value)}
+                    />
+                </Space>
+            </Modal>
+            <Modal
+                title="Подтверждение удаления"
+                visible={deleteConfirmVisible}
+                okText="Удалить"
+                cancelText="Отмена"
+                okButtonProps={{ danger: true }}
+                onCancel={() => setDeleteConfirmVisible(false)}
+                onOk={() => {
+                    console.log("Удаляем пользователя:", id);
+                    setDeleteConfirmVisible(false);
+                }}
+            >
+                <Typography.Text>
+                    Вы уверены, что хотите удалить пользователя{" "}
+                    <Typography.Text strong>{name}</Typography.Text>?
+                    <br />
+                    <Typography.Text type="danger">
+                        Это действие нельзя отменить.
+                    </Typography.Text>
+                </Typography.Text>
+            </Modal>
         </>
     );
 }

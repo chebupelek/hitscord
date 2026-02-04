@@ -18,5 +18,6 @@ const routers = {
     register: `${base}/registration`,
     serverList: `${base}/server/list`,
     serverInfo: `${base}/server/info`,
+    createUser: `${base}/user/create`,
 };
 export default routers;

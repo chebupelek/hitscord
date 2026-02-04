@@ -424,6 +424,32 @@ public class AdminController : ControllerBase
 		}
 	}
 
+	[Authorize]
+	[HttpPost]
+	[Route("user/create")]
+	public async Task<IActionResult> CreateUser([FromForm] UserCreateAdminDTO data)
+	{
+		try
+		{
+			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			data.Validation();
+			await _adminService.AddUserAsync(jwtToken, data.Mail, data.Name, data.Password, data.IconFile);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+
+
+
 
 
 	[Authorize]

@@ -1,7 +1,7 @@
 import { Button, Col, Row, Card, Select, Input, Space, Pagination, Modal, Form, Skeleton, Spin, Avatar } from "antd";
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getUsersListThunkCreator, getRolesShortListThunkCreator, addRoleThunkCreator } from "../../Reducers/UsersListReducer";
+import { getUsersListThunkCreator, getRolesShortListThunkCreator, addRoleThunkCreator, createUserThunkCreator } from "../../Reducers/UsersListReducer";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import UserCard from "./userCard";
 import { UserAddOutlined, UploadOutlined, UserOutlined, CloseOutlined } from "@ant-design/icons";
@@ -228,29 +228,26 @@ function Users()
 
 
     const handleNewUserIconChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+        const file = e.target.files[0];
+        if (!file) return;
 
-    setNewUserIcon(file);
+        setNewUserIcon(file);
 
-    const reader = new FileReader();
-    reader.onload = () => setNewUserIconPreview(reader.result);
-    reader.readAsDataURL(file);
-};
+        const reader = new FileReader();
+        reader.onload = () => setNewUserIconPreview(reader.result);
+        reader.readAsDataURL(file);
+    };
 
-const handleNewUserIconRemove = () => {
-    setNewUserIcon(null);
-    setNewUserIconPreview(null);
-};
+    const handleNewUserIconRemove = () => {
+        setNewUserIcon(null);
+        setNewUserIconPreview(null);
+    };
 
-
-
-
-    return (<>
+    return (
+    <>
         <div style={{ width: '80%', marginBottom: '2%' }}>
             <Row align="middle">
                 <h1>Пользователи</h1>
-
                 <Space style={{ marginLeft: "auto" }}>
                     <Button
                         icon={<UserAddOutlined />}
@@ -320,91 +317,95 @@ const handleNewUserIconRemove = () => {
         </div>
 
         <Modal
-    title="Создание пользователя"
-    open={isCreateUserModalVisible}
-    onCancel={() => {
-        setIsCreateUserModalVisible(false);
-        handleNewUserIconRemove();
-    }}
-    okText="Создать"
-    cancelText="Отмена"
-    onOk={() => {
-        // TODO: dispatch(createUserThunkCreator)
-        setIsCreateUserModalVisible(false);
-        handleNewUserIconRemove();
-        setNewUserName("");
-        setNewUserMail("");
-        setNewUserPassword("");
-    }}
->
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
-
-        {/* ИКОНКА */}
-        <Space
-            direction="vertical"
-            align="center"
-            style={{
-                width: "100%",
-                padding: "12px 0",
-                borderRadius: 8,
-                background: "#fafafa"
+            title="Создание пользователя"
+            open={isCreateUserModalVisible}
+            onCancel={() => {
+                setIsCreateUserModalVisible(false);
+                handleNewUserIconRemove();
+            }}
+            okText="Создать"
+            cancelText="Отмена"
+            onOk={() => {
+                const formData = new FormData();
+                formData.append("Mail", newUserMail);
+                formData.append("Name", newUserName);
+                formData.append("Password", newUserPassword);
+                if (newUserIcon) 
+                {
+                    formData.append("IconFile", newUserIcon);
+                }
+                dispatch(createUserThunkCreator(
+                    formData,
+                    navigate,
+                    reloadUsers
+                ));
+                setIsCreateUserModalVisible(false);
+                handleNewUserIconRemove();
+                setNewUserName("");
+                setNewUserMail("");
+                setNewUserPassword("");
             }}
         >
-            <Avatar
-                size={128}
-                src={newUserIconPreview}
-                icon={!newUserIconPreview && <UserOutlined />}
-            />
-
-            <Space>
-                <Button
-                    icon={<UploadOutlined />}
-                    onClick={() => document.getElementById("newUserIconInput").click()}
+            <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                <Space
+                    direction="vertical"
+                    align="center"
+                    style={{
+                        width: "100%",
+                        padding: "12px 0",
+                        borderRadius: 8,
+                        background: "#fafafa"
+                    }}
                 >
-                    Заменить
-                </Button>
+                    <Avatar
+                        size={128}
+                        src={newUserIconPreview}
+                        icon={!newUserIconPreview && <UserOutlined />}
+                    />
+                    <Space>
+                        <Button
+                            icon={<UploadOutlined />}
+                            onClick={() => document.getElementById("newUserIconInput").click()}
+                        >
+                            Заменить
+                        </Button>
 
-                <Button
-                    icon={<CloseOutlined />}
-                    danger
-                    disabled={!newUserIcon}
-                    onClick={handleNewUserIconRemove}
-                >
-                    Удалить
-                </Button>
+                        <Button
+                            icon={<CloseOutlined />}
+                            danger
+                            disabled={!newUserIcon}
+                            onClick={handleNewUserIconRemove}
+                        >
+                            Удалить
+                        </Button>
+                    </Space>
+
+                    <input
+                        type="file"
+                        id="newUserIconInput"
+                        style={{ display: "none" }}
+                        accept="image/*"
+                        onChange={handleNewUserIconChange}
+                    />
+                </Space>
+                <Input
+                    placeholder="Имя пользователя"
+                    value={newUserName}
+                    onChange={e => setNewUserName(e.target.value)}
+                />
+                <Input
+                    placeholder="Почта"
+                    value={newUserMail}
+                    onChange={e => setNewUserMail(e.target.value)}
+                />
+                <Input.Password
+                    placeholder="Пароль"
+                    value={newUserPassword}
+                    onChange={e => setNewUserPassword(e.target.value)}
+                />
             </Space>
-
-            <input
-                type="file"
-                id="newUserIconInput"
-                style={{ display: "none" }}
-                accept="image/*"
-                onChange={handleNewUserIconChange}
-            />
-        </Space>
-
-        {/* ПОЛЯ */}
-        <Input
-            placeholder="Имя пользователя"
-            value={newUserName}
-            onChange={e => setNewUserName(e.target.value)}
-        />
-
-        <Input
-            placeholder="Почта"
-            value={newUserMail}
-            onChange={e => setNewUserMail(e.target.value)}
-        />
-
-        <Input.Password
-            placeholder="Пароль"
-            value={newUserPassword}
-            onChange={e => setNewUserPassword(e.target.value)}
-        />
-    </Space>
-</Modal>
-
-</>
+        </Modal>
+    </>
     );
 }
 

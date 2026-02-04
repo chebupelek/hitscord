@@ -203,4 +203,24 @@ export function changePasswordThunkCreator(data, navigate, reloadUsers) {
     };
 }
 
+export function createUserThunkCreator(formData, navigate, reloadUsers) {
+    return (dispatch) => {
+        dispatch(setLoadingUsersActionCreator(true));
+        return usersApi.createUser(formData, navigate)
+            .then(response => {
+                if (response !== null) 
+                {
+                    notification.success({
+                        message: "Успех",
+                        description: "Пользователь создан",
+                        duration: 4,
+                        placement: "topLeft"
+                    });
+                    reloadUsers();
+                }
+            })
+            .finally(() => dispatch(setLoadingUsersActionCreator(false)));
+    };
+}
+
 export default usersListReducer;

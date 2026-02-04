@@ -28,6 +28,8 @@ public interface IAdminService
 	Task<ServersAdminListDTO> GetServersListAsync(string token, int num, int page, string? name);
 	Task<ServerAdminInfoDTO> GetServerDataAsync(string token, Guid ServerId);
 
+	Task AddUserAsync(string token, string Mail, string Name, string Password, IFormFile? iconFile);
+
 
 
 	Task ChangeServerDataAsync(string token, Guid serverId, string? serverName, ServerTypeEnum? serverType, bool? serverClosed, Guid? newCreatorId);
