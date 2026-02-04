@@ -221,8 +221,8 @@ public class ChannelController : ControllerBase
         try
         {
             var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.JoinToVoiceChannelAsync(channelId.VoiceChannelId, jwtToken);
-            return Ok();
+            var result = await _channelService.JoinToVoiceChannelAsync(channelId.VoiceChannelId, jwtToken);
+            return Ok(result);
         }
         catch (CustomException ex)
         {

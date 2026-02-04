@@ -413,7 +413,7 @@ public class ChannelService : IChannelService
 		}
 	}
 
-	public async Task<bool> JoinToVoiceChannelAsync(Guid chnnelId, string token)
+	public async Task<UserVoiceChannelResponseDTO> JoinToVoiceChannelAsync(Guid chnnelId, string token)
 	{
 		var user = await _authService.GetUserAsync(token);
 		var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
@@ -516,7 +516,7 @@ public class ChannelService : IChannelService
 			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, alertedUsers, "New user in voice channel");
 		}
 
-		return (true);
+		return (newUserInVoiceChannel);
 	}
 
 	public async Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, string token)
