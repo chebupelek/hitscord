@@ -11,7 +11,7 @@ public class CreateInvitationDTO
 
     public void Validation()
     {
-		var now = DateTime.Now;
+		var now = DateTime.UtcNow;
 		if (ExpiredAt <= now.AddMinutes(9))
 		{
 			throw new CustomException("Expiration time must be minimum at 10 minuts", "Create invitation", "ExpiredAt", 400, "Ссылка должна продержаться минимум 10 минут", "Валидация генерации приглашения");

@@ -269,7 +269,7 @@ public class ServerService : IServerService
 		{
 			throw new CustomException("User cant subscribe to servers", "Subscribe", "User", 403, "Пользователь не имеет права присоединяться к серверам", "Подписка");
 		}*/
-		var serverInvitation = await _hitsContext.Invitation.FirstOrDefaultAsync(i => i.Token == invitationToken && i.IsRevoked == false && i.ExpiresAt > DateTime.Now);
+		var serverInvitation = await _hitsContext.Invitation.FirstOrDefaultAsync(i => i.Token == invitationToken && i.IsRevoked == false && i.ExpiresAt > DateTime.UtcNow);
 		if (serverInvitation == null)
 		{
 			throw new CustomException("Invitation not found", "Check invitation is exist", "Invitation", 404, "Приглашение не найдено", "Подписка");
