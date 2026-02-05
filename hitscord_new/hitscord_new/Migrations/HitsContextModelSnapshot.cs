@@ -81,6 +81,33 @@ namespace hitscord_new.Migrations
                     b.ToTable("Admin");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.AdminOperationsHistoryDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OperationData")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("OperationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminId");
+
+                    b.ToTable("OperationsHistory");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.ChannelCanJoinDbModel", b =>
                 {
                     b.Property<Guid>("RoleId")
@@ -1226,6 +1253,16 @@ namespace hitscord_new.Migrations
                         .HasForeignKey("UsersId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.AdminOperationsHistoryDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.AdminDbModel", "Admin")
+                        .WithMany()
+                        .HasForeignKey("AdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Admin");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ChannelCanJoinDbModel", b =>
