@@ -1,7 +1,6 @@
 import { Layout, Avatar, Space } from 'antd';
 import Links from './links';
 import ProfileMenu from './profileMenu';
-import Logo from './Logo.png'
 
 function Header(){
     return(

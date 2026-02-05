@@ -1,12 +1,13 @@
 import routers from "../Router/routers";
 import { notification } from "antd";
 
-function login(body) 
+function register(body, navigate) 
 {
-    return fetch(routers.login, {
+    return fetch(routers.register, {
         method: "POST",
         headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
         body: JSON.stringify(body)
     })
@@ -49,12 +50,13 @@ function login(body)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
                     );
                     localStorage.clear();
+                    navigate("/login");
                     return null;
                 case 500:
                     notification.error(
@@ -78,8 +80,7 @@ function login(body)
                     return null;
             }
         }
-        localStorage.setItem("token", data.accessToken);
-        return data;
+        return data || {};
     })
     .catch(error => {
         console.error(error.message);
@@ -95,6 +96,7 @@ function login(body)
     });
 }
 
-export const loginApi = {
-    login : login
+
+export const adminApi = {
+    register : register
 }

@@ -23,7 +23,7 @@ function Roles()
                 <h1>Системные роли</h1>
             </Row>
             <Spin spinning={loadingRoles}>
-                <Row gutter={16} style={{ marginTop: '2%' }}>
+                <Row gutter={16} style={{ marginTop: '2%', marginBottom: '2%' }}>
                     {roles.map(role => (
                         <Col key={role.id} span={24}>
                             <RoleCard

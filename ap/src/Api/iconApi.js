@@ -1,14 +1,13 @@
 import routers from "../Router/routers";
 import { notification } from "antd";
 
-function login(body) 
+function getIcon(fileId, navigate) 
 {
-    return fetch(routers.login, {
-        method: "POST",
+    return fetch(`${routers.icon}?fileId=${fileId}`, {
+        method: "GET",
         headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+        }
     })
     .then(async response => {
         const text = await response.text();
@@ -49,12 +48,13 @@ function login(body)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
                     );
                     localStorage.clear();
+                    navigate("/login");
                     return null;
                 case 500:
                     notification.error(
@@ -78,7 +78,6 @@ function login(body)
                     return null;
             }
         }
-        localStorage.setItem("token", data.accessToken);
         return data;
     })
     .catch(error => {
@@ -95,6 +94,6 @@ function login(body)
     });
 }
 
-export const loginApi = {
-    login : login
+export const iconApi = {
+    getIcon : getIcon
 }
