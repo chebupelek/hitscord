@@ -57,7 +57,7 @@ export default function ServerInfoPage()
 
     const [iconSrc, setIconSrc] = useState(null);
     const [iconLoading, setIconLoading] = useState(false);
-    const [activePanels, setActivePanels] = useState(ALL_PANELS);
+    const [activePanels, setActivePanels] = useState([]);
 
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [iconModalVisible, setIconModalVisible] = useState(false);
@@ -154,7 +154,7 @@ export default function ServerInfoPage()
     const panelHeader = (title, onAdd) => (
         <Space style={{ width: "100%", justifyContent: "space-between" }}>
             <span>{title}</span>
-            <Button size="small" type="text" icon={<PlusOutlined />} onClick={e => {e.stopPropagation(); onAdd();}}/>
+            <Button size="small" type="text" icon={<PlusOutlined />} onClick={e => {e.stopPropagation(); onAdd();}} disabled={true}/>
         </Space>
     );
 
@@ -177,7 +177,7 @@ export default function ServerInfoPage()
                         <div style={{ display: "flex", flexDirection: "column" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <Title level={3} style={{ margin: 0 }}>{serverData.serverName}</Title>
-                                <Button type="text" icon={<EditOutlined />} onClick={openEditModal}/>
+                                <Button type="text" icon={<EditOutlined />} onClick={openEditModal} disabled={true}/>
                             </div>
 
                             <Space style={{ marginTop: 8 }}>
@@ -277,8 +277,8 @@ export default function ServerInfoPage()
                 <Space direction="vertical" style={{ width: "100%", alignItems: "center" }}>
                     <Avatar size={128} src={iconSrc} icon={<DatabaseOutlined />} />
                     <Space>
-                        <Button icon={<UploadOutlined />} onClick={handleIconChange}>Заменить</Button>
-                        <Button icon={<CloseOutlined />} onClick={handleIconRemove} danger>Удалить</Button>
+                        <Button icon={<UploadOutlined />} onClick={handleIconChange} disabled={true}>Заменить</Button>
+                        <Button icon={<CloseOutlined />} onClick={handleIconRemove} danger disabled={true}>Удалить</Button>
                     </Space>
                 </Space>
             </Modal>
@@ -408,7 +408,7 @@ function ServerRoleCard({ role, usersByRole })
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                     <Space align="center">
                         <Tag color={role.color} style={{ color: textColor, fontWeight: 500, padding: "4px 10px" }}>{role.name}</Tag>
-                        {role.type === 2 && (<Button size="small" type="text" icon={<EditOutlined />} onClick={() => {setEditName(role.name); setEditColor(role.color); setEditVisible(true);}}/>)}
+                        {role.type === 2 && (<Button size="small" type="text" icon={<EditOutlined />} onClick={() => {setEditName(role.name); setEditColor(role.color); setEditVisible(true);}} disabled={true}/>)}
                     </Space>
                     <Space size="small">
                         {users.length > 0 && (
@@ -422,7 +422,7 @@ function ServerRoleCard({ role, usersByRole })
                                 <Button size="small">Пользователи</Button>
                             </Popover>
                         )}
-                        {role.type === 2 && (<Button size="small" danger type="text" onClick={handleDeleteRole}>Удалить</Button>)}
+                        {role.type === 2 && (<Button size="small" danger type="text" onClick={handleDeleteRole} disabled={true}>Удалить</Button>)}
                     </Space>
                 </div>
                 {role.type !== 3 && (
@@ -430,21 +430,27 @@ function ServerRoleCard({ role, usersByRole })
                         <Text strong>Глобальные права:</Text>
                         <Space wrap>
                             {globalPerms.map(([key]) => (
-                                <Tag key={key} closable={role.type === 2} onClose={e => {e.preventDefault(); handleRemoveGlobalPerm(key);}}>{PERMISSION_LABELS[key]}</Tag>
+                                <Tag
+                                    key={key}
+                                    //closable={role.type === 2}
+                                    // onClose={e => {e.preventDefault(); handleRemoveGlobalPerm(key);}}
+                                >
+                                    {PERMISSION_LABELS[key]}
+                                </Tag>
                             ))}
                             {Object.entries(role.permissions).some(([, v]) => !v) && (
-                                <Popover title="Добавить право"trigger="click"
+                                <Popover title="Добавить право" trigger="click"
                                     content={
                                         <Space direction="vertical" style={{ maxWidth: 220 }}>
                                             {Object.entries(role.permissions)
                                                 .filter(([, v]) => !v)
                                                 .map(([key]) => (
-                                                    <Button key={key} type="text" size="small" onClick={() => handleAddGlobalPerm(key)}>{PERMISSION_LABELS[key]}</Button>
+                                                    <Button key={key} type="text" size="small" onClick={() => handleAddGlobalPerm(key)} disabled={true}>{PERMISSION_LABELS[key]}</Button>
                                                 ))}
                                         </Space>
                                     }
                                 >
-                                    <Button size="small" icon={<PlusOutlined />}>Добавить</Button>
+                                    <Button size="small" icon={<PlusOutlined />} disabled={true}>Добавить</Button>
                                 </Popover>
                             )}
                         </Space>
@@ -589,8 +595,8 @@ function ServerUserCard({ user, roles, serverData })
                     <Space align="center">
                         <Avatar size={40} src={!iconLoading ? iconSrc : null} icon={iconLoading ? <Spin size="small" /> : <UserOutlined />}/>
                         <Text strong>{user.userName} ({user.userName}) {user.userTag}</Text>
-                        <Button size="small" type="text" icon={<EditOutlined />} onClick={() => { setEditUserName(user.userName); setEditNameVisible(true); }}/>
-                        {!hasRootRole && (<Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={handleDeleteUser}/>)}
+                        <Button size="small" type="text" icon={<EditOutlined />} onClick={() => { setEditUserName(user.userName); setEditNameVisible(true); }} disabled={true}/>
+                        {!hasRootRole && (<Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={handleDeleteUser} disabled={true}/>)}
                     </Space>
                     {hasChannelPerms && (
                         <Popover title="Права в каналах"
@@ -605,7 +611,7 @@ function ServerUserCard({ user, roles, serverData })
                                 </Space>
                             }
                         >
-                            <Button size="small">Права в каналах</Button>
+                            <Button size="small" disabled={true}>Права в каналах</Button>
                         </Popover>
                     )}
                 </div>
@@ -618,9 +624,9 @@ function ServerUserCard({ user, roles, serverData })
                                     key={r.roleId}
                                     color={r.colour}
                                     style={{ color: getContrastTextColor(r.colour) }}
-                                    closable={r.roleType === 1 || r.roleType === 2}
-                                    closeIcon={<CloseOutlined style={{ color: getContrastTextColor(r.colour), opacity: 0.8 }} />}
-                                    onClose={e => { e.preventDefault(); handleRemoveRole(r.roleId); }}
+                                    //closable={r.roleType === 1 || r.roleType === 2}
+                                    //closeIcon={<CloseOutlined style={{ color: getContrastTextColor(r.colour), opacity: 0.8 }} />}
+                                    //onClose={e => { e.preventDefault(); handleRemoveRole(r.roleId); }}
                                 >
                                     {r.roleName}
                                 </Tag>
@@ -631,7 +637,7 @@ function ServerUserCard({ user, roles, serverData })
                                         <div style={{ maxWidth: 240, maxHeight: 300, overflowY: "auto" }}>
                                             <Space direction="vertical" style={{ width: "100%" }}>
                                                 {availableRoles.map(role => (
-                                                    <Button key={role.id} type="text" size="small" onClick={() => handleAddRole(role)} style={{ width: "100%", textAlign: "left" }}>
+                                                    <Button key={role.id} type="text" size="small" onClick={() => handleAddRole(role)} style={{ width: "100%", textAlign: "left" }} disabled={true}>
                                                         <Tag color={role.color} style={{ color: getContrastTextColor(role.color), marginRight: 6 }}>{role.name}</Tag>
                                                     </Button>
                                                 ))}
@@ -639,7 +645,7 @@ function ServerUserCard({ user, roles, serverData })
                                         </div>
                                     }
                                 >
-                                    <Button size="small" icon={<PlusOutlined />}>Добавить</Button>
+                                    <Button size="small" icon={<PlusOutlined />} disabled={true}>Добавить</Button>
                                 </Popover>
                             )}
                         </Space>
@@ -661,11 +667,11 @@ function ServerUserCard({ user, roles, serverData })
             <Modal title="Редактировать имя пользователя" open={editNameVisible}
                 onCancel={() => setEditNameVisible(false)} okText="Сохранить" cancelText="Отмена"
                 okButtonProps={{ disabled: editUserName.trim().length < 6 || editUserName.trim().length > 50 }}
-                onOk={() => {
+                /*onOk={() => {
                     console.log("Изменить имя пользователя:", { userId: user.userId, userName: editUserName.trim() });
                     message.success("Имя обновлено");
                     setEditNameVisible(false);
-                }}
+                }}*/
             >
                 <Input value={editUserName} onChange={e => setEditUserName(e.target.value)} maxLength={50} />
                 <Text type={editUserName.trim().length >= 6 ? "secondary" : "danger"}>Имя должно быть от 6 до 50 символов</Text>
@@ -769,8 +775,9 @@ function ServerChannelCard({ channel, roles, channelKey })
                                 }
                                 setEditVisible(true);
                             }}
+                            disabled={true}
                         />
-                        <Button size="small" type="text" icon={<DeleteOutlined />} danger onClick={handleDeleteChannel}/>
+                        <Button size="small" type="text" icon={<DeleteOutlined />} danger onClick={handleDeleteChannel} disabled={true}/>
                     </Space>
                     {extraInfo && <Text type="secondary">{extraInfo}</Text>}
                 </div>
@@ -783,9 +790,10 @@ function ServerChannelCard({ channel, roles, channelKey })
                                     <Text style={{ minWidth: 200, fontWeight: 500 }}>{perm}:</Text>
                                     <Space wrap>
                                         {rolesList.map(r => (
-                                            <Tag key={r.id} closable={r.type !== 0 && r.type !== 1}
-                                                closeIcon={<CloseOutlined style={{ color: getContrastTextColor(r.color) }} onClick={e => e.stopPropagation()}/>}
-                                                onClose={e => {e.preventDefault(); handleRemoveRoleFromPerm(perm, r);}}
+                                            <Tag key={r.id} 
+                                                //closable={r.type !== 0 && r.type !== 1}
+                                                //closeIcon={<CloseOutlined style={{ color: getContrastTextColor(r.color) }} onClick={e => e.stopPropagation()}/>}
+                                                //onClose={e => {e.preventDefault(); handleRemoveRoleFromPerm(perm, r);}}
                                                 style={{backgroundColor: r.color, color: getContrastTextColor(r.color), fontWeight: 500, opacity: r.type === 0 ? 0.6 : 1}}
                                             >
                                                 {r.name}
@@ -797,7 +805,7 @@ function ServerChannelCard({ channel, roles, channelKey })
                                                     <div style={{ maxHeight: 200, overflowY: "auto" }}>
                                                         <Space direction="vertical" style={{ width: "100%" }}>
                                                             {getAvailableRolesForPerm(rolesList).map(r => (
-                                                                <Button key={r.id} type="text" size="small" style={{ width: "100%", textAlign: "left" }} onClick={() => handleAddRoleToPerm(perm, r)}>
+                                                                <Button key={r.id} type="text" size="small" style={{ width: "100%", textAlign: "left" }} onClick={() => handleAddRoleToPerm(perm, r)} disabled={true}>
                                                                     <Tag color={r.color} style={{ color: getContrastTextColor(r.color), marginRight: 6 }}>{r.name}</Tag>
                                                                 </Button>
                                                             ))}
@@ -805,7 +813,7 @@ function ServerChannelCard({ channel, roles, channelKey })
                                                     </div>
                                                 }
                                             >
-                                                <Button size="small" icon={<PlusOutlined />} />
+                                                <Button size="small" icon={<PlusOutlined />} disabled={true}/>
                                             </Popover>
                                         )}
                                     </Space>
@@ -817,11 +825,11 @@ function ServerChannelCard({ channel, roles, channelKey })
             </Space>
             <Modal title="Редактировать канал" open={editVisible} onCancel={() => setEditVisible(false)} okText="Сохранить" cancelText="Отмена"
                 okButtonProps={{disabled: editName.trim().length < 1 || editName.trim().length > 100 || (channel.maxCount !== undefined && (editMaxCount < 2 || editMaxCount > 999))}}
-                onOk={() => {
+                /*onOk={() => {
                     console.log("Сохранить канал:", { channelId: channel.channelId, name: editName.trim(), maxCount: editMaxCount });
                     message.success("Канал обновлен");
                     setEditVisible(false);
-                }}
+                }}*/
             >
                 <Space direction="vertical" style={{ width: "100%" }}>
                     <Text strong>Название канала</Text>
@@ -856,7 +864,7 @@ function ServerPresetCard({ preset })
                     <Tag color="purple">{preset.serverRoleName}</Tag> →{" "}
                     <Tag color={preset.systemRoleType === 1 ? "gold" : "blue"}>{preset.systemRoleName}</Tag>
                 </Text>
-                <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={handleDeletePreset}/>
+                <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={handleDeletePreset} disabled={true}/>
             </Space>
         </Card>
     );
