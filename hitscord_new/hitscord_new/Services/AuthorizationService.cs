@@ -234,7 +234,10 @@ public class AuthorizationService : IAuthorizationService
 		if (newData.Mail != null)
 		{
 			var existEmail = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id != userData.Id && u.Mail == newData.Mail);
-			throw new CustomException("Account with this mail already exist", "Account", "Mail", 400, "Аккаунт с такой почтой уже существует", "Изменение информации о пользователе");
+			if (existEmail != null)
+			{
+				throw new CustomException("Account with this mail already exist", "Account", "Mail", 400, "Аккаунт с такой почтой уже существует", "Изменение информации о пользователе");
+			}
 		}
 		if (newData.Name != null)
 		{
