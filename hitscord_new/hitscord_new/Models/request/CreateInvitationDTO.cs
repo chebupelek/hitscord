@@ -7,12 +7,12 @@ namespace hitscord.Models.response;
 public class CreateInvitationDTO
 {
     public required Guid ServerId { get; set; }
-    public required DateTime ExpiredAt { get; set; }
+    public DateTime? ExpiredAt { get; set; }
 
     public void Validation()
     {
 		var now = DateTime.UtcNow;
-		if (ExpiredAt <= now.AddMinutes(9))
+		if (ExpiredAt != null && ExpiredAt <= now.AddMinutes(9))
 		{
 			throw new CustomException("Expiration time must be minimum at 10 minuts", "Create invitation", "ExpiredAt", 400, "Ссылка должна продержаться минимум 10 минут", "Валидация генерации приглашения");
 		}
