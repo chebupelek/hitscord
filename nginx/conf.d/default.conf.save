@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name server_name 196673.msk.web.highserver.ru;
+    server_name 196673.msk.web.highserver.ru;
     return 301 https://$host$request_uri;
 }
 
