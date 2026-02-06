@@ -1,14 +1,14 @@
 import routers from "../Router/routers";
 import { notification } from "antd";
 
-function login(body) 
+function getOperations(queryParams, navigate) 
 {
-    return fetch(routers.login, {
-        method: "POST",
+    return fetch(`${routers.operations}?${queryParams}`, {
+        method: "GET",
         headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+        }
     })
     .then(async response => {
         const text = await response.text();
@@ -28,7 +28,7 @@ function login(body)
                 case 400:
                     notification.error(
                         {
-                            message: "Проблемы с входными данными",
+                            message: "Проблемы с пагинацией",
                             description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
@@ -49,12 +49,13 @@ function login(body)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
                     );
                     localStorage.clear();
+                    navigate("/login");
                     return null;
                 case 500:
                     notification.error(
@@ -78,15 +79,14 @@ function login(body)
                     return null;
             }
         }
-        localStorage.setItem("token", data.accessToken);
         return data;
     })
     .catch(error => {
-        console.error(error.message);
+        console.error(error.Message);
         notification.error(
             {
                 message: "Ошибка сети",
-                description: error.message,
+                description: error.Message ,
                 duration: 4,
                 placement: "topLeft"
             }
@@ -95,6 +95,6 @@ function login(body)
     });
 }
 
-export const loginApi = {
-    login : login
+export const operationsApi = {
+    getOperations : getOperations
 }

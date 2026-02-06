@@ -29,7 +29,7 @@ function getUsers(queryParams, navigate)
                     notification.error(
                         {
                             message: "Проблемы с пагинацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -39,7 +39,7 @@ function getUsers(queryParams, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -49,7 +49,7 @@ function getUsers(queryParams, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -61,7 +61,7 @@ function getUsers(queryParams, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -71,7 +71,7 @@ function getUsers(queryParams, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -82,11 +82,11 @@ function getUsers(queryParams, navigate)
         return data;
     })
     .catch(error => {
-        console.error(error.message);
+        console.error(error.Message);
         notification.error(
             {
                 message: "Ошибка сети",
-                description: error.message,
+                description: error.Message ,
                 duration: 4,
                 placement: "topLeft"
             }
@@ -124,7 +124,7 @@ function getRolesShort(queryParams, navigate)
                     notification.error(
                         {
                             message: "Проблемы с пагинацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -134,7 +134,7 @@ function getRolesShort(queryParams, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -144,7 +144,7 @@ function getRolesShort(queryParams, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -156,7 +156,7 @@ function getRolesShort(queryParams, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -166,7 +166,7 @@ function getRolesShort(queryParams, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -218,8 +218,8 @@ function addRoles(body, navigate)
                 case 400:
                     notification.error(
                         {
-                            message: "Проблемы с пагинацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            message: "Проблемы с входными данными",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -229,7 +229,7 @@ function addRoles(body, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -239,7 +239,7 @@ function addRoles(body, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -251,7 +251,7 @@ function addRoles(body, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -261,7 +261,7 @@ function addRoles(body, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -313,8 +313,8 @@ function removeRole(body, navigate)
                 case 400:
                     notification.error(
                         {
-                            message: "Проблемы с пагинацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            message: "Проблемы с входными данными",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -324,7 +324,7 @@ function removeRole(body, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -334,7 +334,7 @@ function removeRole(body, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -346,7 +346,7 @@ function removeRole(body, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -356,7 +356,7 @@ function removeRole(body, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -380,13 +380,15 @@ function removeRole(body, navigate)
     });
 }
 
-function getIcon(fileId, navigate) 
+function changePassword(body, navigate) 
 {
-    return fetch(`${routers.icon}?fileId=${fileId}`, {
-        method: "GET",
+    return fetch(routers.changePassword, {
+        method: "PUT",
         headers: {
+            "Content-Type": "application/json",
             "Authorization": `Bearer ${localStorage.getItem("token")}`
-        }
+        },
+        body: JSON.stringify(body)
     })
     .then(async response => {
         const text = await response.text();
@@ -406,8 +408,8 @@ function getIcon(fileId, navigate)
                 case 400:
                     notification.error(
                         {
-                            message: "Проблемы с пагинацией",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            message: "Проблемы с входными данными",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -417,7 +419,7 @@ function getIcon(fileId, navigate)
                     notification.error(
                         {
                             message: "Объект не найден",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -427,7 +429,7 @@ function getIcon(fileId, navigate)
                     notification.error(
                         {
                             message: "Ошибка с аутентификацией",
-                            description: "Проблема с токеном",
+                            description: "Не пройдено",
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -439,7 +441,7 @@ function getIcon(fileId, navigate)
                     notification.error(
                         {
                             message: "Проблема в работе сервера",
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -449,7 +451,7 @@ function getIcon(fileId, navigate)
                     notification.error(
                         {
                             message: `Ошибка HTTP ${response.status}`,
-                            description: typeof data === 'object' ? data.MessageFront || JSON.stringify(data) : data,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
                             duration: 4,
                             placement: "topLeft"
                         }
@@ -457,7 +459,482 @@ function getIcon(fileId, navigate)
                     return null;
             }
         }
-        return data;
+        return data || {};
+    })
+    .catch(error => {
+        console.error(error.message);
+        notification.error(
+            {
+                message: "Ошибка сети",
+                description: error.message,
+                duration: 4,
+                placement: "topLeft"
+            }
+        );
+        return null;
+    });
+}
+
+function createUser(formData, navigate) 
+{    
+    return fetch(routers.createUser, 
+    {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: formData
+    })
+    .then(async response => {
+        const text = await response.text();
+        let data;
+        try 
+        {
+            data = text ? JSON.parse(text) : null;
+        } 
+        catch (e) 
+        {
+            data = text;
+        }
+        if (!response.ok) 
+        {
+            switch (response.status) 
+            {
+                case 400:
+                    notification.error(
+                        {
+                            message: "Проблемы с входными данными",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 404:
+                    notification.error(
+                        {
+                            message: "Объект не найден",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 401:
+                    notification.error(
+                        {
+                            message: "Ошибка с аутентификацией",
+                            description: "Не пройдено",
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    localStorage.clear();
+                    navigate("/login");
+                    return null;
+                case 500:
+                    notification.error(
+                        {
+                            message: "Проблема в работе сервера",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                default:
+                    notification.error(
+                        {
+                            message: `Ошибка HTTP ${response.status}`,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+            }
+        }
+        return data || {};
+    })
+    .catch(error => {
+        console.error(error.message);
+        notification.error(
+            {
+                message: "Ошибка сети",
+                description: error.message,
+                duration: 4,
+                placement: "topLeft"
+            }
+        );
+        return null;
+    });
+}
+
+function changeUserIcon(formData, navigate) 
+{    
+    return fetch(routers.changeUserIcon, 
+    {
+        method: "PUT",
+        headers: {
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: formData
+    })
+    .then(async response => {
+        const text = await response.text();
+        let data;
+        try 
+        {
+            data = text ? JSON.parse(text) : null;
+        } 
+        catch (e) 
+        {
+            data = text;
+        }
+        if (!response.ok) 
+        {
+            switch (response.status) 
+            {
+                case 400:
+                    notification.error(
+                        {
+                            message: "Проблемы с входными данными",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 404:
+                    notification.error(
+                        {
+                            message: "Объект не найден",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 401:
+                    notification.error(
+                        {
+                            message: "Ошибка с аутентификацией",
+                            description: "Не пройдено",
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    localStorage.clear();
+                    navigate("/login");
+                    return null;
+                case 500:
+                    notification.error(
+                        {
+                            message: "Проблема в работе сервера",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                default:
+                    notification.error(
+                        {
+                            message: `Ошибка HTTP ${response.status}`,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+            }
+        }
+        return data || {};
+    })
+    .catch(error => {
+        console.error(error.message);
+        notification.error(
+            {
+                message: "Ошибка сети",
+                description: error.message,
+                duration: 4,
+                placement: "topLeft"
+            }
+        );
+        return null;
+    });
+}
+
+function deleteUserIcon(data, navigate) 
+{
+    return fetch(routers.deleteUserIcon, {
+        method: "DELETE",
+        headers: {
+            "Authorization": `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+    .then(async response => {
+        const text = await response.text();
+        let data;
+        try 
+        {
+            data = text ? JSON.parse(text) : null;
+        } 
+        catch (e) 
+        {
+            data = text;
+        }
+        if (!response.ok) 
+        {
+            switch (response.status) 
+            {
+                case 400:
+                    notification.error(
+                        {
+                            message: "Проблемы с входными данными",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 404:
+                    notification.error(
+                        {
+                            message: "Объект не найден",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 401:
+                    notification.error(
+                        {
+                            message: "Ошибка с аутентификацией",
+                            description: "Не пройдено",
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    localStorage.clear();
+                    navigate("/login");
+                    return null;
+                case 500:
+                    notification.error(
+                        {
+                            message: "Проблема в работе сервера",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                default:
+                    notification.error(
+                        {
+                            message: `Ошибка HTTP ${response.status}`,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+            }
+        }
+        return data || {};
+    })
+    .catch(error => {
+        console.error(error.message);
+        notification.error(
+            {
+                message: "Ошибка сети",
+                description: error.message,
+                duration: 4,
+                placement: "topLeft"
+            }
+        );
+        return null;
+    });
+}
+
+function changeUserData(body, navigate) 
+{
+    return fetch(routers.changeUserData, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify(body)
+    })
+    .then(async response => {
+        const text = await response.text();
+        let data;
+        try 
+        {
+            data = text ? JSON.parse(text) : null;
+        } 
+        catch (e) 
+        {
+            data = text;
+        }
+        if (!response.ok) 
+        {
+            switch (response.status) 
+            {
+                case 400:
+                    notification.error(
+                        {
+                            message: "Проблемы с входными данными",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 404:
+                    notification.error(
+                        {
+                            message: "Объект не найден",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 401:
+                    notification.error(
+                        {
+                            message: "Ошибка с аутентификацией",
+                            description: "Не пройдено",
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    localStorage.clear();
+                    navigate("/login");
+                    return null;
+                case 500:
+                    notification.error(
+                        {
+                            message: "Проблема в работе сервера",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                default:
+                    notification.error(
+                        {
+                            message: `Ошибка HTTP ${response.status}`,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+            }
+        }
+        return data || {};
+    })
+    .catch(error => {
+        console.error(error.message);
+        notification.error(
+            {
+                message: "Ошибка сети",
+                description: error.message,
+                duration: 4,
+                placement: "topLeft"
+            }
+        );
+        return null;
+    });
+}
+
+function deleteUser(body, navigate) 
+{
+    return fetch(routers.deleteUser, {
+        method: "DELETE",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify(body)
+    })
+    .then(async response => {
+        const text = await response.text();
+        let data;
+        try 
+        {
+            data = text ? JSON.parse(text) : null;
+        } 
+        catch (e) 
+        {
+            data = text;
+        }
+        if (!response.ok) 
+        {
+            switch (response.status) 
+            {
+                case 400:
+                    notification.error(
+                        {
+                            message: "Проблемы с входными данными",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 404:
+                    notification.error(
+                        {
+                            message: "Объект не найден",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                case 401:
+                    notification.error(
+                        {
+                            message: "Ошибка с аутентификацией",
+                            description: "Не пройдено",
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    localStorage.clear();
+                    navigate("/login");
+                    return null;
+                case 500:
+                    notification.error(
+                        {
+                            message: "Проблема в работе сервера",
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+                default:
+                    notification.error(
+                        {
+                            message: `Ошибка HTTP ${response.status}`,
+                            description: typeof data === 'object' ? data.message || JSON.stringify(data) : data,
+                            duration: 4,
+                            placement: "topLeft"
+                        }
+                    );
+                    return null;
+            }
+        }
+        return data || {};
     })
     .catch(error => {
         console.error(error.message);
@@ -478,5 +955,10 @@ export const usersApi = {
     getRolesShort: getRolesShort,
     addRoles : addRoles,
     removeRole : removeRole,
-    getIcon : getIcon
+    changePassword : changePassword,
+    createUser : createUser,
+    changeUserIcon : changeUserIcon,
+    deleteUserIcon : deleteUserIcon,
+    changeUserData : changeUserData,
+    deleteUser : deleteUser
 }

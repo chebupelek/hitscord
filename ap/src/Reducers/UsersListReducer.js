@@ -1,4 +1,5 @@
 import { usersApi } from "../Api/usersApi";
+import { iconApi } from "../Api/iconApi";
 import { notification } from "antd";
 
 const SET_USERS = "SET_USERS";
@@ -19,6 +20,7 @@ let initialUsersListState = {
             notifiable: false,
             friendshipApplication: false,
             nonFriendMessage: false,
+            whereCreator: [],
             icon: {
                 fileId: "",
                 fileName: "",
@@ -172,7 +174,7 @@ export function removeRoleThunkCreator(data, navigate, reloadUsers) {
 
 export function getIconThunkCreator(fileId, navigate) {
     return (dispatch) => {
-        return usersApi.getIcon(fileId, navigate)
+        return iconApi.getIcon(fileId, navigate)
             .then(response => {
                 if (response !== null) 
                 {
@@ -181,5 +183,126 @@ export function getIconThunkCreator(fileId, navigate) {
             });
     };
 }
+
+export function changePasswordThunkCreator(data, navigate, reloadUsers) {
+    return (dispatch) => {
+        dispatch(setLoadingRemoveRoleActionCreator(true));
+        return usersApi.changePassword(data, navigate)
+            .then(response => {
+                if (response !== null) 
+                {
+                    notification.success({
+                        message: "Успех",
+                        description: "Пароль успешно изменен",
+                        duration: 4,
+                        placement: "topLeft"
+                    });
+                    reloadUsers();
+                }
+            })
+            .finally(() => dispatch(setLoadingRemoveRoleActionCreator(false)));
+    };
+}
+
+export function createUserThunkCreator(formData, navigate, reloadUsers) {
+    return (dispatch) => {
+        dispatch(setLoadingUsersActionCreator(true));
+        return usersApi.createUser(formData, navigate)
+            .then(response => {
+                if (response !== null) 
+                {
+                    notification.success({
+                        message: "Успех",
+                        description: "Пользователь создан",
+                        duration: 4,
+                        placement: "topLeft"
+                    });
+                    reloadUsers();
+                }
+            })
+            .finally(() => dispatch(setLoadingUsersActionCreator(false)));
+    };
+}
+
+export function changeUserIconThunkCreator(formData, navigate, reloadUsers) {
+    return (dispatch) => {
+        dispatch(setLoadingUsersActionCreator(true));
+        return usersApi.changeUserIcon(formData, navigate)
+            .then(response => {
+                if (response !== null) 
+                {
+                    notification.success({
+                        message: "Успех",
+                        description: "Иконка пользователя изменена",
+                        duration: 4,
+                        placement: "topLeft"
+                    });
+                    reloadUsers();
+                }
+            })
+            .finally(() => dispatch(setLoadingUsersActionCreator(false)));
+    };
+}
+
+export function deleteUserIconThunkCreator(formData, navigate, reloadUsers) {
+    return (dispatch) => {
+        dispatch(setLoadingRemoveRoleActionCreator(true));
+        return usersApi.deleteUserIcon(formData, navigate)
+            .then(response => {
+                if (response !== null) 
+                {
+                    notification.success({
+                        message: "Успех",
+                        description: "Иконка успешно удалена",
+                        duration: 4,
+                        placement: "topLeft"
+                    });
+                    reloadUsers();
+                }
+            })
+            .finally(() => dispatch(setLoadingRemoveRoleActionCreator(false)));
+    };
+}
+
+export function changeUserDataThunkCreator(data, navigate, reloadUsers) {
+    return (dispatch) => {
+        dispatch(setLoadingRemoveRoleActionCreator(true));
+        return usersApi.changeUserData(data, navigate)
+            .then(response => {
+                if (response !== null) 
+                {
+                    notification.success({
+                        message: "Успех",
+                        description: "Информация успешно удалена",
+                        duration: 4,
+                        placement: "topLeft"
+                    });
+                    reloadUsers();
+                }
+            })
+            .finally(() => dispatch(setLoadingRemoveRoleActionCreator(false)));
+    };
+}
+
+export function deleteUserThunkCreator(data, navigate, reloadUsers) {
+    return (dispatch) => {
+        dispatch(setLoadingRemoveRoleActionCreator(true));
+        return usersApi.deleteUser(data, navigate)
+            .then(response => {
+                if (response !== null) 
+                {
+                    notification.success({
+                        message: "Успех",
+                        description: "Пользователь успешно удален",
+                        duration: 4,
+                        placement: "topLeft"
+                    });
+                    reloadUsers();
+                }
+            })
+            .finally(() => dispatch(setLoadingRemoveRoleActionCreator(false)));
+    };
+}
+
 
 export default usersListReducer;

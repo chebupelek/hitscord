@@ -7,7 +7,7 @@
     transition: background-color 0.2s;
 }
 
-.userCard:hover:not(:has(.roleTag:hover)) {
+.userCard:hover:not(:has(.roleTag:hover)):not(:has(.userCardButtons:hover)):not(:has(.avatarContainer:hover)) {
     background-color: #e6e6f0;
 }
 
@@ -37,4 +37,27 @@
     display: flex;
     align-items: flex-start;
     gap: 16px;
+}
+
+.roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.editButton {
+    padding: 0;
+    height: auto;
+    color: #8c8c8c;
+}
+
+.editButton:hover {
+    color: #1677ff;
+    background: transparent;
+}
+
+.userNameRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }

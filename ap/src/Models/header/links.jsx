@@ -12,6 +12,7 @@ function Links() {
                     <Link to="/users" style={{ color: 'white'}}>Пользователи</Link>
                     <Link to="/roles" style={{ color: 'white'}}>Роли</Link>
                     <Link to="/channels" style={{ color: 'white' }}>Каналы</Link>
+                    <Link to="/operations" style={{ color: 'white' }}>История операций</Link>
                 </Space>
             ) : (
                 <></>
