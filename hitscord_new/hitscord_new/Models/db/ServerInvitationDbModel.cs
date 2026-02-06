@@ -24,6 +24,6 @@ public class ServerInvitationDbModel
 	public UserDbModel? User { get; set; }
 
 	public required string Token { get; set; }
-	public required DateTime ExpiresAt { get; set; }
+	public DateTime? ExpiresAt { get; set; }
 	public required bool IsRevoked { get; set; }
 }

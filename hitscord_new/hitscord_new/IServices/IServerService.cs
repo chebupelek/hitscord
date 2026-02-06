@@ -41,5 +41,5 @@ public interface IServerService
     Task DeletePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
 
 
-    Task<ServerInvitationResponseDTO> CreateInvitationToken(string token, Guid serverId, DateTime expiresAt);
+    Task<ServerInvitationResponseDTO> CreateInvitationToken(string token, Guid serverId, DateTime? expiresAt);
 }
