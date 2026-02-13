@@ -144,7 +144,8 @@ public class AuthorizationService : IAuthorizationService
             FriendshipApplication = true,
             NonFriendMessage = true,
 			NotificationLifeTime = 4,
-			SystemRoles = new List<SystemRoleDbModel>()
+			SystemRoles = new List<SystemRoleDbModel>(),
+			IsUser = true
 		};
 		newUser.SystemRoles.Add(studentRole);
 

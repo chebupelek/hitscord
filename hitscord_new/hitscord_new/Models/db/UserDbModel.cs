@@ -53,4 +53,6 @@ public class UserDbModel
 	public required int NotificationLifeTime { get; set; }
 
     public required ICollection<SystemRoleDbModel> SystemRoles { get; set; }
+
+    public required bool IsUser { get; set; }
 }
