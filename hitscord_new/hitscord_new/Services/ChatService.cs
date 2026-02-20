@@ -649,9 +649,14 @@ public class ChatService : IChatService
 			.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
 		var maxId = messagesFresh.Any() ? messagesFresh.Max(m => m.Id) : 0;
+		var minId = messagesFresh.Any() ? messagesFresh.Min(m => m.Id) : 0;
 
-		var remainingCount = await _hitsContext.ChatMessage
+		var remainingCount = down ? await _hitsContext.ChatMessage
 			.Where(m => m.ChatId == chat.Id && m.DeleteTime == null && m.Id > maxId)
+			.CountAsync()
+			:
+			await _hitsContext.ChatMessage
+			.Where(m => m.ChatId == chat.Id && m.DeleteTime == null && m.Id < minId)
 			.CountAsync();
 
 		var messages = new MessageListResponseDTO
