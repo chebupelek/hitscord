@@ -3,16 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\migrations\\20260206173249_oparationhistory.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\migrations\\20260206173249_oparationhistory.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\services\\chatservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\services\\chatservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\services\\adminservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\services\\adminservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\controllers\\admincontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\controllers\\admincontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\services\\channelservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\services\\channelservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -43,39 +39,28 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "20260206173249_OparationHistory.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Migrations\\20260206173249_OparationHistory.cs",
-              "RelativeDocumentMoniker": "hitscord_new\\Migrations\\20260206173249_OparationHistory.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Migrations\\20260206173249_OparationHistory.cs",
-              "RelativeToolTip": "hitscord_new\\Migrations\\20260206173249_OparationHistory.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Title": "ChatService.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ChatService.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Services\\ChatService.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ChatService.cs",
+              "RelativeToolTip": "hitscord_new\\Services\\ChatService.cs",
+              "ViewState": "AgIAAH4CAAAAAAAAAAAkwI4CAAAUAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-06T17:32:49.488Z",
+              "WhenOpened": "2026-02-20T19:23:31.002Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "AdminService.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\AdminService.cs",
-              "RelativeDocumentMoniker": "hitscord_new\\Services\\AdminService.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\AdminService.cs",
-              "RelativeToolTip": "hitscord_new\\Services\\AdminService.cs",
-              "ViewState": "AgIAAMMDAAAAAAAAAAAqwN4DAAADAAAAAAAAAA==",
+              "Title": "ChannelService.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ChannelService.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Services\\ChannelService.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ChannelService.cs",
+              "RelativeToolTip": "hitscord_new\\Services\\ChannelService.cs",
+              "ViewState": "AgIAAJcEAAAAAAAAAAAIwKQEAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-06T17:30:32.331Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "AdminController.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\AdminController.cs",
-              "RelativeDocumentMoniker": "hitscord_new\\Controllers\\AdminController.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\AdminController.cs",
-              "RelativeToolTip": "hitscord_new\\Controllers\\AdminController.cs",
-              "ViewState": "AgIAAB0DAAAAAAAAAAAAAD0DAAACAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-06T17:21:38.727Z"
+              "WhenOpened": "2026-02-20T19:23:30.13Z",
+              "EditorCaption": ""
             }
           ]
         }
