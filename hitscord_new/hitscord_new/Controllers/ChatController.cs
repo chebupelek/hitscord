@@ -13,13 +13,13 @@ namespace hitscord.Controllers;
 public class ChatController : ControllerBase
 {
     private readonly IChatService _chatService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ICurrentUserService _currentUser;
 
-    public ChatController(IChatService chatService, IHttpContextAccessor httpContextAccessor)
+	public ChatController(IChatService chatService, ICurrentUserService currentUser)
     {
 		_chatService = chatService ?? throw new ArgumentNullException(nameof(chatService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+	}
 
     [Authorize]
     [HttpPost]
@@ -28,8 +28,7 @@ public class ChatController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var newChat = await _chatService.CreateChatAsync(jwtToken, data.UserTag);
+			var newChat = await _chatService.CreateChatAsync(_currentUser.UserId, data.UserTag);
             return Ok(newChat);
         }
         catch (CustomException ex)
@@ -49,9 +48,8 @@ public class ChatController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			data.Validation();
-			await _chatService.ChangeChatNameAsync(jwtToken, data.ChatId, data.Name);
+			await _chatService.ChangeChatNameAsync(_currentUser.UserId, data.ChatId, data.Name);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -71,8 +69,7 @@ public class ChatController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var list = await _chatService.GetChatsListAsync(jwtToken);
+			var list = await _chatService.GetChatsListAsync(_currentUser.UserId);
 			return Ok(list);
 		}
 		catch (CustomException ex)
@@ -92,8 +89,7 @@ public class ChatController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var data = await _chatService.GetChatInfoAsync(jwtToken, id);
+			var data = await _chatService.GetChatInfoAsync(_currentUser.UserId, id);
 			return Ok(data);
 		}
 		catch (CustomException ex)
@@ -113,8 +109,7 @@ public class ChatController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _chatService.AddUserAsync(jwtToken, data.UserTag, data.ChatId);
+			await _chatService.AddUserAsync(_currentUser.UserId, data.UserTag, data.ChatId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -134,8 +129,7 @@ public class ChatController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _chatService.RemoveUserAsync(jwtToken, data.Id);
+			await _chatService.RemoveUserAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -155,8 +149,7 @@ public class ChatController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var messages = await _chatService.GetChatMessagesAsync(jwtToken, chatId, number, fromMessageId, down);
+			var messages = await _chatService.GetChatMessagesAsync(_currentUser.UserId, chatId, number, fromMessageId, down);
 			return Ok(messages);
 		}
 		catch (CustomException ex)
@@ -176,8 +169,7 @@ public class ChatController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _chatService.ChangeNonNotifiableChatAsync(jwtToken, data.Id);
+			await _chatService.ChangeNonNotifiableChatAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -197,8 +189,7 @@ public class ChatController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _chatService.ChangeChatIconAsync(jwtToken, data.ChatID, data.Icon);
+			await _chatService.ChangeChatIconAsync(_currentUser.UserId, data.ChatID, data.Icon);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -218,8 +209,7 @@ public class ChatController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _chatService.DeleteChatIconAsync(jwtToken, data.Id);
+			await _chatService.DeleteChatIconAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)

@@ -12,13 +12,13 @@ namespace hitscord.Controllers;
 public class ScheduleController : ControllerBase
 {
     private readonly IScheduleService _scheduleService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ICurrentUserService _currentUser;
 
-    public ScheduleController(IScheduleService scheduleService, IHttpContextAccessor httpContextAccessor)
+	public ScheduleController(IScheduleService scheduleService, ICurrentUserService currentUser)
     {
 		_scheduleService = scheduleService ?? throw new ArgumentNullException(nameof(scheduleService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+	}
 
     [Authorize]
     [HttpGet]
@@ -27,7 +27,6 @@ public class ScheduleController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             var list = await _scheduleService.GetProfessorsAsync();
             return Ok(list);
         }
@@ -48,7 +47,6 @@ public class ScheduleController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             var list = await _scheduleService.GetFacultiesAsync();
             return Ok(list);
         }
@@ -69,7 +67,6 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			var list = await _scheduleService.GetGroupsAsync(FacultyId);
 			return Ok(list);
 		}
@@ -90,7 +87,6 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			var list = await _scheduleService.GetBuildingsAsync();
 			return Ok(list);
 		}
@@ -111,7 +107,6 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			var list = await _scheduleService.GetAudiencesAsync(BuildingId);
 			return Ok(list);
 		}
@@ -132,7 +127,6 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			var list = await _scheduleService.GetScheduleAsync(Type, Id, dateFrom, dateTo);
 			return Ok(list);
 		}
@@ -153,8 +147,7 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var list = await _scheduleService.GetScheduleOnServerAsync(jwtToken, Type, Id, dateFrom, dateTo, serverId);
+			var list = await _scheduleService.GetScheduleOnServerAsync(_currentUser.UserId, Type, Id, dateFrom, dateTo, serverId);
 			return Ok(list);
 		}
 		catch (CustomException ex)
@@ -174,8 +167,7 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var list = await _scheduleService.GetScheduleOnChannelAsync(jwtToken, Type, Id, dateFrom, dateTo, pairChannelId);
+			var list = await _scheduleService.GetScheduleOnChannelAsync(_currentUser.UserId, Type, Id, dateFrom, dateTo, pairChannelId);
 			return Ok(list);
 		}
 		catch (CustomException ex)
@@ -195,8 +187,7 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var list = await _scheduleService.GetScheduleForUserAsync(jwtToken, Type, Id, dateFrom, dateTo);
+			var list = await _scheduleService.GetScheduleForUserAsync(_currentUser.UserId, Type, Id, dateFrom, dateTo);
 			return Ok(list);
 		}
 		catch (CustomException ex)
@@ -216,8 +207,7 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _scheduleService.CreatePairAsync(jwtToken, data.ScheduleId, data.PairVoiceChannelId, data.RoleIds, data.Note, data.Type, data.Id, data.Date);
+			await _scheduleService.CreatePairAsync(_currentUser.UserId, data.ScheduleId, data.PairVoiceChannelId, data.RoleIds, data.Note, data.Type, data.Id, data.Date);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -237,8 +227,7 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _scheduleService.UpdatePairAsync(jwtToken, data.PairId, data.RoleIds, data.Note);
+			await _scheduleService.UpdatePairAsync(_currentUser.UserId, data.PairId, data.RoleIds, data.Note);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -258,8 +247,7 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _scheduleService.DeletePairAsync(jwtToken, data.Id);
+			await _scheduleService.DeletePairAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -279,8 +267,7 @@ public class ScheduleController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var list = await _scheduleService.GetAttendanceAsync(jwtToken, PairId);
+			var list = await _scheduleService.GetAttendanceAsync(_currentUser.UserId, PairId);
 			return Ok(list);
 		}
 		catch (CustomException ex)

@@ -5,12 +5,12 @@ namespace hitscord.IServices;
 
 public interface IFriendshipService
 {
-	Task CreateApplicationAsync(string token, string userTag);
-	Task DeleteApplicationAsync(string token, Guid applicationId);
-	Task DeclineApplicationAsync(string token, Guid applicationId);
-	Task ApproveApplicationAsync(string token, Guid applicationId);
-	Task<ApplicationsList> GetApplicationListTo(string token);
-	Task<ApplicationsList> GetApplicationListFrom(string token);
-	Task<UsersList> GetFriendsListAsync(string token);
-	Task DeleteFriendAsync(string token, Guid UserId);
+	Task CreateApplicationAsync(Guid UserId, string userTag);
+	Task DeleteApplicationAsync(Guid UserId, Guid applicationId);
+	Task DeclineApplicationAsync(Guid UserId, Guid applicationId);
+	Task ApproveApplicationAsync(Guid UserId, Guid applicationId);
+	Task<ApplicationsList> GetApplicationListTo(Guid UserId);
+	Task<ApplicationsList> GetApplicationListFrom(Guid UserId);
+	Task<UsersList> GetFriendsListAsync(Guid UserId);
+	Task DeleteFriendAsync(Guid UserId, Guid DeletedFriendId);
 }

@@ -13,13 +13,13 @@ namespace hitscord.Controllers;
 public class ServerController : ControllerBase
 {
     private readonly IServerService _serverService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ICurrentUserService _currentUser;
 
-    public ServerController(IServerService serverService, IHttpContextAccessor httpContextAccessor)
+	public ServerController(IServerService serverService, ICurrentUserService currentUser)
     {
         _serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+	}
 
     [Authorize]
     [HttpPost]
@@ -28,9 +28,8 @@ public class ServerController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validation();
-           var id = await _serverService.CreateServerAsync(jwtToken, data.Name, data.ServerType);
+			var id = await _serverService.CreateServerAsync(_currentUser.UserId, data.Name, data.ServerType);
             return Ok(id);
         }
         catch (CustomException ex)
@@ -50,9 +49,8 @@ public class ServerController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            data.Validation();
-            await _serverService.SubscribeAsync(jwtToken, data.InvitationToken, data.UserName);
+			data.Validation();
+            await _serverService.SubscribeAsync(_currentUser.UserId, data.InvitationToken, data.UserName);
             return Ok();
         }
         catch (CustomException ex)
@@ -72,9 +70,8 @@ public class ServerController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validate();
-            await _serverService.UnsubscribeAsync(data.serverId, jwtToken);
+            await _serverService.UnsubscribeAsync(data.serverId, _currentUser.UserId);
             return Ok();
         }
         catch (CustomException ex)
@@ -94,9 +91,8 @@ public class ServerController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validate();
-            await _serverService.UnsubscribeForCreatorAsync(data.serverId, jwtToken, data.newCreatorId);
+            await _serverService.UnsubscribeForCreatorAsync(data.serverId, _currentUser.UserId, data.newCreatorId);
             return Ok();
         }
         catch (CustomException ex)
@@ -116,8 +112,7 @@ public class ServerController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var servers = await _serverService.GetServerListAsync(jwtToken);
+            var servers = await _serverService.GetServerListAsync(_currentUser.UserId);
             return Ok(servers);
         }
         catch (CustomException ex)
@@ -137,9 +132,8 @@ public class ServerController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validate();
-            await _serverService.DeleteServerAsync(data.serverId, jwtToken);
+            await _serverService.DeleteServerAsync(data.serverId, _currentUser.UserId);
             return Ok();
         }
         catch (CustomException ex)
@@ -159,8 +153,7 @@ public class ServerController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var server = await _serverService.GetServerInfoAsync(jwtToken, serverId);
+            var server = await _serverService.GetServerInfoAsync(_currentUser.UserId, serverId);
             return Ok(server);
         }
         catch (CustomException ex)
@@ -180,9 +173,8 @@ public class ServerController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validation();
-            await _serverService.AddRoleToUserAsync(jwtToken, data.ServerId, data.UserId, data.Role);
+            await _serverService.AddRoleToUserAsync(_currentUser.UserId, data.ServerId, data.UserId, data.Role);
             return Ok();
         }
         catch (CustomException ex)
@@ -202,9 +194,8 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			data.Validation();
-			await _serverService.RemoveRoleFromUserAsync(jwtToken, data.ServerId, data.UserId, data.Role);
+			await _serverService.RemoveRoleFromUserAsync(_currentUser.UserId, data.ServerId, data.UserId, data.Role);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -224,9 +215,8 @@ public class ServerController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validation();
-            await _serverService.DeleteUserFromServerAsync(jwtToken, data.ServerId, data.UserId, data.BanReason);
+            await _serverService.DeleteUserFromServerAsync(_currentUser.UserId, data.ServerId, data.UserId, data.BanReason);
             return Ok();
         }
         catch (CustomException ex)
@@ -246,9 +236,8 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			data.Validation();
-			await _serverService.ChangeUserNameAsync(data.Id, jwtToken, data.Name);
+			await _serverService.ChangeUserNameAsync(data.Id, _currentUser.UserId, data.Name);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -268,9 +257,8 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			data.Validation();
-			await _serverService.ChangeServerNameAsync(data.Id, jwtToken, data.Name);
+			await _serverService.ChangeServerNameAsync(data.Id, _currentUser.UserId, data.Name);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -290,8 +278,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.ChangeNonNotifiableServerAsync(jwtToken, data.Id);
+			await _serverService.ChangeNonNotifiableServerAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -311,8 +298,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var list = await _serverService.GetBannedListAsync(jwtToken, serverId, Page, Size);
+			var list = await _serverService.GetBannedListAsync(_currentUser.UserId, serverId, Page, Size);
 			return Ok(list);
 		}
 		catch (CustomException ex)
@@ -332,8 +318,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.UnBanUser(jwtToken, data.ServerId, data.UserId);
+			await _serverService.UnBanUser(_currentUser.UserId, data.ServerId, data.UserId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -353,8 +338,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.ChangeServerIconAsync(jwtToken, data.ServerId, data.Icon);
+			await _serverService.ChangeServerIconAsync(_currentUser.UserId, data.ServerId, data.Icon);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -374,8 +358,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.DeleteServerIconAsync(jwtToken, data.Id);
+			await _serverService.DeleteServerIconAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -395,8 +378,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.ChangeServerClosedAsync(jwtToken, data.ServerId, data.IsClosed, data.IsApprove);
+			await _serverService.ChangeServerClosedAsync(_currentUser.UserId, data.ServerId, data.IsClosed, data.IsApprove);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -416,8 +398,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.ApproveApplicationAsync(jwtToken, data.Id);
+			await _serverService.ApproveApplicationAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -437,8 +418,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.RemoveApplicationServerAsync(jwtToken, data.Id);
+			await _serverService.RemoveApplicationServerAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -458,8 +438,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.RemoveApplicationUserAsync(jwtToken, data.Id);
+			await _serverService.RemoveApplicationUserAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -479,8 +458,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var result = await _serverService.GetServerApplicationsAsync(jwtToken, ServerId, Page, Size);
+			var result = await _serverService.GetServerApplicationsAsync(_currentUser.UserId, ServerId, Page, Size);
 			return Ok(result);
 		}
 		catch (CustomException ex)
@@ -500,8 +478,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var result = await _serverService.GetUserApplicationsAsync(jwtToken, Page, Size);
+			var result = await _serverService.GetUserApplicationsAsync(_currentUser.UserId, Page, Size);
 			return Ok(result);
 		}
 		catch (CustomException ex)
@@ -521,8 +498,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var result = await _serverService.GetServerPresetsAsync(jwtToken, ServerId);
+			var result = await _serverService.GetServerPresetsAsync(_currentUser.UserId, ServerId);
 			return Ok(result);
 		}
 		catch (CustomException ex)
@@ -542,8 +518,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var result = await _serverService.RolesFullListAsync(jwtToken, ServerId);
+			var result = await _serverService.RolesFullListAsync(_currentUser.UserId, ServerId);
 			return Ok(result);
 		}
 		catch (CustomException ex)
@@ -563,8 +538,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var result = await _serverService.CreatePresetAsync(jwtToken, data.ServerId, data.ServerRoleId, data.SystemRoleId);
+			var result = await _serverService.CreatePresetAsync(_currentUser.UserId, data.ServerId, data.ServerRoleId, data.SystemRoleId);
 			return Ok(result);
 		}
 		catch (CustomException ex)
@@ -584,8 +558,7 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _serverService.DeletePresetAsync(jwtToken, data.ServerId, data.ServerRoleId, data.SystemRoleId);
+			await _serverService.DeletePresetAsync(_currentUser.UserId, data.ServerId, data.ServerRoleId, data.SystemRoleId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -605,9 +578,8 @@ public class ServerController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			data.Validation();
-			var result = await _serverService.CreateInvitationToken(jwtToken, data.ServerId, data.ExpiredAt);
+			var result = await _serverService.CreateInvitationToken(_currentUser.UserId, data.ServerId, data.ExpiredAt);
 			return Ok(result);
 		}
 		catch (CustomException ex)

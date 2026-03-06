@@ -4,7 +4,6 @@ namespace hitscord.Models.Sockets;
 
 public class CreateMessageSocketDTO
 {
-    public required string Token { get; set; }
     public required Guid ChannelId { get; set; }
     public long? ReplyToMessageId { get; set; }
     public required MessageTypeEnum MessageType { get; set; }

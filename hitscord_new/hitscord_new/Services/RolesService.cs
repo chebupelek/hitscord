@@ -44,15 +44,14 @@ public class RolesService : IRolesService
 		return dbCheck;
 	}
 
-	public async Task<RolesItemDTO> CreateRoleAsync(string token, Guid serverId, string roleName, string color)
+	public async Task<RolesItemDTO> CreateRoleAsync(Guid UserId, Guid serverId, string roleName, string color)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == owner.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Create role", "User", 404, "Пользователь не является подписчиком сервера", "Создание роли");
@@ -109,16 +108,15 @@ public class RolesService : IRolesService
 		return roleResponse;
 	}
 
-	public async Task DeleteRoleAsync(string token, Guid serverId, Guid roleId)
+	public async Task DeleteRoleAsync(Guid UserId, Guid serverId, Guid roleId)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
 		var role = await CheckRoleAsync(roleId, serverId);
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == owner.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Delete role", "User", 404, "Пользователь не является подписчиком сервера", "Удаление роли");
@@ -271,16 +269,15 @@ public class RolesService : IRolesService
 		}
 	}
 
-	public async Task UpdateRoleAsync(string token, Guid serverId, Guid roleId, string name, string color)
+	public async Task UpdateRoleAsync(Guid UserId, Guid serverId, Guid roleId, string name, string color)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
 		var role = await CheckRoleAsync(roleId, serverId);
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == owner.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "UpdateRoleAsync", "User", 404, "Пользователь не является подписчиком сервера", "Обновление роли");
@@ -322,15 +319,14 @@ public class RolesService : IRolesService
 		}
 	}
 
-	public async Task<RolesListDTO> GetServerRolesAsync(string token, Guid serverId)
+	public async Task<RolesListDTO> GetServerRolesAsync(Guid UserId, Guid serverId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, true);
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "GetServerRolesAsync", "User", 404, "Пользователь не является подписчиком сервера", "Получение ролей сервера");
@@ -374,16 +370,15 @@ public class RolesService : IRolesService
 		return (new RolesListDTO { Roles = rolesList });
 	}
 
-	public async Task ChangeRoleSettingsAsync(string token, Guid serverId, Guid roleId, SettingsEnum setting, bool settingsData)
+	public async Task ChangeRoleSettingsAsync(Guid UserId, Guid serverId, Guid roleId, SettingsEnum setting, bool settingsData)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
 		var role = await CheckRoleAsync(roleId, serverId);
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == owner.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Change role settings", "User", 404, "Пользователь не является подписчиком сервера", "Изменение настроек роли");

@@ -13,13 +13,13 @@ namespace hitscord.Controllers;
 public class RolesController : ControllerBase
 {
     private readonly IRolesService _roleService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ICurrentUserService _currentUser;
 
-    public RolesController(IRolesService roleService, IHttpContextAccessor httpContextAccessor)
+	public RolesController(IRolesService roleService, ICurrentUserService currentUser)
     {
 		_roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+	}
 
     [Authorize]
     [HttpPost]
@@ -28,8 +28,7 @@ public class RolesController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var role = await _roleService.CreateRoleAsync(jwtToken, data.ServerId, data.Name, data.Color);
+			var role = await _roleService.CreateRoleAsync(_currentUser.UserId, data.ServerId, data.Name, data.Color);
             return Ok(role);
         }
         catch (CustomException ex)
@@ -49,8 +48,7 @@ public class RolesController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _roleService.DeleteRoleAsync(jwtToken, data.ServerId, data.RoleId);
+			await _roleService.DeleteRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -70,8 +68,7 @@ public class RolesController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _roleService.UpdateRoleAsync(jwtToken, data.ServerId, data.RoleId, data.Name, data.Color);
+			await _roleService.UpdateRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Name, data.Color);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -91,8 +88,7 @@ public class RolesController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var roles = await _roleService.GetServerRolesAsync(jwtToken, serverId);
+			var roles = await _roleService.GetServerRolesAsync(_currentUser.UserId, serverId);
 			return Ok(roles);
 		}
 		catch (CustomException ex)
@@ -112,8 +108,7 @@ public class RolesController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _roleService.ChangeRoleSettingsAsync(jwtToken, data.ServerId, data.RoleId, data.Setting, data.Add);
+			await _roleService.ChangeRoleSettingsAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Setting, data.Add);
 			return Ok();
 		}
 		catch (CustomException ex)

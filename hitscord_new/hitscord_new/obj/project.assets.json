@@ -1649,6 +1649,22 @@
           "lib/Orient.Client.dll": {}
         }
       },
+      "Pipelines.Sockets.Unofficial/2.2.8": {
+        "type": "package",
+        "dependencies": {
+          "System.IO.Pipelines": "5.0.1"
+        },
+        "compile": {
+          "lib/net5.0/Pipelines.Sockets.Unofficial.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net5.0/Pipelines.Sockets.Unofficial.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Quartz/3.14.0": {
         "type": "package",
         "dependencies": {
@@ -2059,6 +2075,24 @@
         },
         "build": {
           "build/SixLabors.ImageSharp.props": {}
+        }
+      },
+      "StackExchange.Redis/2.11.8": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+          "Pipelines.Sockets.Unofficial": "2.2.8",
+          "System.IO.Hashing": "10.0.2"
+        },
+        "compile": {
+          "lib/net8.0/StackExchange.Redis.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/StackExchange.Redis.dll": {
+            "related": ".xml"
+          }
         }
       },
       "Swashbuckle.AspNetCore/6.4.0": {
@@ -2602,7 +2636,7 @@
           "lib/netstandard1.3/System.IO.FileSystem.Primitives.dll": {}
         }
       },
-      "System.IO.Hashing/9.0.4": {
+      "System.IO.Hashing/10.0.2": {
         "type": "package",
         "compile": {
           "lib/net8.0/System.IO.Hashing.dll": {
@@ -6165,6 +6199,29 @@
         "orientdb-net.binary.nuspec"
       ]
     },
+    "Pipelines.Sockets.Unofficial/2.2.8": {
+      "sha512": "zG2FApP5zxSx6OcdJQLbZDk2AVlN2BNQD6MorwIfV6gVj0RRxWPEp2LXAxqDGZqeNV1Zp0BNPcNaey/GXmTdvQ==",
+      "type": "package",
+      "path": "pipelines.sockets.unofficial/2.2.8",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net461/Pipelines.Sockets.Unofficial.dll",
+        "lib/net461/Pipelines.Sockets.Unofficial.xml",
+        "lib/net472/Pipelines.Sockets.Unofficial.dll",
+        "lib/net472/Pipelines.Sockets.Unofficial.xml",
+        "lib/net5.0/Pipelines.Sockets.Unofficial.dll",
+        "lib/net5.0/Pipelines.Sockets.Unofficial.xml",
+        "lib/netcoreapp3.1/Pipelines.Sockets.Unofficial.dll",
+        "lib/netcoreapp3.1/Pipelines.Sockets.Unofficial.xml",
+        "lib/netstandard2.0/Pipelines.Sockets.Unofficial.dll",
+        "lib/netstandard2.0/Pipelines.Sockets.Unofficial.xml",
+        "lib/netstandard2.1/Pipelines.Sockets.Unofficial.dll",
+        "lib/netstandard2.1/Pipelines.Sockets.Unofficial.xml",
+        "pipelines.sockets.unofficial.2.2.8.nupkg.sha512",
+        "pipelines.sockets.unofficial.nuspec"
+      ]
+    },
     "Quartz/3.14.0": {
       "sha512": "j8mY6S0FWbtuEFbStUEZAkkGpZLbSuTT0us1w0DUQqhi+vwg/7XXS36TeH3o34zZoqYGyXvk6jrKnW/p6kS8sg==",
       "type": "package",
@@ -6688,6 +6745,30 @@
         "sixlabors.imagesharp.128.png",
         "sixlabors.imagesharp.3.1.8.nupkg.sha512",
         "sixlabors.imagesharp.nuspec"
+      ]
+    },
+    "StackExchange.Redis/2.11.8": {
+      "sha512": "25UL0tkhQo3ATT+DAu9OyaPhyWRvJIYcID/iNM8gNWqapJCX4dB/Q2RBBHjv6rQ1utp92pUoxgtZdX25ZNLC6Q==",
+      "type": "package",
+      "path": "stackexchange.redis/2.11.8",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "lib/net461/StackExchange.Redis.dll",
+        "lib/net461/StackExchange.Redis.xml",
+        "lib/net472/StackExchange.Redis.dll",
+        "lib/net472/StackExchange.Redis.xml",
+        "lib/net6.0/StackExchange.Redis.dll",
+        "lib/net6.0/StackExchange.Redis.xml",
+        "lib/net8.0/StackExchange.Redis.dll",
+        "lib/net8.0/StackExchange.Redis.xml",
+        "lib/netcoreapp3.1/StackExchange.Redis.dll",
+        "lib/netcoreapp3.1/StackExchange.Redis.xml",
+        "lib/netstandard2.0/StackExchange.Redis.dll",
+        "lib/netstandard2.0/StackExchange.Redis.xml",
+        "stackexchange.redis.2.11.8.nupkg.sha512",
+        "stackexchange.redis.nuspec"
       ]
     },
     "Swashbuckle.AspNetCore/6.4.0": {
@@ -7954,21 +8035,22 @@
         "system.io.filesystem.primitives.nuspec"
       ]
     },
-    "System.IO.Hashing/9.0.4": {
-      "sha512": "WogPvgAFqQORFD8Iyha6RZ+/1QB3dsWRWxbwi8/HHVgiGQ8z0oMWpwe8Kk3Ti+Roe+P6a3sBg+WwBfEsyziZKg==",
+    "System.IO.Hashing/10.0.2": {
+      "sha512": "AKJknIFi9O3+rGExxTry188JPvUoZAPcCtS2qdqyFhIzsxQ1Ap94BeGDG0VzVEHakhmRxmJtVih6TsHoghIt/g==",
       "type": "package",
-      "path": "system.io.hashing/9.0.4",
+      "path": "system.io.hashing/10.0.2",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
-        "LICENSE.TXT",
         "PACKAGE.md",
         "THIRD-PARTY-NOTICES.TXT",
         "buildTransitive/net461/System.IO.Hashing.targets",
         "buildTransitive/net462/_._",
         "buildTransitive/net8.0/_._",
         "buildTransitive/netcoreapp2.0/System.IO.Hashing.targets",
+        "lib/net10.0/System.IO.Hashing.dll",
+        "lib/net10.0/System.IO.Hashing.xml",
         "lib/net462/System.IO.Hashing.dll",
         "lib/net462/System.IO.Hashing.xml",
         "lib/net8.0/System.IO.Hashing.dll",
@@ -7977,7 +8059,7 @@
         "lib/net9.0/System.IO.Hashing.xml",
         "lib/netstandard2.0/System.IO.Hashing.dll",
         "lib/netstandard2.0/System.IO.Hashing.xml",
-        "system.io.hashing.9.0.4.nupkg.sha512",
+        "system.io.hashing.10.0.2.nupkg.sha512",
         "system.io.hashing.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -10577,6 +10659,7 @@
       "Serilog.AspNetCore >= 9.0.0",
       "Serilog.Sinks.File >= 6.0.0",
       "SixLabors.ImageSharp >= 3.1.8",
+      "StackExchange.Redis >= 2.11.8",
       "Swashbuckle.AspNetCore >= 6.4.0",
       "System.Net.Http.Json >= 8.0.1",
       "nClam >= 9.0.0"
@@ -10734,6 +10817,10 @@
           "SixLabors.ImageSharp": {
             "target": "Package",
             "version": "[3.1.8, )"
+          },
+          "StackExchange.Redis": {
+            "target": "Package",
+            "version": "[2.11.8, )"
           },
           "Swashbuckle.AspNetCore": {
             "target": "Package",

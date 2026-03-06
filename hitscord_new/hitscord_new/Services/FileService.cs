@@ -1,4 +1,5 @@
-﻿using EasyNetQ;
+﻿using Authzed.Api.V0;
+using EasyNetQ;
 using hitscord.Contexts;
 using hitscord.IServices;
 using hitscord.Models.db;
@@ -34,10 +35,8 @@ public class FileService : IFileService
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
-	public async Task<FileResponseDTO> GetIconAsync(string token, Guid fileId)
+	public async Task<FileResponseDTO> GetIconAsync(Guid fileId)
 	{
-		await _authorizationService.GetUserAsync(token);
-
 		var file = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == fileId);
 		if (file == null)
 		{
@@ -76,10 +75,8 @@ public class FileService : IFileService
 		};
 	}
 
-	public async Task<FileResponseDTO> GetFileAsync(string token, Guid fileId)
+	public async Task<FileResponseDTO> GetFileAsync(Guid UserId, Guid fileId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
-
 		var file = await _hitsContext.File
 			.Include(f => f.ChannelMessage)
 				.ThenInclude(cm => cm.TextChannel)
@@ -99,7 +96,7 @@ public class FileService : IFileService
 		if (file.ChatMessageId != null && file.ChatMessage != null)
 		{
 			var isInChat = await _hitsContext.UserChat
-				.AnyAsync(uc => uc.ChatId == file.ChatMessage.ChatId && uc.UserId == user.Id);
+				.AnyAsync(uc => uc.ChatId == file.ChatMessage.ChatId && uc.UserId == UserId);
 
 			if (!isInChat)
 			{
@@ -115,7 +112,7 @@ public class FileService : IFileService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanSee)
-				.FirstOrDefaultAsync(us => us.ServerId == file.ChannelMessage.TextChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == file.ChannelMessage.TextChannel.ServerId && us.UserId == UserId);
 
 			if (userSub == null)
 			{
@@ -154,15 +151,14 @@ public class FileService : IFileService
 		};
 	}
 
-	public async Task<FileMetaResponseDTO> UploadFileToMessageAsync(string token, Guid channelId, IFormFile file)
+	public async Task<FileMetaResponseDTO> UploadFileToMessageAsync(Guid UserId, Guid channelId, IFormFile file)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 		bool canUse = false;
 
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == channelId);
 		if (chat != null)
 		{
-			if (chat.Users.Any(u => u.UserId == user.Id))
+			if (chat.Users.Any(u => u.UserId == UserId))
 			{
 				canUse = true;
 			}
@@ -182,7 +178,7 @@ public class FileService : IFileService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanSee)
-				.FirstOrDefaultAsync(us => us.ServerId == notificationChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == notificationChannel.ServerId && us.UserId == UserId);
 			if (userServer == null)
 			{
 				throw new CustomException(
@@ -225,7 +221,7 @@ public class FileService : IFileService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanUse)
-				.FirstOrDefaultAsync(us => us.ServerId == subChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == subChannel.ServerId && us.UserId == UserId);
 			if (userServer == null)
 			{
 				throw new CustomException(
@@ -266,7 +262,7 @@ public class FileService : IFileService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanSee)
-				.FirstOrDefaultAsync(us => us.ServerId == textChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == textChannel.ServerId && us.UserId == UserId);
 			if (userServer == null)
 			{
 				throw new CustomException(
@@ -333,7 +329,7 @@ public class FileService : IFileService
 			Name = originalFileName,
 			Type = file.ContentType,
 			Size = file.Length,
-			Creator = user.Id,
+			Creator = UserId,
 			IsApproved = false,
 			Deleted = false,
 			CreatedAt = DateTime.UtcNow,
@@ -350,12 +346,11 @@ public class FileService : IFileService
 		};
 	}
 
-	public async Task DeleteNotApprovedFileAsync(string token, Guid fileId)
+	public async Task DeleteNotApprovedFileAsync(Guid UserId, Guid fileId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 		var file = await _hitsContext.File
 			.FirstOrDefaultAsync(f => f.Id == fileId 
-			&& f.Creator == user.Id 
+			&& f.Creator == UserId
 			&& f.IsApproved == false
 			&& f.UserId == null
 			&& f.ServerId == null

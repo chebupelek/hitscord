@@ -13,13 +13,13 @@ namespace hitscord.Controllers;
 public class ChannelController : ControllerBase
 {
     private readonly IChannelService _channelService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ICurrentUserService _currentUser;
 
-    public ChannelController(IChannelService channelService, IHttpContextAccessor httpContextAccessor)
+	public ChannelController(IChannelService channelService, ICurrentUserService currentUser)
     {
         _channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+	}
 
     [Authorize]
     [HttpPost]
@@ -28,9 +28,8 @@ public class ChannelController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             channelData.Validation();
-            await _channelService.CreateChannelAsync(channelData.ServerId, jwtToken, channelData.Name, channelData.ChannelType, channelData.MaxCount);
+            await _channelService.CreateChannelAsync(channelData.ServerId, _currentUser.UserId, channelData.Name, channelData.ChannelType, channelData.MaxCount);
             return Ok();
         }
         catch (CustomException ex)
@@ -50,9 +49,8 @@ public class ChannelController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             channelData.Validation();
-            await _channelService.DeleteChannelAsync(channelData.channelId, jwtToken);
+            await _channelService.DeleteChannelAsync(channelData.channelId, _currentUser.UserId);
             return Ok();
         }
         catch (CustomException ex)
@@ -72,8 +70,7 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var settings = await _channelService.GetChannelSettings(channelId, jwtToken);
+			var settings = await _channelService.GetChannelSettings(channelId, _currentUser.UserId);
 			return Ok(settings);
 		}
 		catch (CustomException ex)
@@ -93,8 +90,7 @@ public class ChannelController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var messages = await _channelService.MessagesListAsync(channelId, jwtToken, number, fromMessageId, down);
+            var messages = await _channelService.MessagesListAsync(channelId, _currentUser.UserId, number, fromMessageId, down);
             return Ok(messages);
         }
         catch (CustomException ex)
@@ -114,8 +110,7 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _channelService.ChangeVoiceChannelSettingsAsync(jwtToken, channelRoleData);
+			await _channelService.ChangeVoiceChannelSettingsAsync(_currentUser.UserId, channelRoleData);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -135,8 +130,7 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _channelService.ChangeTextChannelSettingsAsync(jwtToken, channelRoleData);
+			await _channelService.ChangeTextChannelSettingsAsync(_currentUser.UserId, channelRoleData);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -156,8 +150,7 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _channelService.ChangeSubChannelSettingsAsync(jwtToken, channelRoleData);
+			await _channelService.ChangeSubChannelSettingsAsync(_currentUser.UserId, channelRoleData);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -177,8 +170,7 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _channelService.ChangeNotificationChannelSettingsAsync(jwtToken, channelRoleData);
+			await _channelService.ChangeNotificationChannelSettingsAsync(_currentUser.UserId, channelRoleData);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -198,9 +190,8 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 			data.Validation();
-			await _channelService.ChnageChannnelNameAsync(jwtToken, data.Id, data.Name);
+			await _channelService.ChangeChannnelNameAsync(_currentUser.UserId, data.Id, data.Name);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -220,8 +211,7 @@ public class ChannelController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var result = await _channelService.JoinToVoiceChannelAsync(channelId.VoiceChannelId, jwtToken);
+            var result = await _channelService.JoinToVoiceChannelAsync(channelId.VoiceChannelId, _currentUser.UserId);
             return Ok(result);
         }
         catch (CustomException ex)
@@ -241,8 +231,7 @@ public class ChannelController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.RemoveFromVoiceChannelAsync(channelId.VoiceChannelId, jwtToken);
+            await _channelService.RemoveFromVoiceChannelAsync(channelId.VoiceChannelId, _currentUser.UserId);
             return Ok();
         }
         catch (CustomException ex)
@@ -262,8 +251,7 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var answer = await _channelService.CheckVoiceChannelAsync(jwtToken);
+			var answer = await _channelService.CheckVoiceChannelAsync(_currentUser.UserId);
 			return Ok(answer);
 		}
 		catch (CustomException ex)
@@ -283,8 +271,7 @@ public class ChannelController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.RemoveUserFromVoiceChannelAsync(channelId.VoiceChannelId, jwtToken, channelId.UserID);
+            await _channelService.RemoveUserFromVoiceChannelAsync(channelId.VoiceChannelId, _currentUser.UserId, channelId.UserID);
             return Ok();
         }
         catch (CustomException ex)
@@ -304,8 +291,7 @@ public class ChannelController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.ChangeSelfMuteStatusAsync(jwtToken);
+            await _channelService.ChangeSelfMuteStatusAsync(_currentUser.UserId);
             return Ok();
         }
         catch (CustomException ex)
@@ -325,8 +311,7 @@ public class ChannelController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.ChangeUserMuteStatusAsync(jwtToken, User.UserId);
+            await _channelService.ChangeUserMuteStatusAsync(_currentUser.UserId, User.UserId);
             return Ok();
         }
         catch (CustomException ex)
@@ -346,8 +331,7 @@ public class ChannelController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _channelService.ChangeStreamStatusAsync(jwtToken);
+            await _channelService.ChangeStreamStatusAsync(_currentUser.UserId);
             return Ok();
         }
         catch (CustomException ex)
@@ -367,8 +351,7 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _channelService.ChangeNonNotifiableChannelAsync(jwtToken, data.Id);
+			await _channelService.ChangeNonNotifiableChannelAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -388,9 +371,8 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             data.Validation();
-			await _channelService.ChangeVoiceChannelMaxCount(jwtToken, data.VoiceChannelId, data.MaxCount);
+			await _channelService.ChangeVoiceChannelMaxCount(_currentUser.UserId, data.VoiceChannelId, data.MaxCount);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -410,8 +392,7 @@ public class ChannelController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var list = await _channelService.GetUserThatCanSeeChannelAsync(jwtToken, channelId);
+			var list = await _channelService.GetUserThatCanSeeChannelAsync(_currentUser.UserId, channelId);
 			return Ok(list);
 		}
 		catch (CustomException ex)

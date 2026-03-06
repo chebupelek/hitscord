@@ -226,9 +226,8 @@ public class MessageService : IMessageService
 
 
 	//_logger.LogInformation("check 1: {bool}", await _orientService.ChannelExistsAsync(channelId));
-	public async Task CreateMessageWebsocketAsync(CreateMessageSocketDTO Content)
+	public async Task CreateMessageWebsocketAsync(CreateMessageSocketDTO Content, Guid UserId)
 	{
-		var user = await _authService.GetUserAsync(Content.Token);
 		Content.Validation();
 		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistAsync(Content.ChannelId);
 
@@ -245,7 +244,7 @@ public class MessageService : IMessageService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanWriteSub)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание сообщения");
@@ -314,7 +313,7 @@ public class MessageService : IMessageService
 				newMessage = new ClassicChannelMessageDbModel()
 				{
 					Id = newId,
-					AuthorId = user.Id,
+					AuthorId = UserId,
 					TextChannelId = Content.ChannelId,
 					TextChannelIdDouble = Content.ChannelId,
 					ReplyToMessageId = Content.ReplyToMessageId,
@@ -330,7 +329,7 @@ public class MessageService : IMessageService
 
 				if (Content.Classic.Files != null && Content.Classic.Files.Any())
 				{
-					await CreateFilesAsync(Content.Classic.Files, user.Id, newMessage.Id, newMessage.TextChannelId, null, null, newMessage.RealId, null);
+					await CreateFilesAsync(Content.Classic.Files, UserId, newMessage.Id, newMessage.TextChannelId, null, null, newMessage.RealId, null);
 				}
 
 				if (Content.Classic != null && Content.Classic.NestedChannel == true && channelType == ChannelTypeEnum.Text)
@@ -344,7 +343,7 @@ public class MessageService : IMessageService
 				newMessage = new ChannelVoteDbModel()
 				{
 					Id = newId,
-					AuthorId = user.Id,
+					AuthorId = UserId,
 					TextChannelId = Content.ChannelId,
 					TextChannelIdDouble = Content.ChannelId,
 					ReplyToMessageId = Content.ReplyToMessageId,
@@ -468,7 +467,7 @@ public class MessageService : IMessageService
 								Content = variant.Content,
 								TotalVotes = votes.Count,
 								VotedUserIds = vote.IsAnonimous
-									? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+									? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 									: votes.Select(v => v.UserId).ToList()
 							};
 						})
@@ -524,7 +523,7 @@ public class MessageService : IMessageService
 			.Where(u => (taggedUsers.Contains(u.UserId) 
 				|| u.SubscribeRoles.Any(sr => taggedRoles.Contains(sr.RoleId))
 				|| u.SubscribeRoles.Any(sr => notificatedRoles.Contains(sr.RoleId)))
-				&& (u.UserId != user.Id)
+				&& (u.UserId != UserId)
 				&& (u.NonNotifiable == false)
 				&& (!nonNotified.Contains(u.Id))
 				&& (u.ServerId == channel.ServerId))
@@ -575,12 +574,12 @@ public class MessageService : IMessageService
 			}
 		}
 
-		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Id && lr.UserId == user.Id);
+		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Id && lr.UserId == UserId);
 		if (lastRead == null)
 		{
 			await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
 			{
-				UserId = user.Id,
+				UserId = UserId,
 				TextChannelId = channel.Id,
 				LastReadedMessageId = newMessage.Id
 			});
@@ -593,10 +592,8 @@ public class MessageService : IMessageService
 		}
 	}
 
-	public async Task UpdateMessageWebsocketAsync(long messageId, Guid channelId, string token, string text)
+	public async Task UpdateMessageWebsocketAsync(long messageId, Guid channelId, Guid UserId, string text)
 	{
-
-		var user = await _authService.GetUserAsync(token);
 
 		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistAsync(channelId);
 
@@ -612,7 +609,7 @@ public class MessageService : IMessageService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanUse)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User not subscriber of this server", "Update normal message", "Server id", 404, "Пользователь не является подписчиком сервера", "Обновление сообщения");
@@ -641,7 +638,7 @@ public class MessageService : IMessageService
 		{
 			throw new CustomException("Message not found", "Update normal message", "Normal message", 404, "Сообщение не найдено", "Обновление сообщения");
 		}
-		if (message.AuthorId != user.Id)
+		if (message.AuthorId != UserId)
 		{
 			throw new CustomException("User not creator of this message", "Update normal message", "User", 401, "Пользователь - не создатель сообщения", "Обновление сообщения");
 		}
@@ -724,7 +721,7 @@ public class MessageService : IMessageService
 			.Where(u => (taggedUsers.Contains(u.UserId)
 				|| u.SubscribeRoles.Any(sr => taggedRoles.Contains(sr.RoleId))
 				|| u.SubscribeRoles.Any(sr => notificatedRoles.Contains(sr.RoleId)))
-				&& (u.UserId != user.Id))
+				&& (u.UserId != UserId))
 			.Select(u => u.UserId)
 			.Distinct()
 			.ToListAsync();
@@ -768,10 +765,8 @@ public class MessageService : IMessageService
 		}
 	}
 
-	public async Task DeleteMessageWebsocketAsync(long messageId, Guid channelId, string token)
+	public async Task DeleteMessageWebsocketAsync(long messageId, Guid channelId, Guid UserId)
 	{
-		var user = await _authService.GetUserAsync(token);
-
 		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistAsync(channelId);
 
 		var channelType = await _channelService.GetChannelType(channel.Id);
@@ -783,7 +778,7 @@ public class MessageService : IMessageService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanUse)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User not subscriber of this server", "Delete normal message", "Server id", 404, "Пользователь не является подписчиком сервера", "Удаление сообщения");
@@ -806,7 +801,7 @@ public class MessageService : IMessageService
 		{
 			throw new CustomException("Message not found", "Delete normal message", "Normal message", 404, "Сообщение не найдено", "Удаление сообщения");
 		}
-		if (message.AuthorId != user.Id && userSub.SubscribeRoles.Any(sr => sr.Role.ServerCanDeleteOthersMessages == true) != true)
+		if (message.AuthorId != UserId && userSub.SubscribeRoles.Any(sr => sr.Role.ServerCanDeleteOthersMessages == true) != true)
 		{
 			throw new CustomException("User not cant delete this message", "Delete normal message", "User", 401, "Пользователь не может удалить это сообщение", "Удаление сообщения");
 		}
@@ -853,16 +848,15 @@ public class MessageService : IMessageService
 		
 	}
 
-	public async Task CreateMessageToChatWebsocketAsync(CreateMessageSocketDTO Content)
+	public async Task CreateMessageToChatWebsocketAsync(CreateMessageSocketDTO Content, Guid UserId)
 	{
-		var user = await _authService.GetUserAsync(Content.Token);
 		Content.Validation();
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == Content.ChannelId);
 		if (chat == null)
 		{
 			throw new CustomException("Chat not found", "Create message for chat", "Chat id", 404, "Чат не найден", "Создание сообщения для чата");
 		}
-		if (chat.Users.Any(u => u.UserId == user.Id) == false)
+		if (chat.Users.Any(u => u.UserId == UserId) == false)
 		{
 			throw new CustomException("User not in chat", "Create message for chat", "User Id", 401, "Пользователь не состоит в чате", "Создание сообщения для чата");
 		}
@@ -897,7 +891,7 @@ public class MessageService : IMessageService
 				newMessage = new ClassicChatMessageDbModel()
 				{
 					Id = newId,
-					AuthorId = user.Id,
+					AuthorId = UserId,
 					ChatId = Content.ChannelId,
 					ChatIdDouble = Content.ChannelId,
 					ReplyToMessageId = Content.ReplyToMessageId,
@@ -912,7 +906,7 @@ public class MessageService : IMessageService
 
 				if (Content.Classic.Files != null && Content.Classic.Files.Any())
 				{
-					await CreateFilesAsync(Content.Classic.Files, user.Id, null, null, newMessage.Id, newMessage.ChatId, null, newMessage.RealId);
+					await CreateFilesAsync(Content.Classic.Files, UserId, null, null, newMessage.Id, newMessage.ChatId, null, newMessage.RealId);
 				}
 
 				break;
@@ -921,7 +915,7 @@ public class MessageService : IMessageService
 				newMessage = new ChatVoteDbModel()
 				{
 					Id = newId,
-					AuthorId = user.Id,
+					AuthorId = UserId,
 					ChatId = Content.ChannelId,
 					ChatIdDouble = Content.ChannelId,
 					ReplyToMessageId = Content.ReplyToMessageId,
@@ -1037,7 +1031,7 @@ public class MessageService : IMessageService
 								Content = variant.Content,
 								TotalVotes = votes.Count,
 								VotedUserIds = vote.IsAnonimous
-									? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+									? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 									: votes.Select(v => v.UserId).ToList()
 							};
 						})
@@ -1059,7 +1053,7 @@ public class MessageService : IMessageService
 		var notifiedUsers = await _hitsContext.UserChat
 			.Include(u => u.User)
 			.Where(u => (taggedUsers.Contains(u.UserId)
-				&& (u.UserId != user.Id)
+				&& (u.UserId != UserId)
 				&& (u.NonNotifiable == false))
 				&& (u.ChatId == chat.Id))
 			.Select(u => u.UserId)
@@ -1088,12 +1082,12 @@ public class MessageService : IMessageService
 			await _webSocketManager.BroadcastMessageAsync(response, notifiedUsers, "User notified in chat");
 		}
 
-		var lastRead = await _hitsContext.LastReadChatMessage.FirstOrDefaultAsync(lr => lr.ChatId == chat.Id && lr.UserId == user.Id);
+		var lastRead = await _hitsContext.LastReadChatMessage.FirstOrDefaultAsync(lr => lr.ChatId == chat.Id && lr.UserId == UserId);
 		if (lastRead == null)
 		{
 			await _hitsContext.LastReadChatMessage.AddAsync(new LastReadChatMessageDbModel
 			{
-				UserId = user.Id,
+				UserId = UserId,
 				ChatId = chat.Id,
 				LastReadedMessageId = newMessage.Id
 			});
@@ -1106,21 +1100,19 @@ public class MessageService : IMessageService
 		}
 	}
 
-	public async Task UpdateMessageInChatWebsocketAsync(long messageId, Guid chatId, string token, string text)
+	public async Task UpdateMessageInChatWebsocketAsync(long messageId, Guid chatId, Guid UserId, string text)
 	{
-		var user = await _authService.GetUserAsync(token);
-
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == chatId);
 		if (chat == null)
 		{
 			throw new CustomException("Chat not found", "Update normal message in chat", "Chat id", 404, "Чат не найден", "Обновление сообщения в чате");
 		}
-		if (chat.Users.Any(u => u.UserId == user.Id) == false)
+		if (chat.Users.Any(u => u.UserId == UserId) == false)
 		{
 			throw new CustomException("User not in chat", "Update normal message in chat", "User Id", 401, "Пользователь не состоит в чате", "Обновление сообщения в чате");
 		}
 
-		var message = await _hitsContext.ClassicChatMessage.Include(m => m.Files).FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
+		var message = await _hitsContext.ClassicChatMessage.Include(m => m.Files).FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == UserId);
 		if (message == null)
 		{
 			throw new CustomException("Message not found", "Update normal message in chat", "Normal message", 404, "Сообщение не найдено", "Обновление сообщения в чате");
@@ -1162,7 +1154,7 @@ public class MessageService : IMessageService
 		var notifiedUsers = await _hitsContext.UserChat
 			.Include(u => u.User)
 			.Where(u => (taggedUsers.Contains(u.UserId)
-				&& (u.UserId != user.Id)
+				&& (u.UserId != UserId)
 				&& (u.NonNotifiable == false)))
 			.Select(u => u.UserId)
 			.ToListAsync();
@@ -1184,21 +1176,19 @@ public class MessageService : IMessageService
 		}
 	}
 
-	public async Task DeleteMessageInChatWebsocketAsync(long messageId, Guid chatId, string token)
+	public async Task DeleteMessageInChatWebsocketAsync(long messageId, Guid chatId, Guid UserId)
 	{
-		var user = await _authService.GetUserAsync(token);
-
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == chatId);
 		if (chat == null)
 		{
 			throw new CustomException("Chat not found", "Delete normal message in chat", "Chat id", 404, "Чат не найден", "Удаление сообщения в чате");
 		}
-		if (chat.Users.Any(u => u.UserId == user.Id) == false)
+		if (chat.Users.Any(u => u.UserId == UserId) == false)
 		{
 			throw new CustomException("User not in chat", "Delete normal message in chat", "User Id", 401, "Пользователь не состоит в чате", "Удаление сообщения в чате");
 		}
 
-		var message = await _hitsContext.ChatMessage.FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
+		var message = await _hitsContext.ChatMessage.FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == UserId);
 		if (message == null)
 		{
 			throw new CustomException("Message not found", "Delete normal message in chat", "Normal message", 404, "Сообщение не найдено", "Удаление сообщения в чате");
@@ -1222,10 +1212,8 @@ public class MessageService : IMessageService
 	}
 
 
-	public async Task VoteAsync(string token, bool channel, Guid variantId)
+	public async Task VoteAsync(Guid UserId, bool channel, Guid variantId)
 	{
-		var user = await _authService.GetUserAsync(token);
-
 		if (channel)
 		{
 			var variant = await _hitsContext.ChannelVoteVariant
@@ -1250,7 +1238,7 @@ public class MessageService : IMessageService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanUse)
-				.FirstOrDefaultAsync(us => us.ServerId == variant.Vote.TextChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == variant.Vote.TextChannel.ServerId && us.UserId == UserId);
 			if (userSub == null)
 			{
 				throw new CustomException("User not subscriber of this server", "Voting", "Server id", 404, "Пользователь не является подписчиком сервера", "Голосование");
@@ -1272,7 +1260,7 @@ public class MessageService : IMessageService
 				throw new CustomException("Voting is closed", "Voting", "Deadline", 400, "Голосование завершено", "Голосование");
 			}
 
-			var userThoseVariant = await _hitsContext.ChannelVariantUser.FirstOrDefaultAsync(cvu => cvu.VariantId == variant.Id && cvu.UserId == user.Id);
+			var userThoseVariant = await _hitsContext.ChannelVariantUser.FirstOrDefaultAsync(cvu => cvu.VariantId == variant.Id && cvu.UserId == UserId);
 			if (userThoseVariant != null)
 			{
 				throw new CustomException("Cant vote double", "Voting", "Variant", 400, "Нельзя голосовать дважды за один вариант", "Голосование");
@@ -1282,14 +1270,14 @@ public class MessageService : IMessageService
 			{
 				var alreadyVoted = await _hitsContext.ChannelVariantUser
 					.Include(cvu => cvu.Variant)
-					.FirstOrDefaultAsync(cvu => cvu.VariantId != variant.Id && cvu.Variant.VoteId == variant.VoteId && cvu.UserId == user.Id);
+					.FirstOrDefaultAsync(cvu => cvu.VariantId != variant.Id && cvu.Variant.VoteId == variant.VoteId && cvu.UserId == UserId);
 				if (alreadyVoted != null)
 				{
 					throw new CustomException("User already voted in this vote", "Voting", "UserId", 400, "Пользователь уже проголосовал в этом голосовании", "Голосование");
 				}
 			}
 
-			await _hitsContext.ChannelVariantUser.AddAsync(new ChannelVariantUserDbModel { UserId = user.Id, VariantId = variant.Id });
+			await _hitsContext.ChannelVariantUser.AddAsync(new ChannelVariantUserDbModel { UserId = UserId, VariantId = variant.Id });
 			await _hitsContext.SaveChangesAsync();
 
 			var votesByVariantId = await _hitsContext.ChannelVariantUser
@@ -1328,7 +1316,7 @@ public class MessageService : IMessageService
 							Content = v.Content,
 							TotalVotes = votes.Count,
 							VotedUserIds = variant.Vote.IsAnonimous
-								? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								? (votes.Any(vu => vu.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 								: votes.Select(vu => vu.UserId).ToList()
 						};
 					})
@@ -1381,7 +1369,7 @@ public class MessageService : IMessageService
 				throw new CustomException("Variant not found", "Voting", "Variant id", 404, "Вариант не найден", "Голосование");
 			}
 
-			var userSub = await _hitsContext.UserChat.FirstOrDefaultAsync(uc => uc.UserId == user.Id && uc.ChatId == variant.ChatId);
+			var userSub = await _hitsContext.UserChat.FirstOrDefaultAsync(uc => uc.UserId == UserId && uc.ChatId == variant.ChatId);
 			if (userSub == null)
 			{
 				throw new CustomException("User not in this chat", "Voting", "Chat id", 404, "Пользователь не является участником чата", "Голосование");
@@ -1392,7 +1380,7 @@ public class MessageService : IMessageService
 				throw new CustomException("Voting is closed", "Voting", "Deadline", 400, "Голосование завершено", "Голосование");
 			}
 
-			var userThoseVariant = await _hitsContext.ChatVariantUser.FirstOrDefaultAsync(cvu => cvu.VariantId == variant.Id && cvu.UserId == user.Id);
+			var userThoseVariant = await _hitsContext.ChatVariantUser.FirstOrDefaultAsync(cvu => cvu.VariantId == variant.Id && cvu.UserId == UserId);
 			if (userThoseVariant != null)
 			{
 				throw new CustomException("Cant vote double", "Voting", "Variant", 400, "Нельзя голосовать дважды за один вариант", "Голосование");
@@ -1402,14 +1390,14 @@ public class MessageService : IMessageService
 			{
 				var alreadyVoted = await _hitsContext.ChatVariantUser
 					.Include(cvu => cvu.Variant)
-					.FirstOrDefaultAsync(cvu => cvu.VariantId != variant.Id && cvu.Variant.VoteId == variant.VoteId && cvu.UserId == user.Id);
+					.FirstOrDefaultAsync(cvu => cvu.VariantId != variant.Id && cvu.Variant.VoteId == variant.VoteId && cvu.UserId == UserId);
 				if (alreadyVoted != null)
 				{
 					throw new CustomException("User already voted in this vote", "Voting", "UserId", 400, "Пользователь уже проголосовал в этом голосовании", "Голосование");
 				}
 			}
 
-			await _hitsContext.ChatVariantUser.AddAsync(new ChatVariantUserDbModel { UserId = user.Id, VariantId = variant.Id });
+			await _hitsContext.ChatVariantUser.AddAsync(new ChatVariantUserDbModel { UserId = UserId, VariantId = variant.Id });
 			await _hitsContext.SaveChangesAsync();
 
 			var variantIds = variant.Vote.Variants.Select(v => v.Id).ToList();
@@ -1451,7 +1439,7 @@ public class MessageService : IMessageService
 							Content = variant.Content,
 							TotalVotes = votes.Count,
 							VotedUserIds = variant.Vote.IsAnonimous
-								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 								: votes.Select(v => v.UserId).ToList()
 						};
 					})
@@ -1468,10 +1456,8 @@ public class MessageService : IMessageService
 		}
 	}
 
-	public async Task UnVoteAsync(string token, Guid variantId)
+	public async Task UnVoteAsync(Guid UserId, Guid variantId)
 	{
-		var user = await _authService.GetUserAsync(token);
-
 		var channelVariant = await _hitsContext.ChannelVoteVariant
 				.Include(cvv => cvv.Vote)
 					.ThenInclude(cv => cv.TextChannel)
@@ -1491,7 +1477,7 @@ public class MessageService : IMessageService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanUse)
-				.FirstOrDefaultAsync(us => us.ServerId == channelVariant.Vote.TextChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == channelVariant.Vote.TextChannel.ServerId && us.UserId == UserId);
 			if (userSub == null)
 			{
 				throw new CustomException("User not subscriber of this server", "Unvoting", "Server id", 404, "Пользователь не является подписчиком сервера", "Отмена голоса");
@@ -1513,7 +1499,7 @@ public class MessageService : IMessageService
 				throw new CustomException("Voting is closed", "Unvoting", "Deadline", 400, "Голосование завершено", "Отмена голоса");
 			}
 
-			var userThoseVariant = await _hitsContext.ChannelVariantUser.FirstOrDefaultAsync(cvu => cvu.VariantId == channelVariant.Id && cvu.UserId == user.Id);
+			var userThoseVariant = await _hitsContext.ChannelVariantUser.FirstOrDefaultAsync(cvu => cvu.VariantId == channelVariant.Id && cvu.UserId == UserId);
 			if (userThoseVariant == null)
 			{
 				throw new CustomException("Users vote not found", "Unvoting", "Variant", 400, "Голос пользователя не найден", "Отмена голоса");
@@ -1558,7 +1544,7 @@ public class MessageService : IMessageService
 							Content = v.Content,
 							TotalVotes = votes.Count,
 							VotedUserIds = channelVariant.Vote.IsAnonimous
-								? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								? (votes.Any(vu => vu.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 								: votes.Select(vu => vu.UserId).ToList()
 						};
 					})
@@ -1615,7 +1601,7 @@ public class MessageService : IMessageService
 					throw new CustomException("Variant not found", "Unvoting", "Variant id", 404, "Вариант не найден", "Отмена голоса");
 				}
 
-				var userSub = await _hitsContext.UserChat.FirstOrDefaultAsync(uc => uc.UserId == user.Id && uc.ChatId == variant.ChatId);
+				var userSub = await _hitsContext.UserChat.FirstOrDefaultAsync(uc => uc.UserId == UserId && uc.ChatId == variant.ChatId);
 				if (userSub == null)
 				{
 					throw new CustomException("User not in this chat", "Unvoting", "Chat id", 404, "Пользователь не является участником чата", "Отмена голоса");
@@ -1626,7 +1612,7 @@ public class MessageService : IMessageService
 					throw new CustomException("Voting is closed", "Unvoting", "Deadline", 400, "Голосование завершено", "Отмена голоса");
 				}
 
-				var userThoseVariant = await _hitsContext.ChatVariantUser.FirstOrDefaultAsync(cvu => cvu.VariantId == variant.Id && cvu.UserId == user.Id);
+				var userThoseVariant = await _hitsContext.ChatVariantUser.FirstOrDefaultAsync(cvu => cvu.VariantId == variant.Id && cvu.UserId == UserId);
 				if (userThoseVariant == null)
 				{
 					throw new CustomException("Users vote not found", "Unvoting", "Variant", 400, "Голос пользователя не найден", "Отмена голоса");
@@ -1674,7 +1660,7 @@ public class MessageService : IMessageService
 								Content = variant.Content,
 								TotalVotes = votes.Count,
 								VotedUserIds = variant.Vote.IsAnonimous
-									? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+									? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 									: votes.Select(v => v.UserId).ToList()
 							};
 						})
@@ -1696,10 +1682,8 @@ public class MessageService : IMessageService
 		throw new CustomException("Variant not found", "Unvoting", "Variant", 400, "Вариант не найден", "Отмена голоса");
 	}
 
-	public async Task<VoteResponceDTO> GetVotingAsync(string token, bool channel, Guid channelId, long voteId)
+	public async Task<VoteResponceDTO> GetVotingAsync(Guid UserId, bool channel, Guid channelId, long voteId)
 	{
-		var user = await _authService.GetUserAsync(token);
-
 		if (channel)
 		{
 			var vote = await _hitsContext.ChannelVote
@@ -1721,7 +1705,7 @@ public class MessageService : IMessageService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanUse)
-				.FirstOrDefaultAsync(us => us.ServerId == vote.TextChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == vote.TextChannel.ServerId && us.UserId == UserId);
 			if (userSub == null)
 			{
 				throw new CustomException("User not subscriber of this server", "Vote info", "Server id", 404, "Пользователь не является подписчиком сервера", "Получение голосования");
@@ -1776,7 +1760,7 @@ public class MessageService : IMessageService
 							Content = v.Content,
 							TotalVotes = votes.Count,
 							VotedUserIds = vote.IsAnonimous
-								? (votes.Any(vu => vu.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								? (votes.Any(vu => vu.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 								: votes.Select(vu => vu.UserId).ToList()
 						};
 					})
@@ -1800,7 +1784,7 @@ public class MessageService : IMessageService
 				throw new CustomException("Vote not found", "Vote info", "Vote id", 404, "Голосование не найдено", "Получение голосования");
 			}
 
-			var userSub = await _hitsContext.UserChat.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ChatId == vote.ChatId);
+			var userSub = await _hitsContext.UserChat.FirstOrDefaultAsync(us => us.UserId == UserId && us.ChatId == vote.ChatId);
 			if (userSub == null)
 			{
 				throw new CustomException("User not part of this chat", "Vote info", "Chat id", 404, "Пользователь не является участником чата", "Получение голосования");
@@ -1847,7 +1831,7 @@ public class MessageService : IMessageService
 							Content = variant.Content,
 							TotalVotes = votes.Count,
 							VotedUserIds = variant.Vote.IsAnonimous
-								? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+								? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 								: votes.Select(v => v.UserId).ToList()
 						};
 					})
@@ -1914,10 +1898,8 @@ public class MessageService : IMessageService
 	}
 
 
-	public async Task MessageSeeAsync(string token, bool channel, Guid channelId, long messageId)
+	public async Task MessageSeeAsync(Guid UserId, bool channel, Guid channelId, long messageId)
 	{
-		var user = await _authService.GetUserAsync(token);
-
 		if (channel)
 		{
 			var message = await _hitsContext.ChannelMessage
@@ -1936,7 +1918,7 @@ public class MessageService : IMessageService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanUse)
-				.FirstOrDefaultAsync(us => us.ServerId == message.TextChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == message.TextChannel.ServerId && us.UserId == UserId);
 			if (userSub == null)
 			{
 				throw new CustomException("User not subscriber of this server", "See message", "Server id", 404, "Пользователь не является подписчиком сервера", "Просмотр сообщения");
@@ -1954,7 +1936,7 @@ public class MessageService : IMessageService
 			}
 
 			var lastRead = await _hitsContext.LastReadChannelMessage
-				.FirstOrDefaultAsync(lr => lr.TextChannelId == channelId && lr.UserId == user.Id);
+				.FirstOrDefaultAsync(lr => lr.TextChannelId == channelId && lr.UserId == UserId);
 
 			if (lastRead == null)
 			{
@@ -1963,7 +1945,7 @@ public class MessageService : IMessageService
 					.Select(m => (long?)m.Id)
 					.MaxAsync() ?? 0;
 
-				lastRead = new LastReadChannelMessageDbModel { UserId = user.Id, TextChannelId = (Guid)message.TextChannelId, LastReadedMessageId = max };
+				lastRead = new LastReadChannelMessageDbModel { UserId = UserId, TextChannelId = (Guid)message.TextChannelId, LastReadedMessageId = max };
 
 				await _hitsContext.LastReadChannelMessage.AddAsync(lastRead);
 				await _hitsContext.SaveChangesAsync();
@@ -1984,14 +1966,14 @@ public class MessageService : IMessageService
 				throw new CustomException("Message not found", "See message", "Message id", 404, "Сообщение не найдено", "Просмотр сообщения");
 			}
 
-			var userSub = await _hitsContext.UserChat.FirstOrDefaultAsync(us => us.UserId == user.Id && us.ChatId == message.ChatId);
+			var userSub = await _hitsContext.UserChat.FirstOrDefaultAsync(us => us.UserId == UserId && us.ChatId == message.ChatId);
 			if (userSub == null)
 			{
 				throw new CustomException("User not part of this chat", "See message", "Chat id", 404, "Пользователь не является участником чата", "Просмотр сообщения");
 			}
 
 			var lastRead = await _hitsContext.LastReadChatMessage
-				.FirstOrDefaultAsync(lr => lr.ChatId == channelId && lr.UserId == user.Id);
+				.FirstOrDefaultAsync(lr => lr.ChatId == channelId && lr.UserId == UserId);
 
 			if (lastRead == null)
 			{
@@ -2000,7 +1982,7 @@ public class MessageService : IMessageService
 					.Select(m => (long?)m.Id)
 					.MaxAsync() ?? 0;
 
-				lastRead = new LastReadChatMessageDbModel { UserId = user.Id, ChatId = (Guid)message.ChatId, LastReadedMessageId = max };
+				lastRead = new LastReadChatMessageDbModel { UserId = UserId, ChatId = (Guid)message.ChatId, LastReadedMessageId = max };
 
 				await _hitsContext.LastReadChatMessage.AddAsync(lastRead);
 				await _hitsContext.SaveChangesAsync();

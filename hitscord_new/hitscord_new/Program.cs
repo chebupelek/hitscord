@@ -13,6 +13,8 @@ using hitscord.WebSockets;
 using Quartz;
 using hitscord.nClamUtil;
 using hitscord.Models.db;
+using StackExchange.Redis;
+using hitscord.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +40,9 @@ string dbUser = builder.Configuration["DB_USER"]!;
 string dbPassword = builder.Configuration["DB_PASSWORD"]!;
 string dbNameFirst = builder.Configuration["DB_NAME_FIRST"]!;
 string dbNameSecond = builder.Configuration["DB_NAME_SECOND"]!;
+var redisHost = builder.Configuration["REDIS_HOST"] ?? "localhost";
+var redisPort = builder.Configuration["REDIS_PORT"] ?? "6379";
+var redisConnString = $"{redisHost}:{redisPort}";
 
 string roomConn =
 	$"Host={dbHost};Database={dbNameFirst};Username={dbUser};Password={dbPassword};";
@@ -71,11 +76,16 @@ builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 builder.Services.Configure<ApiSettings>(options =>
 {
 	options.BaseUrl = Environment.GetEnvironmentVariable("API_BASE_URL") ?? "https://default.url";
 });
+
+builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnString));
+builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
+builder.Services.AddScoped<ISessionService, RedisSessionService>();
 
 builder.Services.AddSingleton<nClamService>();
 
@@ -105,13 +115,29 @@ builder.Services.AddAuthentication(opt => {
         {
             ValidateIssuer = false,
             ValidateAudience = false,
-            ValidateLifetime = false,
-            ValidateIssuerSigningKey = true,
+            ValidateLifetime = true,
+			ClockSkew = TimeSpan.Zero,
+			ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"]!,
             ValidAudience = builder.Configuration["Jwt:Audience"]!,
 			IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
 		};
-    });
+
+		options.Events = new JwtBearerEvents
+		{
+			OnMessageReceived = context =>
+			{
+				var token = context.Request.Cookies["access_token"];
+
+				if (!string.IsNullOrEmpty(token))
+				{
+					context.Token = token;
+				}
+
+				return Task.CompletedTask;
+			}
+		};
+	});
 
 builder.Services.AddSwaggerGen(c =>
 {

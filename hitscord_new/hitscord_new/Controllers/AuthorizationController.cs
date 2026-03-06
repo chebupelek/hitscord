@@ -5,6 +5,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using hitscord.Services;
+using hitscord.IServices;
+using System.Security.Claims;
+using Authzed.Api.V0;
+using hitscord.Redis;
 
 namespace hitscord.Controllers;
 
@@ -13,44 +17,81 @@ namespace hitscord.Controllers;
 public class AuthorizationController : ControllerBase
 {
     private readonly IServices.IAuthorizationService _authService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ITokenService _tokenService;
+	private readonly ICurrentUserService _currentUser;
 
-    public AuthorizationController(IServices.IAuthorizationService authService, IHttpContextAccessor httpContextAccessor)
+    public AuthorizationController(IServices.IAuthorizationService authService, ITokenService tokenService, ICurrentUserService currentUser)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
-    
-    [HttpPost]
-    [Route("registration")]
-    public async Task<IActionResult> Registration([FromBody] UserRegistrationDTO registrationData)
-    {
-        try
-        {
-            registrationData.Validation();
-            var tokens = await _authService.CreateAccount(registrationData);
-            return Ok(tokens);
-        }
-        catch (CustomException ex)
-        {
-            return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
+		_tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
     }
 
-    [HttpPost]
+	private void SetAuthCookies(TokensDTO tokens)
+	{
+		Response.Cookies.Append("access_token", tokens.AccessToken, new CookieOptions
+		{
+			HttpOnly = true,
+			Secure = true,
+			SameSite = SameSiteMode.Strict,
+			Expires = DateTime.UtcNow.AddMinutes(15)
+		});
+
+		Response.Cookies.Append("refresh_token", tokens.RefreshToken, new CookieOptions
+		{
+			HttpOnly = true,
+			Secure = true,
+			SameSite = SameSiteMode.Strict,
+			Expires = DateTime.UtcNow.AddDays(10)
+		});
+
+		Response.Cookies.Append("session_id", tokens.SessionId, new CookieOptions
+		{
+			HttpOnly = true,
+			Secure = true,
+			SameSite = SameSiteMode.Strict,
+			Expires = DateTime.UtcNow.AddDays(10)
+		});
+	}
+
+	[HttpPost]
+	[Route("registration")]
+	public async Task<IActionResult> Registration([FromBody] UserRegistrationDTO registrationData)
+	{
+		try
+		{
+			registrationData.Validation();
+
+			var tokens = await _authService.CreateAccount(registrationData);
+
+			SetAuthCookies(tokens);
+
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[HttpPost]
     [Route("login")]
     public async Task<IActionResult> Login([FromBody] LoginDTO loginData)
     {
         try
         {
-            loginData.Validation();
-            var tokens = await _authService.LoginAsync(loginData);
-            return Ok(tokens);
-        }
+			loginData.Validation();
+
+			var tokens = await _authService.LoginAsync(loginData);
+
+			SetAuthCookies(tokens);
+
+			return Ok();
+		}
         catch (CustomException ex)
         {
             return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
@@ -61,18 +102,32 @@ public class AuthorizationController : ControllerBase
         }
     }
 
-    [Authorize]
     [HttpPost]
     [Route("refresh")]
     public async Task<IActionResult> RefreshTokens()
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            if (jwtToken == null || jwtToken == "") return Unauthorized();
-            var tokens = await _authService.RefreshTokensAsync(jwtToken);
-            return Ok(tokens);
-        }
+			var refreshToken = Request.Cookies["refresh_token"];
+
+			if (string.IsNullOrEmpty(refreshToken))
+			{
+				return Unauthorized();
+			}
+
+			var sessionId = Request.Cookies["session_id"];
+
+			if (string.IsNullOrEmpty(sessionId))
+			{
+				return Unauthorized();
+			}
+
+			var tokens = await _tokenService.UpdateTokens(sessionId, refreshToken);
+
+			SetAuthCookies(tokens);
+
+			return Ok();
+		}
         catch (CustomException ex)
         {
             return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
@@ -90,10 +145,9 @@ public class AuthorizationController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            if (jwtToken == null || jwtToken == "") return Unauthorized();
-            var profile = await _authService.GetProfileAsync(jwtToken);
-            return Ok(profile);
+			var profile = await _authService.GetProfileAsync(_currentUser.UserId);
+
+			return Ok(profile);
         }
         catch (CustomException ex)
         {
@@ -112,10 +166,8 @@ public class AuthorizationController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            if (jwtToken == null || jwtToken == "") return Unauthorized();
             newUserData.Validation();
-            var profile = await _authService.ChangeProfileAsync(jwtToken, newUserData);
+            var profile = await _authService.ChangeProfileAsync(_currentUser.UserId, newUserData);
             return Ok(profile);
         }
         catch (CustomException ex)
@@ -135,11 +187,18 @@ public class AuthorizationController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            if(jwtToken == null || jwtToken == "") return Unauthorized();
-            await _authService.LogoutAsync(jwtToken);
-            return Ok();
-        }
+			var refreshToken = Request.Cookies["refresh_token"];
+
+			if (!string.IsNullOrEmpty(refreshToken))
+			{
+				await _tokenService.InvalidateRefreshTokenAsync(refreshToken);
+			}
+
+			Response.Cookies.Delete("access_token");
+			Response.Cookies.Delete("refresh_token");
+
+			return Ok();
+		}
         catch (CustomException ex)
         {
             return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
@@ -157,9 +216,7 @@ public class AuthorizationController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _authService.ChangeNotifiableAsync(jwtToken);
+			await _authService.ChangeNotifiableAsync(_currentUser.UserId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -179,9 +236,7 @@ public class AuthorizationController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _authService.ChangeFriendshipAsync(jwtToken);
+			await _authService.ChangeFriendshipAsync(_currentUser.UserId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -201,9 +256,7 @@ public class AuthorizationController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _authService.ChangeNonFriendAsync(jwtToken);
+			await _authService.ChangeNonFriendAsync(_currentUser.UserId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -223,9 +276,7 @@ public class AuthorizationController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _authService.ChangeNotificationLifetimeAsync(jwtToken, data.Lifetime);
+			await _authService.ChangeNotificationLifetimeAsync(_currentUser.UserId, data.Lifetime);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -245,9 +296,7 @@ public class AuthorizationController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var data = await _authService.GetUserDataByIdAsync(jwtToken, UserId);
+			var data = await _authService.GetUserDataByIdAsync(UserId);
 			return Ok(data);
 		}
 		catch (CustomException ex)
@@ -267,8 +316,7 @@ public class AuthorizationController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var icon = await _authService.ChangeUserIconAsync(jwtToken, data.Icon);
+			var icon = await _authService.ChangeUserIconAsync(_currentUser.UserId, data.Icon);
 			return Ok(icon);
 		}
 		catch (CustomException ex)
@@ -288,8 +336,7 @@ public class AuthorizationController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext!.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _authService.DeleteUserIconAsync(jwtToken);
+			await _authService.DeleteUserIconAsync(_currentUser.UserId);
 			return Ok();
 		}
 		catch (CustomException ex)

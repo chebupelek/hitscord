@@ -12,13 +12,13 @@ namespace hitscord.Controllers;
 public class FriendshipController : ControllerBase
 {
     private readonly IFriendshipService _friendshipService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ICurrentUserService _currentUser;
 
-    public FriendshipController(IFriendshipService friendshipService, IHttpContextAccessor httpContextAccessor)
+	public FriendshipController(IFriendshipService friendshipService, ICurrentUserService currentUser)
     {
 		_friendshipService = friendshipService ?? throw new ArgumentNullException(nameof(friendshipService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+	}
 
     [Authorize]
     [HttpPost]
@@ -27,8 +27,7 @@ public class FriendshipController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _friendshipService.CreateApplicationAsync(jwtToken, data.UserTag);
+            await _friendshipService.CreateApplicationAsync(_currentUser.UserId, data.UserTag);
 
 			return Ok();
         }
@@ -49,8 +48,7 @@ public class FriendshipController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _friendshipService.DeleteApplicationAsync(jwtToken, data.ApplicationId);
+            await _friendshipService.DeleteApplicationAsync(_currentUser.UserId, data.ApplicationId);
             return Ok();
         }
         catch (CustomException ex)
@@ -70,8 +68,7 @@ public class FriendshipController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _friendshipService.DeclineApplicationAsync(jwtToken, data.ApplicationId);
+            await _friendshipService.DeclineApplicationAsync(_currentUser.UserId, data.ApplicationId);
 			return Ok();
         }
         catch (CustomException ex)
@@ -91,8 +88,7 @@ public class FriendshipController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _friendshipService.ApproveApplicationAsync(jwtToken, data.ApplicationId);
+            await _friendshipService.ApproveApplicationAsync(_currentUser.UserId, data.ApplicationId);
 			return Ok();
         }
         catch (CustomException ex)
@@ -112,8 +108,7 @@ public class FriendshipController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var applications = await _friendshipService.GetApplicationListFrom(jwtToken);
+            var applications = await _friendshipService.GetApplicationListFrom(_currentUser.UserId);
             return Ok(applications);
         }
         catch (CustomException ex)
@@ -133,8 +128,7 @@ public class FriendshipController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var applications = await _friendshipService.GetApplicationListTo(jwtToken);
+			var applications = await _friendshipService.GetApplicationListTo(_currentUser.UserId);
 			return Ok(applications);
 		}
 		catch (CustomException ex)
@@ -154,8 +148,7 @@ public class FriendshipController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var friends = await _friendshipService.GetFriendsListAsync(jwtToken);
+			var friends = await _friendshipService.GetFriendsListAsync(_currentUser.UserId);
 			return Ok(friends);
         }
         catch (CustomException ex)
@@ -175,8 +168,7 @@ public class FriendshipController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            await _friendshipService.DeleteFriendAsync(jwtToken, data.UserId);
+            await _friendshipService.DeleteFriendAsync(_currentUser.UserId, data.UserId);
             return Ok();
         }
         catch (CustomException ex)

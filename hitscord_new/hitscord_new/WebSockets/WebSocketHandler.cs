@@ -69,7 +69,7 @@ public class WebSocketHandler
 					if (newMessage != null)
 					{
 						var newMesssageData = newMessage.Content;
-						await _messageService.CreateMessageWebsocketAsync(newMesssageData);
+						await _messageService.CreateMessageWebsocketAsync(newMesssageData, userId);
 					}
 					break;
 
@@ -78,7 +78,7 @@ public class WebSocketHandler
 					if (deleteMessage != null)
 					{
 						var deleteMesssageData = deleteMessage.Content;
-						await _messageService.DeleteMessageWebsocketAsync(deleteMesssageData.MessageId, deleteMesssageData.ChannelId, deleteMesssageData.Token);
+						await _messageService.DeleteMessageWebsocketAsync(deleteMesssageData.MessageId, deleteMesssageData.ChannelId, userId);
 					}
 					break;
 
@@ -87,7 +87,7 @@ public class WebSocketHandler
 					if (updateMessage != null)
 					{
 						var updateMessageData = updateMessage.Content;
-						await _messageService.UpdateMessageWebsocketAsync(updateMessageData.MessageId, updateMessageData.ChannelId, updateMessageData.Token, updateMessageData.Text);
+						await _messageService.UpdateMessageWebsocketAsync(updateMessageData.MessageId, updateMessageData.ChannelId, userId, updateMessageData.Text);
 					}
 					break;
 
@@ -108,7 +108,7 @@ public class WebSocketHandler
 					if (deleteMessagechat != null)
 					{
 						var deleteMesssageData = deleteMessagechat.Content;
-						await _messageService.DeleteMessageInChatWebsocketAsync(deleteMesssageData.MessageId, deleteMesssageData.ChannelId, deleteMesssageData.Token);
+						await _messageService.DeleteMessageInChatWebsocketAsync(deleteMesssageData.MessageId, deleteMesssageData.ChannelId, userId);
 					}
 					break;
 
@@ -117,7 +117,7 @@ public class WebSocketHandler
 					if (updateMessagechat != null)
 					{
 						var updateMessageData = updateMessagechat.Content;
-						await _messageService.UpdateMessageInChatWebsocketAsync(updateMessageData.MessageId, updateMessageData.ChannelId, updateMessageData.Token, updateMessageData.Text);
+						await _messageService.UpdateMessageInChatWebsocketAsync(updateMessageData.MessageId, updateMessageData.ChannelId, userId, updateMessageData.Text);
 					}
 					break;
 
@@ -127,7 +127,7 @@ public class WebSocketHandler
 					if (vote != null)
 					{
 						var voteData = vote.Content;
-						await _messageService.VoteAsync(voteData.Token, voteData.isChannel, voteData.VoteVariantId);
+						await _messageService.VoteAsync(userId, voteData.isChannel, voteData.VoteVariantId);
 					}
 					break;
 
@@ -136,7 +136,7 @@ public class WebSocketHandler
 					if (unvote != null)
 					{
 						var unvoteData = unvote.Content;
-						await _messageService.UnVoteAsync(unvoteData.Token, unvoteData.VoteVariantId);
+						await _messageService.UnVoteAsync(userId, unvoteData.VoteVariantId);
 					}
 					break;
 
@@ -145,7 +145,7 @@ public class WebSocketHandler
 					if (voteget != null)
 					{
 						var votegetData = voteget.Content;
-						var result = await _messageService.GetVotingAsync(votegetData.Token, votegetData.isChannel, votegetData.ChannelId, votegetData.VoteId);
+						var result = await _messageService.GetVotingAsync(userId, votegetData.isChannel, votegetData.ChannelId, votegetData.VoteId);
 						await _webSocketManager.SendMessageAsync(userId, new
 						{
 							MessageType = "Vote data",
@@ -159,7 +159,7 @@ public class WebSocketHandler
 					if (seeMessage != null)
 					{
 						var seeMessageData = seeMessage.Content;
-						await _messageService.MessageSeeAsync(seeMessageData.Token, seeMessageData.isChannel, seeMessageData.ChannelId, seeMessageData.MessageId);
+						await _messageService.MessageSeeAsync(userId, seeMessageData.isChannel, seeMessageData.ChannelId, seeMessageData.MessageId);
 					}
 					break;
 

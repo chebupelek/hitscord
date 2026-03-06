@@ -198,15 +198,16 @@ public class ChannelService : IChannelService
 		};
 	}
 
-	public async Task CreateChannelAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType, int? maxCount)
+
+
+	public async Task CreateChannelAsync(Guid serverId, Guid OwnerId, string name, ChannelTypeEnum channelType, int? maxCount)
 	{
-		var owner = await _authService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == owner.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == OwnerId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("Owner is not subscriber of this server", "Create channel", "Owner", 404, "Владелец не найден", "Создание канала");
@@ -413,9 +414,8 @@ public class ChannelService : IChannelService
 		}
 	}
 
-	public async Task<UserVoiceChannelResponseDTO> JoinToVoiceChannelAsync(Guid chnnelId, string token)
+	public async Task<UserVoiceChannelResponseDTO> JoinToVoiceChannelAsync(Guid chnnelId, Guid UserId)
 	{
-		var user = await _authService.GetUserAsync(token);
 		var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
 
 		var ownerSub = await _hitsContext.UserServer
@@ -425,7 +425,7 @@ public class ChannelService : IChannelService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanJoin)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Join to voice channel", "Owner", 404, "Пользователь не найден", "Присоединение к голосовому каналу");
@@ -445,7 +445,7 @@ public class ChannelService : IChannelService
 			throw new CustomException("User has no access to join this channel", "Join to voice channel", "Channel permissions", 403, "У пользователя нет прав на присоединение к этому каналу", "Присоединение к голосовому каналу");
 		}
 
-		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.VoiceChannelId == chnnelId);
+		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == UserId && uvc.VoiceChannelId == chnnelId);
 		if (userthischannel != null && userthischannel.Inside == true)
 		{
 			throw new CustomException("User is already on this channel", "Join to voice channel", "Voice channel - User", 400, "Пользователь уже находится на этом канале", "Присоединение к голосовому каналу");
@@ -458,7 +458,7 @@ public class ChannelService : IChannelService
 			throw new CustomException($"Voice channel max count is {((VoiceChannelDbModel)channel).MaxCount}", "Join to voice channel", "Voice channel", 400, "Пользователь не может писоединиться к голосовому каналу - его максимальная вместимость будет превышена", "Присоединение к голосовому каналу");
 		}
 
-		var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.Inside == true);
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == UserId && uvc.Inside == true);
 		if (userVoiceChannel != null)
 		{
 			var serverUsers = await _hitsContext.UserServer.Where(us => us.ServerId == userVoiceChannel.VoiceChannel.ServerId).Select(us => us.UserId).ToListAsync();
@@ -468,7 +468,7 @@ public class ChannelService : IChannelService
 				{
 					ServerId = userVoiceChannel.VoiceChannel.ServerId,
 					isEnter = false,
-					UserId = user.Id,
+					UserId = UserId,
 					ChannelId = userVoiceChannel.VoiceChannel.Id,
 					MuteStatus = userVoiceChannel.MutedOther == true ? MuteStatusEnum.Muted : (userVoiceChannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 				};
@@ -483,7 +483,7 @@ public class ChannelService : IChannelService
 			userthischannel = new UserVoiceChannelDbModel
 			{
 				VoiceChannelId = chnnelId,
-				UserId = user.Id,
+				UserId = UserId,
 				Inside = true,
 				MutedHimself = false,
 				MutedOther = false,
@@ -503,7 +503,7 @@ public class ChannelService : IChannelService
 		{
 			ServerId = channel.ServerId,
 			isEnter = true,
-			UserId = user.Id,
+			UserId = UserId,
 			ChannelId = channel.Id,
 			MuteStatus = userthischannel.MutedOther == true ? MuteStatusEnum.Muted : (userthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
@@ -519,20 +519,19 @@ public class ChannelService : IChannelService
 		return (newUserInVoiceChannel);
 	}
 
-	public async Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, string token)
+	public async Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, Guid UserId)
     {
-        var user = await _authService.GetUserAsync(token);
         var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
         var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
 		var userSub = await _hitsContext.UserServer
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Remove from voice channel", "Owner", 404, "Пользователь не найден", "Выход с голосового канала");
 		}
 
-		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.VoiceChannelId == chnnelId && uvc.Inside == true);
+		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == UserId && uvc.VoiceChannelId == chnnelId && uvc.Inside == true);
         if (userthischannel == null)
         {
             throw new CustomException("User not on this channel", "Remove from voice channel", "Voice channel - User", 400, "Пользователь не находится в этом канале", "Выход с голосового канала");
@@ -546,7 +545,7 @@ public class ChannelService : IChannelService
         {
             ServerId = channel.ServerId,
             isEnter = false,
-            UserId = user.Id,
+            UserId = UserId,
             ChannelId = channel.Id,
 			MuteStatus = userthischannel.MutedOther == true ? MuteStatusEnum.Muted : (userthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
@@ -562,17 +561,16 @@ public class ChannelService : IChannelService
         return (true);
     }
 
-    public async Task<bool> RemoveUserFromVoiceChannelAsync(Guid chnnelId, string token, Guid UserId)
+    public async Task<bool> RemoveUserFromVoiceChannelAsync(Guid chnnelId, Guid RemovedUserId, Guid OwnerId)
     {
-        var user = await _authService.GetUserAsync(token);
-        var removedUser = await _authService.GetUserAsync(UserId);
+        await _authService.GetUserAsync(RemovedUserId);
         var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
         var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == OwnerId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Remove user from voice channel", "Owner", 404, "Пользователь не найден", "Удаление пользователя из голосового канала");
@@ -585,18 +583,18 @@ public class ChannelService : IChannelService
 		var removedUserSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == removedUser.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == RemovedUserId);
 		if (removedUserSub == null)
 		{
 			throw new CustomException("Removed user is not subscriber of this server", "Remove user from voice channel", "Owner", 404, "Удаляемый пользователь не найден", "Удаление пользователя из голосового канала");
 		}
 
-        if (user.Id == removedUser.Id)
+        if (OwnerId == RemovedUserId)
         {
             throw new CustomException("User cant remove himself", "Remove user from voice channel", "Removed user id", 400, "Пользователь не может удалить сам себя", "Удаление пользователя из голосового канала");
         }
 
-        var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == removedUser.Id && uvc.VoiceChannelId == chnnelId && uvc.Inside == true);
+        var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == RemovedUserId && uvc.VoiceChannelId == chnnelId && uvc.Inside == true);
         if (userthischannel == null)
         {
             throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400, "Пользователь не находится на этом канале", "Удаление пользователя из голосового канала");
@@ -614,7 +612,7 @@ public class ChannelService : IChannelService
         {
             ServerId = channel.ServerId,
             isEnter = false,
-            UserId = user.Id,
+            UserId = OwnerId,
             ChannelId = channel.Id,
 			MuteStatus = userthischannel.MutedOther == true ? MuteStatusEnum.Muted : (userthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
@@ -625,16 +623,15 @@ public class ChannelService : IChannelService
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, alertedUsers, "User removed from voice channel");
-			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, new List<Guid> { removedUser.Id }, "You removed from voice channel");
+			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, new List<Guid> { RemovedUserId }, "You removed from voice channel");
         }
 
         return (true);
     }
 
-    public async Task<bool> ChangeSelfMuteStatusAsync(string token)
+    public async Task<bool> ChangeSelfMuteStatusAsync(Guid UserId)
     {
-        var user = await _authService.GetUserAsync(token);
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.Inside == true);
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == UserId && uvc.Inside == true);
         if (userVoiceChannel == null)
         {
             throw new CustomException("User not in voice channel", "Change self mute status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса в голосовом канале");
@@ -644,7 +641,7 @@ public class ChannelService : IChannelService
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Change self mute status", "Owner", 404, "Пользователь не найден", "Изменение статуса в голосовом канале");
@@ -661,7 +658,7 @@ public class ChannelService : IChannelService
         var muteStatusResponse = new ChangeSelfMutedStatus
         {
             ServerId = channel.ServerId,
-            UserId = user.Id,
+            UserId = UserId,
             ChannelId = channel.Id,
 			MuteStatus = userVoiceChannel.MutedOther == true ? MuteStatusEnum.Muted : (userVoiceChannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
@@ -677,11 +674,10 @@ public class ChannelService : IChannelService
         return (true);
     }
 
-	public async Task<bool> ChangeUserMuteStatusAsync(string token, Guid UserId)
+	public async Task<bool> ChangeUserMuteStatusAsync(Guid MutedUserId, Guid OwnerId)
 	{
-		var user = await _authService.GetUserAsync(token);
-		var changedUser = await _authService.GetUserAsync(UserId);
-		var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id && uvc.Inside == true);
+		await _authService.GetUserAsync(MutedUserId);
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == OwnerId && uvc.Inside == true);
 		if (userVoiceChannel == null)
 		{
 			throw new CustomException("User not in voice channel", "Change user mute status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса другого пользователя в голосовом канале");
@@ -691,7 +687,7 @@ public class ChannelService : IChannelService
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == OwnerId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Change user mute status", "Owner", 404, "Пользователь не найден", "Изменение статуса другого пользователя в голосовом канале");
@@ -703,18 +699,18 @@ public class ChannelService : IChannelService
 		var changedSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == changedUser.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == MutedUserId);
 		if (changedSub == null)
 		{
 			throw new CustomException("Changed user is not subscriber of this server", "Change user mute status", "Owner", 404, "Изменяемый пользователь не найден", "Изменение статуса другого пользователя в голосовом канале");
 		}
 
-		if (user.Id == changedUser.Id)
+		if (OwnerId == MutedUserId)
 		{
 			throw new CustomException("User cant change himself", "Change user mute status", "Changed user id", 400, "Пользователь не может замьютить сам себя эти методом", "Изменение статуса другого пользователя в голосовом канале");
 		}
 
-		var changedUserthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == changedUser.Id && uvc.VoiceChannelId == channel.Id && uvc.Inside == true);
+		var changedUserthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == MutedUserId && uvc.VoiceChannelId == channel.Id && uvc.Inside == true);
 		if (changedUserthischannel == null)
 		{
 			throw new CustomException("Changed user not on this channel", "Change user mute status", "Voice channel - Removed user", 400, "Пользователь которому необходимо изменить статус мута не находится в голосовом канале канале", "Изменение статуса другого пользователя в голосовом канале");
@@ -733,7 +729,7 @@ public class ChannelService : IChannelService
 		var muteStatusResponse = new ChangeSelfMutedStatus
 		{
 			ServerId = channel.ServerId,
-			UserId = changedUser.Id,
+			UserId = MutedUserId,
 			ChannelId = channel.Id,
 			MuteStatus = changedUserthischannel.MutedOther == true ? MuteStatusEnum.Muted : (changedUserthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
@@ -749,10 +745,9 @@ public class ChannelService : IChannelService
 		return (true);
 	}
 
-	public async Task<bool> ChangeStreamStatusAsync(string token)
+	public async Task<bool> ChangeStreamStatusAsync(Guid UserId)
     {
-        var user = await _authService.GetUserAsync(token);
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == UserId);
         if (userVoiceChannel == null)
         {
             throw new CustomException("User not in voice channel", "Change stream status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса стрима");
@@ -762,7 +757,7 @@ public class ChannelService : IChannelService
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Change stream status", "Owner", 404, "Пользователь не найден", "Изменение статуса стрима");
@@ -776,7 +771,7 @@ public class ChannelService : IChannelService
         var streamStatusResponse = new ChangeStreamStatus
         {
             ServerId = channel.ServerId,
-            UserId = user.Id,
+            UserId = UserId,
             ChannelId = channel.Id,
             IsStream = userVoiceChannel.IsStream
         };
@@ -789,15 +784,14 @@ public class ChannelService : IChannelService
         return (true);
     }
 
-	public async Task<bool> DeleteChannelAsync(Guid chnnelId, string token)
+	public async Task<bool> DeleteChannelAsync(Guid channelId, Guid UserId)
 	{
-		var user = await _authService.GetUserAsync(token);
-		var channel = await CheckChannelExistAsync(chnnelId);
+		var channel = await CheckChannelExistAsync(channelId);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Delete channel", "Owner", 404, "Пользователь не найден", "Удаление канала");
@@ -840,7 +834,7 @@ public class ChannelService : IChannelService
 		}
 		if (channelType == ChannelTypeEnum.Text || channelType == ChannelTypeEnum.Notification)
 		{
-			var tc = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == chnnelId);
+			var tc = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId);
 			tc.DeleteTime = DateTime.UtcNow.AddDays(21);
 			_hitsContext.TextChannel.Update(tc);
 			await _hitsContext.SaveChangesAsync();
@@ -862,15 +856,14 @@ public class ChannelService : IChannelService
 		return true;
 	}
 
-	public async Task<ChannelSettingsDTO> GetChannelSettings(Guid chnnelId, string token)
+	public async Task<ChannelSettingsDTO> GetChannelSettings(Guid channelId, Guid UserId)
 	{
-		var user = await _authService.GetUserAsync(token);
-		var channel = await CheckChannelExistAsync(chnnelId);
+		var channel = await CheckChannelExistAsync(channelId);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Get channel settings", "User sub", 404, "Пользователь не является подписчиком этого сервера", "Получение настроек сервера");
@@ -880,7 +873,7 @@ public class ChannelService : IChannelService
 			throw new CustomException("User does not have rights to work with channels", "Get channel settings", "User rights", 403, "Пользователь не имеет права работать с каналами", "Получение настроек сервера");
 		}
 
-		var type = await GetChannelType(chnnelId);
+		var type = await GetChannelType(channelId);
 
 		switch (type)
 		{
@@ -973,7 +966,7 @@ public class ChannelService : IChannelService
 				return rolesVoice;
 
 			case ChannelTypeEnum.Pair:
-				var channelPair = await CheckPairVoiceChannelExistAsync(chnnelId, false);
+				var channelPair = await CheckPairVoiceChannelExistAsync(channelId, false);
 				var rolesPair = await _hitsContext.PairVoiceChannel
 					.Include(pvc => pvc.ChannelCanSee)
 						.ThenInclude(ccs => ccs.Role)
@@ -1096,9 +1089,8 @@ public class ChannelService : IChannelService
 		}
 	}
 
-	public async Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, string token, int number, long fromMessageId, bool down)
+	public async Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, Guid UserId, int number, long fromMessageId, bool down)
     {
-        var user = await _authService.GetUserAsync(token);
         var channel = await CheckTextOrNotificationOrSubChannelExistAsync(channelId);
 
 		var userSub = await _hitsContext.UserServer
@@ -1108,7 +1100,7 @@ public class ChannelService : IChannelService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanUse)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Get channel messages", "User", 404, "Пользователь не является подписчиком сервера", "Получение списка сообщений канала");
@@ -1240,7 +1232,7 @@ public class ChannelService : IChannelService
 							Deleted = f.Deleted
 						})
 						.ToList(),
-						isTagged = message.TaggedUsers.Contains(user.Id) || message.TaggedRoles.Any(taggedRoleId => userRoleIds.Contains(taggedRoleId))
+						isTagged = message.TaggedUsers.Contains(UserId) || message.TaggedRoles.Any(taggedRoleId => userRoleIds.Contains(taggedRoleId))
 					};
 					break;
 
@@ -1285,7 +1277,7 @@ public class ChannelService : IChannelService
 									Content = variant.Content,
 									TotalVotes = votes.Count,
 									VotedUserIds = vote.IsAnonimous
-									? (votes.Any(v => v.UserId == user.Id) ? new List<Guid> { user.Id } : new List<Guid>())
+									? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 										: votes.Select(v => v.UserId).ToList()
 								};
 							})
@@ -1305,15 +1297,14 @@ public class ChannelService : IChannelService
 		return messages;
 	}
 
-	public async Task<bool> ChangeVoiceChannelSettingsAsync(string token, ChannelRoleDTO settingsData)
+	public async Task<bool> ChangeVoiceChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData)
 	{
-		var user = await _authService.GetUserAsync(token);
 		var channel = await CheckVoiceChannelExistAsync(settingsData.ChannelId, false);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("Owner is not subscriber of this server", "Change voice channel sttings", "User", 404, "Владелец не найден", "Изменение настроек голосового канала");
@@ -1419,15 +1410,14 @@ public class ChannelService : IChannelService
 		return true;
 	}
 
-	public async Task<bool> ChangeTextChannelSettingsAsync(string token, ChannelRoleDTO settingsData)
+	public async Task<bool> ChangeTextChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData)
 	{
-		var user = await _authService.GetUserAsync(token);
 		var channel = await CheckTextChannelExistAsync(settingsData.ChannelId);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("Owner is not subscriber of this server", "Change text channel sttings", "User", 404, "Владелец не найден", "Изменение настроек текстового канала");
@@ -1660,15 +1650,14 @@ public class ChannelService : IChannelService
 		return true;
 	}
 
-	public async Task<bool> ChangeNotificationChannelSettingsAsync(string token, ChannelRoleDTO settingsData)
+	public async Task<bool> ChangeNotificationChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData)
 	{
-		var user = await _authService.GetUserAsync(token);
 		var channel = await CheckNotificationChannelExistAsync(settingsData.ChannelId);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("Owner is not subscriber of this server", "Change notification channel sttings", "User", 404, "Владелец не найден", "Изменение настроек уведомительного канала");
@@ -1880,16 +1869,15 @@ public class ChannelService : IChannelService
 		return true;
 	}
 
-	public async Task<bool> ChangeSubChannelSettingsAsync(string token, ChannelRoleDTO settingsData)
+	public async Task<bool> ChangeSubChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData)
 	{
-		var user = await _authService.GetUserAsync(token);
 		var channel = await CheckSubChannelExistAsync(settingsData.ChannelId);
 		var subAuthor = await _hitsContext.SubChannel.Include(sc => sc.ChannelMessage).FirstOrDefaultAsync(sc => sc.Id == channel.Id);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("Owner is not subscriber of this server", "Change Sub channel sttings", "User", 404, "Владелец не найден", "Изменение настроек под канала");
@@ -2007,15 +1995,14 @@ public class ChannelService : IChannelService
 		return true;
 	}
 
-    public async Task ChnageChannnelNameAsync(string jwtToken, Guid channelId, string name)
+    public async Task ChangeChannnelNameAsync(Guid UserId, Guid channelId, string name)
     {
-		var user = await _authService.GetUserAsync(jwtToken);
 		var channel = await CheckChannelExistAsync(channelId);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Change notification channel sttings", "User", 404, "Владелец не найден", "Изменение имени канала");
@@ -2045,10 +2032,9 @@ public class ChannelService : IChannelService
 		}
 	}
 
-	public async Task<UserVoiceChannelCheck?> CheckVoiceChannelAsync(string token)
+	public async Task<UserVoiceChannelCheck?> CheckVoiceChannelAsync(Guid UserId)
 	{
-		var user = await _authService.GetUserAsync(token);
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == user.Id);
+        var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == UserId);
         if (userVoiceChannel == null)
         {
             return null;
@@ -2061,9 +2047,8 @@ public class ChannelService : IChannelService
         return uvcCheck;
 	}
 
-	public async Task ChangeNonNotifiableChannelAsync(string token, Guid channelId)
+	public async Task ChangeNonNotifiableChannelAsync(Guid UserId, Guid channelId)
 	{
-		var owner = await _authService.GetUserAsync(token);
 		var channel = await CheckTextOrNotificationOrSubChannelExistAsync(channelId);
 
 		var userSub = await _hitsContext.UserServer
@@ -2073,7 +2058,7 @@ public class ChannelService : IChannelService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanUse)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == owner.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Change notification channel sttings", "User", 404, "Пользователь не найден", "Изменение настроек уведомлений канала");
@@ -2097,15 +2082,14 @@ public class ChannelService : IChannelService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task ChangeVoiceChannelMaxCount(string token, Guid voiceChannelId, int maxCount)
+	public async Task ChangeVoiceChannelMaxCount(Guid UserId, Guid voiceChannelId, int maxCount)
 	{
-		var owner = await _authService.GetUserAsync(token);
 		var channel = await CheckVoiceChannelExistAsync(voiceChannelId, false);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == owner.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Change max count", "User", 404, "Владелец не найден", "Изменение максимальной вместимости голосового канала");
@@ -2135,9 +2119,8 @@ public class ChannelService : IChannelService
 		}
 	}
 
-	public async Task<UsersIdList> GetUserThatCanSeeChannelAsync(string token, Guid channelId)
+	public async Task<UsersIdList> GetUserThatCanSeeChannelAsync(Guid UserId, Guid channelId)
 	{
-		var user = await _authService.GetUserAsync(token);
 		var channel = await CheckChannelExistAsync(channelId);
 
 		var userSub = await _hitsContext.UserServer
@@ -2147,7 +2130,7 @@ public class ChannelService : IChannelService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanUse)
-			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "Get user that can see channel", "User", 404, "Пользователь не найден", "Получение пользователей что могут видеть канал");
