@@ -694,7 +694,7 @@ public class ChatService : IChatService
 							Deleted = f.Deleted
 						})
 						.ToList(),
-						Reactions = vote.Reactions.Select(r => new MessageReactionShortDTO
+						Reactions = classic.Reactions.Select(r => new MessageReactionShortDTO
 						{
 							Id = r.Id,
 							AuthorId = r.AuthorId,
