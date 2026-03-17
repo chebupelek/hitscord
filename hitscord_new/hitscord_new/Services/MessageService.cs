@@ -1989,7 +1989,7 @@ public class MessageService : IMessageService
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Removed removed" + where);
+			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Removed reaction" + where);
 		}
 	}
 
