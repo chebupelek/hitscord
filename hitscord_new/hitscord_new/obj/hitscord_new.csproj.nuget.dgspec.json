@@ -149,6 +149,10 @@
               "target": "Package",
               "version": "[6.0.0, )"
             },
+            "Serilog.Sinks.Grafana.Loki": {
+              "target": "Package",
+              "version": "[8.3.2, )"
+            },
             "SixLabors.ImageSharp": {
               "target": "Package",
               "version": "[3.1.8, )"

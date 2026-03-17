@@ -13,8 +13,17 @@ using hitscord.WebSockets;
 using Quartz;
 using hitscord.nClamUtil;
 using hitscord.Models.db;
+using Serilog;
+using Serilog.Sinks.Grafana.Loki;
+
+Log.Logger = new LoggerConfiguration()
+	.WriteTo.Console()
+	.WriteTo.GrafanaLoki("http://loki:3100")
+	.CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog();
 
 builder.Configuration
 	.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
