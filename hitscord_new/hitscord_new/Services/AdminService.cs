@@ -25,6 +25,7 @@ using hitscord_new.Migrations.Token;
 using nClam;
 using Newtonsoft.Json.Linq;
 using hitscord_new.Models.response;
+using Microsoft.IdentityModel.Tokens;
 
 namespace hitscord.Services;
 
@@ -33,22 +34,22 @@ public class AdminService : IAdminService
 	private readonly IConfiguration _configuration;
 	private readonly HitsContext _hitsContext;
 	private readonly PasswordHasher<string> _passwordHasher;
-	private readonly TokenContext _tokenContext;
 	private readonly WebSocketsManager _webSocketManager;
 	private readonly MinioService _minioService;
 	private readonly nClamService _clamService;
 	private readonly IChannelService _channelService;
+	private readonly ITokenService _tokenService;
 
-	public AdminService(TokenContext tokenContext, WebSocketsManager webSocketManager, HitsContext hitsContext, IConfiguration configuration, IChannelService channelService, MinioService minioService, nClamService clamService)
+	public AdminService(WebSocketsManager webSocketManager, HitsContext hitsContext, IConfiguration configuration, IChannelService channelService, MinioService minioService, nClamService clamService, ITokenService tokenService)
 	{
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
 		_passwordHasher = new PasswordHasher<string>();
 		_configuration = configuration;
-		_tokenContext = tokenContext ?? throw new ArgumentNullException(nameof(tokenContext));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
+		_tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
 	}
 
 	public async Task<FileMetaResponseDTO?> GetImageAsync(Guid iconId)
@@ -70,39 +71,9 @@ public class AdminService : IAdminService
 		};
 	}
 
-	public async Task<bool> CheckAdminAuthAsync(string token)
+	public async Task<AdminDbModel> GetAdminAsync(Guid adminId)
 	{
-		if (await _tokenContext.AdminToken.FirstOrDefaultAsync(x => x.AccessToken == token) == null)
-		{
-			throw new CustomException("Access token not found", "CheckAuth", "Access token", 401, "Сессия не найдена", "Проверка авторизации");
-		}
-		var tokenHandler = new JwtSecurityTokenHandler();
-		if (!tokenHandler.CanReadToken(token))
-		{
-			return true;
-		}
-		var jwtToken = tokenHandler.ReadJwtToken(token);
-		var expirationTimeUnix = long.Parse(jwtToken.Claims.First(c => c.Type == "exp").Value);
-		var expirationTime = DateTimeOffset.FromUnixTimeSeconds(expirationTimeUnix).UtcDateTime;
-		if (expirationTime < DateTime.UtcNow)
-		{
-			throw new CustomException("Access token expired", "CheckAuth", "Access token", 401, "Сессия окончена", "Проверка авторизации");
-		}
-		return true;
-	}
-
-	public async Task<AdminDbModel> GetAdminAsync(string token)
-	{
-		await CheckAdminAuthAsync(token);
-		var tokenHandler = new JwtSecurityTokenHandler();
-		var jsonToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
-		var userId = jsonToken?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
-		if (userId == null)
-		{
-			throw new CustomException("UserId not found", "Profile", "Access token", 404, "Не найден подобный Id пользователя", "Получение профиля");
-		}
-		Guid userIdGuid = Guid.Parse(userId);
-		var user = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Id == userIdGuid && u.Approved == true);
+		var user = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Id == adminId && u.Approved == true);
 		if (user == null)
 		{
 			throw new CustomException("User not found", "Profile", "User", 404, "Пользователь не найден", "Получение профиля");
@@ -110,9 +81,9 @@ public class AdminService : IAdminService
 		return user;
 	}
 
-	public async Task CreateAccount(string token, AdminRegistrationDTO registrationData)
+	public async Task CreateAccount(Guid adminId, AdminRegistrationDTO registrationData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Login == registrationData.Login) != null)
 		{
@@ -145,7 +116,7 @@ public class AdminService : IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task<TokenDTO> LoginAsync(AdminLoginDTO loginData)
+	public async Task<TokenAdminDTO> LoginAsync(AdminLoginDTO loginData)
 	{
 		var userData = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Login == loginData.Login && u.Approved == true);
 		if (userData == null)
@@ -160,28 +131,7 @@ public class AdminService : IAdminService
 			throw new CustomException("Wrong password", "Login", "Password", 401, "Неверный пароль", "Логин");
 		}
 
-		var tokenAccessData = userData.CreateClaims().CreateJwtTokenAccess(_configuration);
-		var tokenHandler = new JwtSecurityTokenHandler();
-		var accessToken = tokenHandler.WriteToken(tokenAccessData);
-
-		var logDb = new AdminLogDbModel
-		{
-			Id = Guid.NewGuid(),
-			AdminId = userData.Id,
-			AccessToken = accessToken,
-			Start = DateTime.UtcNow
-		};
-
-		try
-		{
-			_tokenContext.AdminToken.Add(logDb);
-			await _tokenContext.SaveChangesAsync();
-		}
-		catch (DbUpdateException ex)
-		{
-			var inner = ex.InnerException?.Message;
-			throw new Exception($"EF SaveChanges failed: {inner}", ex);
-		}
+		var tokens = await _tokenService.CreateTokensAdminAsync(userData);
 
 		var newOperation = new AdminOperationsHistoryDbModel
 		{
@@ -192,26 +142,12 @@ public class AdminService : IAdminService
 		await _hitsContext.OperationsHistory.AddAsync(newOperation);
 		await _hitsContext.SaveChangesAsync();
 
-		return new TokenDTO { AccessToken = accessToken };
+		return tokens;
 	}
 
-	public async Task LogoutAsync(string token)
+	public async Task<UsersAdminListDTO> UsersListAsync(Guid adminId, int num, int page, UsersSortEnum? sort, string? name, string? mail, List<Guid>? rolesIds)
 	{
-		await GetAdminAsync(token);
-		var bannedToken = await _tokenContext.AdminToken.FirstOrDefaultAsync(x => x.AccessToken == token);
-
-		if (bannedToken == null)
-		{
-			throw new CustomException("Access token not found", "Logout", "Access token", 404, "Access токен не найден", "Инвалидация access токена");
-		}
-
-		_tokenContext.AdminToken.Remove(bannedToken);
-		await _tokenContext.SaveChangesAsync();
-	}
-
-	public async Task<UsersAdminListDTO> UsersListAsync(string token, int num, int page, UsersSortEnum? sort, string? name, string? mail, List<Guid>? rolesIds)
-	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (num < 1)
 		{
@@ -337,9 +273,9 @@ public class AdminService : IAdminService
 		return usersList;
 	}
 
-	public async Task<ChannelsAdminListDTO> DeletedChannelsListAsync(string token, int num, int page)
+	public async Task<ChannelsAdminListDTO> DeletedChannelsListAsync(Guid adminId, int num, int page)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (num < 1)
 		{
@@ -409,9 +345,9 @@ public class AdminService : IAdminService
 		return channelsList;
 	}
 
-	public async Task RewiveDeletedChannel(string token, Guid ChannelId)
+	public async Task RewiveDeletedChannel(Guid adminId, Guid ChannelId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var channel = await _hitsContext.Channel
 			.FirstOrDefaultAsync(c => ((TextChannelDbModel)c).DeleteTime != null && c.Id == ChannelId);
@@ -436,9 +372,9 @@ public class AdminService : IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task<SystemRolesFullListDTO> RolesFullListAsync(string token)
+	public async Task<SystemRolesFullListDTO> RolesFullListAsync(Guid adminId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var allRoles = await _hitsContext.SystemRole
 			.Include(r => r.ChildRoles)
@@ -488,9 +424,9 @@ public class AdminService : IAdminService
 		return roles;
 	}
 
-	public async Task<SystemRolesFullListDTO> RolesShortListAsync(string token, string? name)
+	public async Task<SystemRolesFullListDTO> RolesShortListAsync(Guid adminId, string? name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var allRoles = await _hitsContext.SystemRole
 			.Where(r => name == null || r.Name.Contains(name))
@@ -510,9 +446,9 @@ public class AdminService : IAdminService
 		return roles;
 	}
 
-	public async Task CreateSystemRoleAsync(string token, Guid ParentRoleId, string name)
+	public async Task CreateSystemRoleAsync(Guid adminId, Guid ParentRoleId, string name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var parentRole = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == ParentRoleId);
@@ -545,9 +481,9 @@ public class AdminService : IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task RenameSystemRoleAsync(string token, Guid RoleId, string name)
+	public async Task RenameSystemRoleAsync(Guid adminId, Guid RoleId, string name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var role = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == RoleId);
@@ -656,9 +592,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task DeleteSystemRoleAsync(string token, Guid RoleId)
+	public async Task DeleteSystemRoleAsync(Guid adminId, Guid RoleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var role = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == RoleId);
@@ -869,9 +805,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task AddSystemRoleAsync(string token, Guid RoleId, List<Guid> UsersIds)
+	public async Task AddSystemRoleAsync(Guid adminId, Guid RoleId, List<Guid> UsersIds)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var role = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == RoleId);
@@ -936,9 +872,9 @@ public class AdminService : IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task RemoveSystemRoleAsync(string token, Guid RoleId, Guid UserId)
+	public async Task RemoveSystemRoleAsync(Guid adminId, Guid RoleId, Guid UserId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var role = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == RoleId);
@@ -1002,9 +938,9 @@ public class AdminService : IAdminService
 		return newAdmin;
 	}
 
-	public async Task<FileResponseDTO> GetIconAsync(string token, Guid fileId)
+	public async Task<FileResponseDTO> GetIconAsync(Guid adminId, Guid fileId)
 	{
-		await GetAdminAsync(token);
+		await GetAdminAsync(adminId);
 
 		var file = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == fileId);
 		if (file == null)
@@ -1044,9 +980,9 @@ public class AdminService : IAdminService
 		};
 	}
 
-	public async Task<OperationsListDTO> GetOperationHistoryAsync(string token, int num, int page)
+	public async Task<OperationsListDTO> GetOperationHistoryAsync(Guid adminId, int num, int page)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (num < 1)
 		{
@@ -1105,9 +1041,9 @@ public class AdminService : IAdminService
 		return operationsList;
 	}
 
-	public async Task ChangeUserPasswordAsync(string token, Guid userId, string newPassword)
+	public async Task ChangeUserPasswordAsync(Guid adminId, Guid userId, string newPassword)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
 
@@ -1130,9 +1066,9 @@ public class AdminService : IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task<ServersAdminListDTO> GetServersListAsync(string token, int num, int page, string? name)
+	public async Task<ServersAdminListDTO> GetServersListAsync(Guid adminId, int num, int page, string? name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (num < 1)
 		{
@@ -1208,9 +1144,9 @@ public class AdminService : IAdminService
 		return serversList;
 	}
 
-	public async Task<ServerAdminInfoDTO> GetServerDataAsync(string token, Guid ServerId)
+	public async Task<ServerAdminInfoDTO> GetServerDataAsync(Guid adminId, Guid ServerId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.Include(s => s.IconFile)
@@ -1461,9 +1397,9 @@ public class AdminService : IAdminService
 
 
 
-	public async Task AddUserAsync(string token, string Mail, string Name, string Password, IFormFile? iconFile)
+	public async Task AddUserAsync(Guid adminId, string Mail, string Name, string Password, IFormFile? iconFile)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == Mail) != null)
 		{
@@ -1578,9 +1514,9 @@ public class AdminService : IAdminService
 			_hitsContext.SaveChanges();
 		}
 	}
-	public async Task ChangeUserIconAdminAsync(string token, Guid userId, IFormFile iconFile)
+	public async Task ChangeUserIconAdminAsync(Guid adminId, Guid userId, IFormFile iconFile)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
 		if (user == null)
 		{
@@ -1667,9 +1603,9 @@ public class AdminService : IAdminService
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
 	}
-	public async Task DeleteUserIconAdminAsync(string token, Guid userId)
+	public async Task DeleteUserIconAdminAsync(Guid adminId, Guid userId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
 		if (user == null)
 		{
@@ -1698,9 +1634,9 @@ public class AdminService : IAdminService
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
 	}
-	public async Task ChangeUserDataAsync(string token, Guid UserId, string? Mail, string? Name)
+	public async Task ChangeUserDataAsync(Guid adminId, Guid UserId, string? Mail, string? Name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == Mail) != null)
 		{
@@ -1726,9 +1662,9 @@ public class AdminService : IAdminService
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
 	}
-	public async Task DeleteUserAsync(string token, Guid UserId)
+	public async Task DeleteUserAsync(Guid adminId, Guid UserId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == UserId);
 		if (user == null)
@@ -1741,9 +1677,9 @@ public class AdminService : IAdminService
 	}
 
 
-	public async Task ChangeServerDataAsync(string token, Guid serverId, string? serverName, ServerTypeEnum? serverType, bool? serverClosed, Guid? newCreatorId)
+	public async Task ChangeServerDataAsync(Guid adminId, Guid serverId, string? serverName, ServerTypeEnum? serverType, bool? serverClosed, Guid? newCreatorId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -1843,9 +1779,9 @@ public class AdminService : IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task ChangeServerIconAdminAsync(string token, Guid serverId, IFormFile iconFile)
+	public async Task ChangeServerIconAdminAsync(Guid adminId, Guid serverId, IFormFile iconFile)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -1957,9 +1893,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task DeleteServerIconAdminAsync(string token, Guid serverId)
+	public async Task DeleteServerIconAdminAsync(Guid adminId, Guid serverId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2002,9 +1938,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task DeleteServerAdminAsync(Guid serverId, string token)
+	public async Task DeleteServerAdminAsync(Guid serverId, Guid adminId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2079,9 +2015,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task<RolesItemDTO> CreateRoleAdminAsync(string token, Guid serverId, string roleName, string color)
+	public async Task<RolesItemDTO> CreateRoleAdminAsync(Guid adminId, Guid serverId, string roleName, string color)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2142,9 +2078,9 @@ public class AdminService : IAdminService
 		return roleResponse;
 	}
 
-	public async Task DeleteRoleAdminAsync(string token, Guid serverId, Guid roleId)
+	public async Task DeleteRoleAdminAsync(Guid adminId, Guid serverId, Guid roleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2308,9 +2244,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task UpdateRoleAsync(string token, Guid serverId, Guid roleId, string name, string color)
+	public async Task UpdateRoleAsync(Guid adminId, Guid serverId, Guid roleId, string name, string color)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2363,9 +2299,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task ChangeRoleSettingsAdminAsync(string token, Guid serverId, Guid roleId, SettingsEnum setting, bool settingsData)
+	public async Task ChangeRoleSettingsAdminAsync(Guid adminId, Guid serverId, Guid roleId, SettingsEnum setting, bool settingsData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2576,9 +2512,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task DeleteUserFromServerAdminAsync(string token, Guid serverId, Guid userId)
+	public async Task DeleteUserFromServerAdminAsync(Guid adminId, Guid serverId, Guid userId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2642,9 +2578,9 @@ public class AdminService : IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task ChangeUserNameAdminAsync(Guid serverId, string token, Guid userId, string name)
+	public async Task ChangeUserNameAdminAsync(Guid serverId, Guid adminId, Guid userId, string name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2685,9 +2621,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task AddRoleToUserAdminAsync(string token, Guid serverId, Guid userId, Guid roleId)
+	public async Task AddRoleToUserAdminAsync(Guid adminId, Guid serverId, Guid userId, Guid roleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2846,9 +2782,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task RemoveRoleFromUserAdminAsync(string token, Guid serverId, Guid userId, Guid roleId)
+	public async Task RemoveRoleFromUserAdminAsync(Guid adminId, Guid serverId, Guid userId, Guid roleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2950,9 +2886,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task CreateChannelAdminAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType, int? maxCount)
+	public async Task CreateChannelAdminAsync(Guid serverId, Guid adminId, string name, ChannelTypeEnum channelType, int? maxCount)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -3153,9 +3089,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task DeleteChannelAdminAsync(Guid chnnelId, string token)
+	public async Task DeleteChannelAdminAsync(Guid chnnelId, Guid adminId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId && ((TextChannelDbModel)c).DeleteTime == null);
 		if (channel == null)
 		{
@@ -3215,9 +3151,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task ChnageChannnelNameAdminAsync(string token, Guid channelId, string name, int? number)
+	public async Task ChnageChannnelNameAdminAsync(Guid adminId, Guid channelId, string name, int? number)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && ((TextChannelDbModel)c).DeleteTime == null);
 		if (channel == null)
 		{
@@ -3270,9 +3206,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task ChangeVoiceChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
+	public async Task ChangeVoiceChannelSettingsAdminAsync(Guid adminId, ChannelRoleDTO settingsData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _channelService.CheckVoiceChannelExistAsync(settingsData.ChannelId, false);
 
 		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == settingsData.RoleId && r.ServerId == channel.ServerId);
@@ -3369,9 +3305,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task ChangeTextChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
+	public async Task ChangeTextChannelSettingsAdminAsync(Guid adminId, ChannelRoleDTO settingsData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _channelService.CheckTextChannelExistAsync(settingsData.ChannelId);
 
 		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == settingsData.RoleId && r.ServerId == channel.ServerId);
@@ -3595,9 +3531,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task ChangeNotificationChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
+	public async Task ChangeNotificationChannelSettingsAdminAsync(Guid adminId, ChannelRoleDTO settingsData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _channelService.CheckNotificationChannelExistAsync(settingsData.ChannelId);
 
 		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == settingsData.RoleId && r.ServerId == channel.ServerId);
@@ -3800,9 +3736,9 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task<ServerPresetItemDTO> CreatePresetAdminAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)
+	public async Task<ServerPresetItemDTO> CreatePresetAdminAsync(Guid adminId, Guid serverId, Guid serverRoleId, Guid systemRoleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -4010,9 +3946,9 @@ public class AdminService : IAdminService
 		return response;
 	}
 
-	public async Task DeletePresetAdminAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)
+	public async Task DeletePresetAdminAsync(Guid adminId, Guid serverId, Guid serverRoleId, Guid systemRoleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);

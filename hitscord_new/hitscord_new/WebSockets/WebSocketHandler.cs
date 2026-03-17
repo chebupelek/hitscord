@@ -91,6 +91,24 @@ public class WebSocketHandler
 					}
 					break;
 
+				case "Add reaction channel":
+					var addReationChannel = System.Text.Json.JsonSerializer.Deserialize<AddReaction>(json);
+					if (addReationChannel != null)
+					{
+						var addReationChannelData = addReationChannel.Content;
+						await _messageService.AddReactionChannelAsync(userId, addReationChannelData.ChannelId, addReationChannelData.MessageId, addReationChannelData.ReactionCode);
+					}
+					break;
+
+				case "Remove reaction channel":
+					var removeReationChannel = System.Text.Json.JsonSerializer.Deserialize<RemoveReaction>(json);
+					if (removeReationChannel != null)
+					{
+						var removeReationChannelData = removeReationChannel.Content;
+						await _messageService.RemoveReactionChannelAsync(userId, removeReationChannelData.ChannelId, removeReationChannelData.ReactionId);
+					}
+					break;
+
 
 
 				case "New message chat":
@@ -99,7 +117,7 @@ public class WebSocketHandler
 					if (newMessagechat != null)
 					{
 						var newMesssageData = newMessagechat.Content;
-						await _messageService.CreateMessageToChatWebsocketAsync(newMesssageData);
+						await _messageService.CreateMessageToChatWebsocketAsync(newMesssageData, userId);
 					}
 					break;
 
@@ -118,6 +136,24 @@ public class WebSocketHandler
 					{
 						var updateMessageData = updateMessagechat.Content;
 						await _messageService.UpdateMessageInChatWebsocketAsync(updateMessageData.MessageId, updateMessageData.ChannelId, userId, updateMessageData.Text);
+					}
+					break;
+
+				case "Add reaction chat":
+					var addReationChat = System.Text.Json.JsonSerializer.Deserialize<AddReaction>(json);
+					if (addReationChat != null)
+					{
+						var addReationChatData = addReationChat.Content;
+						await _messageService.AddReactionChatAsync(userId, addReationChatData.ChannelId, addReationChatData.MessageId, addReationChatData.ReactionCode);
+					}
+					break;
+
+				case "Remove reaction chat":
+					var removeReationChat = System.Text.Json.JsonSerializer.Deserialize<RemoveReaction>(json);
+					if (removeReationChat != null)
+					{
+						var removeReationChatData = removeReationChat.Content;
+						await _messageService.RemoveReactionChannelAsync(userId, removeReationChatData.ChannelId, removeReationChatData.ReactionId);
 					}
 					break;
 
@@ -232,4 +268,14 @@ public class VoteSocket : WebSocketMessageBase
 public class SeeMessage : WebSocketMessageBase
 {
 	public SeeMessageDTO Content { get; set; } = default!;
+}
+
+public class AddReaction : WebSocketMessageBase
+{
+	public AddReactionSocketDTO Content { get; set; } = default!;
+}
+
+public class RemoveReaction : WebSocketMessageBase
+{
+	public RemoveReactionSocketDTO Content { get; set; } = default!;
 }

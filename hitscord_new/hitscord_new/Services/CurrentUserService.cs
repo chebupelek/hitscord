@@ -22,15 +22,14 @@ public class CurrentUserService : ICurrentUserService
 	{
 		get
 		{
-			var userId = _httpContextAccessor.HttpContext?
-				.User
-				.FindFirst(ClaimTypes.NameIdentifier)?
-				.Value;
+			var userId = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
 			if (userId == null)
+			{
 				throw new UnauthorizedAccessException();
+			}
 
-			return Guid.Parse(userId);
+			return (Guid.Parse(userId));
 		}
 	}
 }

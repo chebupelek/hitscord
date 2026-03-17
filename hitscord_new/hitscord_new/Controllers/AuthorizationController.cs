@@ -102,7 +102,8 @@ public class AuthorizationController : ControllerBase
         }
     }
 
-    [HttpPost]
+	[Authorize]
+	[HttpPost]
     [Route("refresh")]
     public async Task<IActionResult> RefreshTokens()
     {
@@ -122,7 +123,7 @@ public class AuthorizationController : ControllerBase
 				return Unauthorized();
 			}
 
-			var tokens = await _tokenService.UpdateTokens(sessionId, refreshToken);
+			var tokens = await _tokenService.UpdateTokensAsync(sessionId, refreshToken);
 
 			SetAuthCookies(tokens);
 
@@ -187,15 +188,19 @@ public class AuthorizationController : ControllerBase
     {
         try
         {
+			var accessToken = Request.Cookies["access_token"];
 			var refreshToken = Request.Cookies["refresh_token"];
+			var sessionId = Request.Cookies["session_id"];
 
-			if (!string.IsNullOrEmpty(refreshToken))
+			if(string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken) || string.IsNullOrEmpty(sessionId))
 			{
-				await _tokenService.InvalidateRefreshTokenAsync(refreshToken);
+				return Unauthorized();
 			}
 
+			await _tokenService.InvalidateSessionAsync(sessionId);
 			Response.Cookies.Delete("access_token");
 			Response.Cookies.Delete("refresh_token");
+			Response.Cookies.Delete("session_id");
 
 			return Ok();
 		}

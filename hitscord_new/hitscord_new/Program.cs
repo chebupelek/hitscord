@@ -14,7 +14,8 @@ using Quartz;
 using hitscord.nClamUtil;
 using hitscord.Models.db;
 using StackExchange.Redis;
-using hitscord.Redis;
+using hitscord.Redis.Sessions;
+using hitscord.Redis.CashedDB;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,9 +54,6 @@ string tokenConn =
 builder.Services.AddDbContext<HitsContext>(options =>
     options.UseNpgsql(roomConn));
 
-builder.Services.AddDbContext<hitscord.Contexts.TokenContext>(options =>
-    options.UseNpgsql(tokenConn));
-
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -85,7 +83,7 @@ builder.Services.Configure<ApiSettings>(options =>
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnString));
 builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
-builder.Services.AddScoped<ISessionService, RedisSessionService>();
+builder.Services.AddScoped<IRedisSessionService, RedisSessionService>();
 
 builder.Services.AddSingleton<nClamService>();
 
@@ -251,8 +249,11 @@ using (var scope = app.Services.CreateScope())
 	var adminService = scope.ServiceProvider.GetRequiredService<IAdminService>();
 	await adminService.CreateAccountOnce();
 
-	var LogContext = scope.ServiceProvider.GetRequiredService<hitscord.Contexts.TokenContext>();
-    await LogContext.Database.MigrateAsync();
+	var serverService = scope.ServiceProvider.GetRequiredService<IServerService>();
+	await serverService.RedisUpdateFullServerAsync();
+
+	var channelService = scope.ServiceProvider.GetRequiredService<IChannelService>();
+	await channelService.UpdateReddisFullChannelAsync();
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

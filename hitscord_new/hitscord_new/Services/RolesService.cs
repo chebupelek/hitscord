@@ -4,9 +4,13 @@ using hitscord.IServices;
 using hitscord.Models.db;
 using hitscord.Models.other;
 using hitscord.Models.response;
+using hitscord.Redis.CashedDB;
+using hitscord.Redis.CashedDB.Models;
 using hitscord.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using NickBuhro.Translit;
+using StackExchange.Redis;
+using System.Collections.Generic;
 using System.Data;
 using System.Text.RegularExpressions;
 
@@ -18,14 +22,191 @@ public class RolesService : IRolesService
     private readonly IAuthorizationService _authorizationService;
 	private readonly IServerService _serverService;
 	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRedisCacheService _cacheService;
 
-	public RolesService(HitsContext hitsContext, IAuthorizationService authorizationService, IServerService serverService, WebSocketsManager webSocketManager)
+	public RolesService(HitsContext hitsContext, IAuthorizationService authorizationService, IServerService serverService, WebSocketsManager webSocketManager, IRedisCacheService cacheService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
 		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 	}
+
+
+	private async Task<int> HashChannelRightsByRolesAsync(List<Guid> roleIds, Guid channelId)
+	{
+		ChannelRights rights = ChannelRights.None;
+
+		if (await _hitsContext.ChannelCanSee
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.ChannelId == channelId))
+		{
+			rights |= ChannelRights.See;
+		}
+
+		if (await _hitsContext.ChannelCanWrite
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextChannelId == channelId))
+		{
+			rights |= ChannelRights.Write;
+		}
+
+		if (await _hitsContext.ChannelCanWriteSub
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextChannelId == channelId))
+		{
+			rights |= ChannelRights.WriteSub;
+		}
+
+		if (await _hitsContext.ChannelNotificated
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.NotificationChannelId == channelId))
+		{
+			rights |= ChannelRights.Notificate;
+		}
+
+		if (await _hitsContext.ChannelCanJoin
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.VoiceChannelId == channelId))
+		{
+			rights |= ChannelRights.Join;
+		}
+
+		if (await _hitsContext.ChannelCanUse
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.SubChannelId == channelId))
+		{
+			rights |= ChannelRights.Use;
+		}
+
+		return (int)rights;
+	}
+
+	private async Task UpdateChannelToUserByRolesAsync(Guid serverId, Guid channelId)
+	{
+		var users = await _hitsContext.UserServer
+			.Where(us => us.ServerId == serverId)
+			.SelectMany(us => us.SubscribeRoles
+				.Select(sr => new
+				{
+					UserId = us.UserId,
+					UserTag = us.User.AccountTag,
+					UserNotifiable = us.User.Notifiable,
+					UserServerId = us.Id,
+					us.NonNotifiable,
+					RoleId = sr.Role.Id,
+					RoleTag = sr.Role.Tag
+				}))
+			.ToListAsync();
+
+		var nonNotifiableChannels = await _hitsContext.NonNotifiableChannel
+			.Where(n => n.TextChannelId == channelId)
+			.Select(n => n.UserServerId)
+			.ToListAsync();
+
+		var nonNotifiableSet = nonNotifiableChannels.ToHashSet();
+
+		var usersGrouped = users
+			.GroupBy(x => x.UserId)
+			.Select(g => new
+			{
+				UserId = g.Key,
+				UserTag = g.First().UserTag,
+				UserNotifiable = g.First().UserNotifiable,
+				UserServerId = g.First().UserServerId,
+				NonNotifiable = g.First().NonNotifiable,
+				RoleIds = g.Select(x => x.RoleId).Distinct().ToList(),
+				RoleTags = g.Select(x => x.RoleTag).Distinct().ToList()
+			})
+			.ToList();
+
+		var tasks = usersGrouped.Select(u =>
+		{
+			int channelNotifiable =
+				(u.UserNotifiable ? 1 : 0) +
+				(u.NonNotifiable ? 1 : 0) +
+				(!nonNotifiableSet.Contains(u.UserServerId) ? 1 : 0);
+
+			return _cacheService.SetChannelToUserAsync(
+				channelId,
+				new ChannelToUserRedisFullDTO
+				{
+					UserId = u.UserId,
+					Data = new ChannelToUserRedisItemDTO
+					{
+						UserTag = u.UserTag,
+						RoleIds = u.RoleIds,
+						RoleTags = u.RoleTags,
+						ChannelNotifiable = channelNotifiable
+					}
+				});
+		});
+
+		await Task.WhenAll(tasks);
+	}
+
+	private async Task UpdateUserToChannelByRolesAsync(Guid serverId, Guid channelId)
+	{
+		var users = await _hitsContext.UserServer
+			.Where(us => us.ServerId == serverId)
+			.Select(us => new
+			{
+				UserId = us.UserId,
+				RoleIds = us.SubscribeRoles.Select(sr => sr.RoleId).ToList()
+			})
+			.ToListAsync();
+
+		if (users.Count == 0)
+			return;
+
+		var tasks = users.Select(async user =>
+		{
+			var rights = await HashChannelRightsByRolesAsync(user.RoleIds, channelId);
+
+			await _cacheService.SetUserToChannelAsync(
+				user.UserId,
+				channelId,
+				new UserToChannelRedisDTO
+				{
+					ChannelRights = rights
+				}
+			);
+		});
+
+		await Task.WhenAll(tasks);
+	}
+
+	private async Task UpdateCacheForUsersAsync(List<Guid> usersId, Guid serverId)
+	{
+		if (usersId == null || usersId.Count == 0)
+			return;
+
+		var channelsId = await _hitsContext.Channel
+			.Where(c => c.ServerId == serverId)
+			.Select(c => c.Id)
+			.ToListAsync();
+
+		var removeTasks = new List<Task>();
+
+		foreach (var userId in usersId)
+		{
+			foreach (var channelId in channelsId)
+			{
+				removeTasks.Add(_cacheService.RemoveUserToChannelAsync(userId, channelId));
+				removeTasks.Add(_cacheService.RemoveChannelToUserAsync(channelId, userId));
+			}
+		}
+
+		await Task.WhenAll(removeTasks);
+
+		await Task.WhenAll(
+			channelsId.Select(channelId =>
+				UpdateChannelToUserByRolesAsync(serverId, channelId)
+			)
+		);
+
+		await Task.WhenAll(
+			channelsId.Select(channelId =>
+				UpdateUserToChannelByRolesAsync(serverId, channelId)
+			)
+		);
+	}
+
 
 	public async Task<RoleDbModel> CheckRoleAsync(Guid roleId, Guid serverId)
 	{
@@ -99,7 +280,7 @@ public class RolesService : IRolesService
 			Type = newRole.Role
 		};
 
-		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "New role");
@@ -131,8 +312,8 @@ public class RolesService : IRolesService
 			throw new CustomException("Cant delete non custom role", "Delete role", "Role id", 400, "Нельзя удалить не пользовательскую роль", "Удаление роли");
 		}
 
-		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
-
+		var alertedUsers = await _cacheService.GetUsersInServerAsync(serverId);
+		/*
 		var userServers = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
@@ -142,6 +323,19 @@ public class RolesService : IRolesService
 					.ThenInclude(r => r.ChannelCanUse)
 			.Where(us => us.ServerId == server.Id && us.SubscribeRoles.Any(sr => sr.RoleId == role.Id))
 			.ToListAsync();
+		*/
+
+		var userServers = await _hitsContext.UserServer
+			.Where(us => us.ServerId == server.Id)
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanUse)
+			.Where(us => us.SubscribeRoles.Any(sr => sr.RoleId == role.Id))
+			.ToListAsync();
+		var usersId = userServers.Select(us => us.UserId).ToList();
 
 		if (userServers != null && userServers.Count() > 0)
 		{
@@ -245,6 +439,8 @@ public class RolesService : IRolesService
 				_hitsContext.SubscribeRole.Remove(subRole);
 				await _hitsContext.SaveChangesAsync();
 
+				await UpdateCacheForUsersAsync(usersId, serverId);
+
 				await _webSocketManager.BroadcastMessageAsync(new NewUserRoleResponseDTO
 				{
 					ServerId = serverId,
@@ -296,6 +492,15 @@ public class RolesService : IRolesService
 		{
 			role.Name = name;
 			role.Tag = Regex.Replace(Transliteration.CyrillicToLatin(name, Language.Russian), "[^a-zA-Z0-9]", "").ToLower();
+
+			var channelsId = await _hitsContext.Channel
+				.Where(c => c.ServerId == serverId)
+				.Select(c => c.Id)
+				.ToListAsync();
+			foreach (var channelId in channelsId)
+			{
+				await _cacheService.UpdateRoleTagForAllUsersAsync(channelId, roleId, role.Tag);
+			}
 		}
 		role.Color = color;
 
@@ -312,7 +517,7 @@ public class RolesService : IRolesService
 			Type = role.Role
 		};
 
-		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+		var alertedUsers = await _cacheService.GetUsersInServerAsync(serverId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "Updated role");
@@ -586,7 +791,7 @@ public class RolesService : IRolesService
 			}
 		};
 
-		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
+		var alertedUsers = await _cacheService.GetUsersInServerAsync(serverId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "Updated role settings");

@@ -14,6 +14,13 @@ public interface IChannelService
     Task<VoiceChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers);
 	Task<PairVoiceChannelDbModel> CheckPairVoiceChannelExistAsync(Guid channelId, bool joinedUsers);
     Task<ChannelDbModel> CheckNotificationChannelExistAsync(Guid channelId);
+    Task<(ChannelDbModel Channel, ChannelTypeEnum Type)> CheckTextOrNotificationOrSubChannelExistWithTypeAsync(Guid channelId);
+
+
+    Task UpdateReddisFullChannelAsync();
+
+
+
 	Task CreateChannelAsync(Guid serverId, Guid UserId, string name, ChannelTypeEnum channelType, int? maxCount);
     Task<UserVoiceChannelResponseDTO> JoinToVoiceChannelAsync(Guid chnnelId, Guid UserId);
     Task<bool> RemoveFromVoiceChannelAsync(Guid channelId, Guid UserId);
@@ -34,5 +41,9 @@ public interface IChannelService
     Task ChangeVoiceChannelMaxCount(Guid UserId, Guid voiceChannelId, int maxCount);
     Task<UsersIdList> GetUserThatCanSeeChannelAsync(Guid UserId, Guid channelId);
     Task<ChannelTypeEnum> GetChannelType(Guid channelId);
-    Task RemoveChannels();
+    Task<MessageSubChannelResponceDTO?> GetSubChannelDataAsync(Guid UserId, Guid ChannelId, long MessageId);
+
+
+
+	Task RemoveChannels();
 }

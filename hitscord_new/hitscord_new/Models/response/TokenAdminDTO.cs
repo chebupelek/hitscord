@@ -1,6 +1,7 @@
 ﻿namespace hitscord.Models.response;
 
-public class TokenDTO
+public class TokenAdminDTO
 {
     public required string AccessToken { get; set; }
+	public required string SessionId { get; set; }
 }

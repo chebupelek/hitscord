@@ -17,7 +17,12 @@ public interface IMessageService
 	Task UnVoteAsync(Guid UserId, Guid variantId);
 	Task<VoteResponceDTO> GetVotingAsync(Guid UserId, bool channel, Guid channelId, long voteId);
 
-    Task RemoveMessagesFromDBAsync();
+	Task AddReactionChannelAsync(Guid UserId, Guid ChannelId, long MessageId, string ReactionCode);
+	Task AddReactionChatAsync(Guid UserId, Guid ChatId, long MessageId, string ReactionCode);
+	Task RemoveReactionChannelAsync(Guid UserId, Guid ChannelId, Guid ReactionId);
+	Task RemoveReactionChatAsync(Guid UserId, Guid ChatId, Guid ReactionId);
 
 	Task MessageSeeAsync(Guid UserId, bool channel, Guid channelId, long messageId);
+
+	Task RemoveMessagesFromDBAsync();
 }

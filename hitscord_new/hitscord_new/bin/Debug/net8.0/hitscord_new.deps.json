@@ -25,12 +25,12 @@
           "Newtonsoft.Json": "13.0.3",
           "NickBuhro.Translit": "1.4.5",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.11",
-          "OrientDB-NET.binary": "0.2.1",
           "Quartz": "3.14.0",
           "Quartz.Extensions.Hosting": "3.14.0",
           "Serilog.AspNetCore": "9.0.0",
           "Serilog.Sinks.File": "6.0.0",
-          "SixLabors.ImageSharp": "3.1.8",
+          "SixLabors.ImageSharp": "3.1.12",
+          "StackExchange.Redis": "2.11.8",
           "Swashbuckle.AspNetCore": "6.4.0",
           "System.Net.Http.Json": "8.0.1",
           "nClam": "9.0.0"
@@ -1026,7 +1026,7 @@
           "CommunityToolkit.HighPerformance": "8.4.0",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.4",
           "Microsoft.Extensions.Logging": "9.0.4",
-          "System.IO.Hashing": "9.0.4",
+          "System.IO.Hashing": "10.0.2",
           "System.Reactive": "6.0.1"
         },
         "runtime": {
@@ -1158,11 +1158,14 @@
           }
         }
       },
-      "OrientDB-NET.binary/0.2.1": {
+      "Pipelines.Sockets.Unofficial/2.2.8": {
+        "dependencies": {
+          "System.IO.Pipelines": "9.0.0"
+        },
         "runtime": {
-          "lib/Orient.Client.dll": {
+          "lib/net5.0/Pipelines.Sockets.Unofficial.dll": {
             "assemblyVersion": "1.0.0.0",
-            "fileVersion": "1.0.0.0"
+            "fileVersion": "2.2.8.1080"
           }
         }
       },
@@ -1371,11 +1374,24 @@
           }
         }
       },
-      "SixLabors.ImageSharp/3.1.8": {
+      "SixLabors.ImageSharp/3.1.12": {
         "runtime": {
           "lib/net6.0/SixLabors.ImageSharp.dll": {
             "assemblyVersion": "3.0.0.0",
-            "fileVersion": "3.1.8.0"
+            "fileVersion": "3.1.12.0"
+          }
+        }
+      },
+      "StackExchange.Redis/2.11.8": {
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "9.0.4",
+          "Pipelines.Sockets.Unofficial": "2.2.8",
+          "System.IO.Hashing": "10.0.2"
+        },
+        "runtime": {
+          "lib/net8.0/StackExchange.Redis.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.11.8.9359"
           }
         }
       },
@@ -1677,11 +1693,11 @@
           "System.Runtime": "4.3.0"
         }
       },
-      "System.IO.Hashing/9.0.4": {
+      "System.IO.Hashing/10.0.2": {
         "runtime": {
           "lib/net8.0/System.IO.Hashing.dll": {
-            "assemblyVersion": "9.0.0.4",
-            "fileVersion": "9.0.425.16305"
+            "assemblyVersion": "10.0.0.2",
+            "fileVersion": "10.0.225.61305"
           }
         }
       },
@@ -2764,12 +2780,12 @@
       "path": "npgsql.entityframeworkcore.postgresql/8.0.11",
       "hashPath": "npgsql.entityframeworkcore.postgresql.8.0.11.nupkg.sha512"
     },
-    "OrientDB-NET.binary/0.2.1": {
+    "Pipelines.Sockets.Unofficial/2.2.8": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-DC8+8x0cnw8Vw3ZuSnrD29HBQlWt/X0Jk7jSYFpPypy1HWcRHkrqwO8ieHod3LzPkCXImL2/Z4Eyuf/2eZxcag==",
-      "path": "orientdb-net.binary/0.2.1",
-      "hashPath": "orientdb-net.binary.0.2.1.nupkg.sha512"
+      "sha512": "sha512-zG2FApP5zxSx6OcdJQLbZDk2AVlN2BNQD6MorwIfV6gVj0RRxWPEp2LXAxqDGZqeNV1Zp0BNPcNaey/GXmTdvQ==",
+      "path": "pipelines.sockets.unofficial/2.2.8",
+      "hashPath": "pipelines.sockets.unofficial.2.2.8.nupkg.sha512"
     },
     "Quartz/3.14.0": {
       "type": "package",
@@ -2974,12 +2990,19 @@
       "path": "serilog.sinks.file/6.0.0",
       "hashPath": "serilog.sinks.file.6.0.0.nupkg.sha512"
     },
-    "SixLabors.ImageSharp/3.1.8": {
+    "SixLabors.ImageSharp/3.1.12": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-8eJkROLGh6DBQLR666q2aOpAaean2puZaZ6Ur9YxoyGzjaZhv8OJSxtnDou54+OXMkXtLUdyQC0so47sOsqZjg==",
-      "path": "sixlabors.imagesharp/3.1.8",
-      "hashPath": "sixlabors.imagesharp.3.1.8.nupkg.sha512"
+      "sha512": "sha512-iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A==",
+      "path": "sixlabors.imagesharp/3.1.12",
+      "hashPath": "sixlabors.imagesharp.3.1.12.nupkg.sha512"
+    },
+    "StackExchange.Redis/2.11.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-25UL0tkhQo3ATT+DAu9OyaPhyWRvJIYcID/iNM8gNWqapJCX4dB/Q2RBBHjv6rQ1utp92pUoxgtZdX25ZNLC6Q==",
+      "path": "stackexchange.redis/2.11.8",
+      "hashPath": "stackexchange.redis.2.11.8.nupkg.sha512"
     },
     "Swashbuckle.AspNetCore/6.4.0": {
       "type": "package",
@@ -3205,12 +3228,12 @@
       "path": "system.io.filesystem.primitives/4.3.0",
       "hashPath": "system.io.filesystem.primitives.4.3.0.nupkg.sha512"
     },
-    "System.IO.Hashing/9.0.4": {
+    "System.IO.Hashing/10.0.2": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-WogPvgAFqQORFD8Iyha6RZ+/1QB3dsWRWxbwi8/HHVgiGQ8z0oMWpwe8Kk3Ti+Roe+P6a3sBg+WwBfEsyziZKg==",
-      "path": "system.io.hashing/9.0.4",
-      "hashPath": "system.io.hashing.9.0.4.nupkg.sha512"
+      "sha512": "sha512-AKJknIFi9O3+rGExxTry188JPvUoZAPcCtS2qdqyFhIzsxQ1Ap94BeGDG0VzVEHakhmRxmJtVih6TsHoghIt/g==",
+      "path": "system.io.hashing/10.0.2",
+      "hashPath": "system.io.hashing.10.0.2.nupkg.sha512"
     },
     "System.IO.Pipelines/9.0.0": {
       "type": "package",

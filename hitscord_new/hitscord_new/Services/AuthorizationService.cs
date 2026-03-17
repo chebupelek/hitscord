@@ -18,7 +18,8 @@ using Grpc.Core;
 using hitscord.Utils;
 using Authzed.Api.V0;
 using System;
-using hitscord.Redis;
+using hitscord.Redis.Sessions;
+using hitscord.Redis.CashedDB;
 
 namespace hitscord.Services;
 
@@ -27,18 +28,25 @@ public class AuthorizationService : IAuthorizationService
     private readonly HitsContext _hitsContext;
 	private readonly PasswordHasher<string> _passwordHasher;
     private readonly ITokenService _tokenService;
-	private readonly ISessionService _sessionService;
+	private readonly IRedisCacheService _cacheService;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
 	//private readonly ILogger<FileService> _logger;
 
-	public AuthorizationService(/*ILogger<FileService> logger, */HitsContext hitsContext, ITokenService tokenService, ISessionService sessionService, nClamService clamService, MinioService minioService)
+	public AuthorizationService(
+		/*ILogger<FileService> logger, */
+		HitsContext hitsContext, 
+		ITokenService tokenService, 
+		IRedisCacheService cacheService, 
+		nClamService clamService, 
+		MinioService minioService
+		)
     {
 		//_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_passwordHasher = new PasswordHasher<string>();
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
-		_sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
+		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
@@ -128,7 +136,7 @@ public class AuthorizationService : IAuthorizationService
         await _hitsContext.User.AddAsync(newUser);
         await _hitsContext.SaveChangesAsync();
 
-        var tokens = await _tokenService.CreateTokens(newUser);
+        var tokens = await _tokenService.CreateTokensAsync(newUser);
 
 		return tokens;
     }
@@ -148,7 +156,7 @@ public class AuthorizationService : IAuthorizationService
             throw new CustomException("Wrong password", "Login", "Password", 401, "Неверный пароль", "Логин");
         }
 
-        var tokens = await _tokenService.CreateTokens(userData);
+        var tokens = await _tokenService.CreateTokensAsync(userData);
 
         return tokens;
     }
@@ -187,8 +195,7 @@ public class AuthorizationService : IAuthorizationService
         var userData = await GetUserAsync(UserId);
 		if (newData.Mail != null)
 		{
-			var existEmail = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id != userData.Id && u.Mail == newData.Mail);
-			if (existEmail != null)
+			if ((await _hitsContext.User.FirstOrDefaultAsync(u => u.Id != userData.Id && u.Mail == newData.Mail)) != null)
 			{
 				throw new CustomException("Account with this mail already exist", "Account", "Mail", 400, "Аккаунт с такой почтой уже существует", "Изменение информации о пользователе");
 			}
@@ -203,6 +210,20 @@ public class AuthorizationService : IAuthorizationService
 				formattedNumber = formattedNumber.Substring(formattedNumber.Length - 6);
 			}
 			userData.AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(userData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + formattedNumber;
+
+			var channelIds = await _hitsContext.UserServer
+				.Where(us => us.UserId == userData.Id)
+				.SelectMany(us => us.SubscribeRoles)
+				.Select(sr => sr.Role)
+				.SelectMany(r => r.ChannelCanSee.Select(c => c.ChannelId)
+					.Concat(r.ChannelCanUse.Select(c => c.SubChannelId)))
+				.Distinct()
+				.ToListAsync();
+
+			if(channelIds != null && channelIds.Count > 0)
+			{
+				await _cacheService.UpdateUserTagAsync(channelIds, userData.Id, userData.AccountTag);
+			}
 		}
 		userData.Mail = newData.Mail != null ? newData.Mail : userData.Mail;
         _hitsContext.User.Update(userData);
@@ -236,6 +257,19 @@ public class AuthorizationService : IAuthorizationService
 		userData.Notifiable = !userData.Notifiable;
         _hitsContext.User.Update(userData);
         await _hitsContext.SaveChangesAsync();
+
+		var channelIds = await _hitsContext.UserServer
+			.Where(us => us.UserId == userData.Id)
+			.SelectMany(us => us.SubscribeRoles)
+			.SelectMany(sr => sr.Role.ChannelCanSee)
+			.Select(c => c.ChannelId)
+			.Distinct()
+			.ToListAsync();
+
+		if (channelIds != null && channelIds.Count > 0)
+		{
+			await _cacheService.UpdateUserNotifiableChannelsAsync(channelIds, userData.Id, userData.Notifiable == true ? 1 : -1);
+		}
 	}
 
 	public async Task ChangeFriendshipAsync(Guid UserId)

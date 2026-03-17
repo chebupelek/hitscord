@@ -8,7 +8,8 @@ using hitscord.Models.response;
 using hitscord.Models.other;
 using System;
 using System.Security.Claims;
-using hitscord.Redis;
+using hitscord.Redis.Sessions;
+using EasyNetQ;
 
 namespace hitscord.Services;
 
@@ -17,9 +18,9 @@ public class TokenService: ITokenService
     private readonly IConfiguration _configuration;
     private readonly TokenContext _tokenContext;
     private readonly HitsContext _hitsContext;
-	private readonly ISessionService _sessionService;
+	private readonly IRedisSessionService _sessionService;
 
-	public TokenService(TokenContext tokenContext, HitsContext hitsContext, IConfiguration configuration, ISessionService sessionService)
+	public TokenService(TokenContext tokenContext, HitsContext hitsContext, IConfiguration configuration, IRedisSessionService sessionService)
     {
         _tokenContext = tokenContext ?? throw new ArgumentNullException(nameof(tokenContext));
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
@@ -27,7 +28,9 @@ public class TokenService: ITokenService
 		_sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
 	}
 
-    public async Task<TokensDTO> CreateTokens(UserDbModel user)
+	// 1) Для обычных пользователей
+
+    public async Task<TokensDTO> CreateTokensAsync(UserDbModel user)
     {
         var tokenAccessData = user.CreateClaims().CreateJwtTokenAccess(_configuration);
         var tokenRefreshData = user.CreateClaims().CreateJwtTokenRefresh(_configuration);
@@ -42,20 +45,12 @@ public class TokenService: ITokenService
         return new TokensDTO { AccessToken = accessToken, RefreshToken = refreshToken, SessionId = sessionId };
     }
 
-    public async Task InvalidateRefreshTokenAsync(string token)
+    public async Task InvalidateSessionAsync(string sessionId)
     {
-        var bannedToken = await _tokenContext.Token.FirstOrDefaultAsync(x => x.RefreshToken == token);
+		await _sessionService.DeleteSession(sessionId);
+	}
 
-        if (bannedToken == null)
-        {
-            throw new CustomException("Refresh token not found", "Logout", "Refresh token", 404, "Refresh токен не найден", "Инвалидация refresh токена");
-        }
-
-        _tokenContext.Token.Remove(bannedToken);
-        await _tokenContext.SaveChangesAsync();
-    }
-
-	public async Task<TokensDTO> UpdateTokens(string sessionId, string refreshToken)
+	public async Task<TokensDTO> UpdateTokensAsync(string sessionId, string refreshToken)
 	{
 		var session = await _sessionService.GetSession(sessionId);
 
@@ -78,9 +73,41 @@ public class TokenService: ITokenService
 
 		await _sessionService.DeleteSession(sessionId);
 
-		var tokens = await CreateTokens(user);
+		var tokens = await CreateTokensAsync(user);
 
 		return tokens;
+	}
+
+	// 2) Для админов
+
+	public async Task<TokenAdminDTO> CreateTokensAdminAsync(AdminDbModel admin)
+	{
+		var tokenAccessData = admin.CreateClaims().CreateJwtTokenAccess(_configuration);
+
+		var tokenHandler = new JwtSecurityTokenHandler();
+
+		var accessToken = tokenHandler.WriteToken(tokenAccessData);
+
+		var sessionId = await _sessionService.CreateAdminSession(admin.Id, accessToken);
+
+		return new TokenAdminDTO { AccessToken = accessToken, SessionId = sessionId };
+	}
+
+	public async Task InvalidateSessionAdminAsync(string sessionId)
+	{
+		await _sessionService.DeleteAdminSession(sessionId);
+	}
+
+	public async Task<bool> CheckAdminAuthAsync(string sessionId, string accessToken)
+	{
+		var session = await _sessionService.GetAdminSession(sessionId);
+
+		if(session == null || session.AccessToken != accessToken)
+		{
+			return false;
+		}
+
+		return true;
 	}
 }
 

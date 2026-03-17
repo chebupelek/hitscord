@@ -404,4 +404,24 @@ public class ChannelController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("subchannel")]
+	public async Task<IActionResult> GetSubChannel([FromQuery] Guid ChannelId, [FromQuery] long MessagelId)
+	{
+		try
+		{
+			var data = await _channelService.GetSubChannelDataAsync(_currentUser.UserId, ChannelId, MessagelId);
+			return Ok(data);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }

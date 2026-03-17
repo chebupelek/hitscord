@@ -1640,15 +1640,6 @@
           }
         }
       },
-      "OrientDB-NET.binary/0.2.1": {
-        "type": "package",
-        "compile": {
-          "lib/Orient.Client.dll": {}
-        },
-        "runtime": {
-          "lib/Orient.Client.dll": {}
-        }
-      },
       "Pipelines.Sockets.Unofficial/2.2.8": {
         "type": "package",
         "dependencies": {
@@ -2061,7 +2052,7 @@
           }
         }
       },
-      "SixLabors.ImageSharp/3.1.8": {
+      "SixLabors.ImageSharp/3.1.12": {
         "type": "package",
         "compile": {
           "lib/net6.0/SixLabors.ImageSharp.dll": {
@@ -6187,18 +6178,6 @@
         "postgresql.png"
       ]
     },
-    "OrientDB-NET.binary/0.2.1": {
-      "sha512": "DC8+8x0cnw8Vw3ZuSnrD29HBQlWt/X0Jk7jSYFpPypy1HWcRHkrqwO8ieHod3LzPkCXImL2/Z4Eyuf/2eZxcag==",
-      "type": "package",
-      "path": "orientdb-net.binary/0.2.1",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "lib/Orient.Client.dll",
-        "orientdb-net.binary.0.2.1.nupkg.sha512",
-        "orientdb-net.binary.nuspec"
-      ]
-    },
     "Pipelines.Sockets.Unofficial/2.2.8": {
       "sha512": "zG2FApP5zxSx6OcdJQLbZDk2AVlN2BNQD6MorwIfV6gVj0RRxWPEp2LXAxqDGZqeNV1Zp0BNPcNaey/GXmTdvQ==",
       "type": "package",
@@ -6731,10 +6710,10 @@
         "serilog.sinks.file.nuspec"
       ]
     },
-    "SixLabors.ImageSharp/3.1.8": {
-      "sha512": "8eJkROLGh6DBQLR666q2aOpAaean2puZaZ6Ur9YxoyGzjaZhv8OJSxtnDou54+OXMkXtLUdyQC0so47sOsqZjg==",
+    "SixLabors.ImageSharp/3.1.12": {
+      "sha512": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A==",
       "type": "package",
-      "path": "sixlabors.imagesharp/3.1.8",
+      "path": "sixlabors.imagesharp/3.1.12",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -6743,7 +6722,7 @@
         "lib/net6.0/SixLabors.ImageSharp.dll",
         "lib/net6.0/SixLabors.ImageSharp.xml",
         "sixlabors.imagesharp.128.png",
-        "sixlabors.imagesharp.3.1.8.nupkg.sha512",
+        "sixlabors.imagesharp.3.1.12.nupkg.sha512",
         "sixlabors.imagesharp.nuspec"
       ]
     },
@@ -10653,12 +10632,11 @@
       "Newtonsoft.Json >= 13.0.3",
       "NickBuhro.Translit >= 1.4.5",
       "Npgsql.EntityFrameworkCore.PostgreSQL >= 8.0.11",
-      "OrientDB-NET.binary >= 0.2.1",
       "Quartz >= 3.14.0",
       "Quartz.Extensions.Hosting >= 3.14.0",
       "Serilog.AspNetCore >= 9.0.0",
       "Serilog.Sinks.File >= 6.0.0",
-      "SixLabors.ImageSharp >= 3.1.8",
+      "SixLabors.ImageSharp >= 3.1.12",
       "StackExchange.Redis >= 2.11.8",
       "Swashbuckle.AspNetCore >= 6.4.0",
       "System.Net.Http.Json >= 8.0.1",
@@ -10794,10 +10772,6 @@
             "target": "Package",
             "version": "[8.0.11, )"
           },
-          "OrientDB-NET.binary": {
-            "target": "Package",
-            "version": "[0.2.1, )"
-          },
           "Quartz": {
             "target": "Package",
             "version": "[3.14.0, )"
@@ -10816,7 +10790,7 @@
           },
           "SixLabors.ImageSharp": {
             "target": "Package",
-            "version": "[3.1.8, )"
+            "version": "[3.1.12, )"
           },
           "StackExchange.Redis": {
             "target": "Package",
@@ -10857,27 +10831,5 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203/PortableRuntimeIdentifierGraph.json"
       }
     }
-  },
-  "logs": [
-    {
-      "code": "NU1902",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "У пакета \"SixLabors.ImageSharp\" 3.1.8 есть известная уязвимость https://github.com/advisories/GHSA-rxmq-m78w-7wmc (уровень серьезности: средний уровень)",
-      "libraryId": "SixLabors.ImageSharp",
-      "targetGraphs": [
-        "net8.0"
-      ]
-    },
-    {
-      "code": "NU1701",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Пакет \"OrientDB-NET.binary 0.2.1\" был восстановлен с помощью \".NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1\", а не целевой платформы проекта \"net8.0\". Этот пакет может быть не полностью совместим с вашим проектом.",
-      "libraryId": "OrientDB-NET.binary",
-      "targetGraphs": [
-        "net8.0"
-      ]
-    }
-  ]
+  }
 }

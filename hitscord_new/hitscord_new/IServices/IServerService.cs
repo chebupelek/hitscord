@@ -9,7 +9,9 @@ public interface IServerService
     Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels);
     Task<ServerDbModel> GetServerFullModelAsync(Guid serverId);
 
-    Task<ServerIdDTO> CreateServerAsync(Guid UserId, string severName, ServerTypeEnum? type);
+    Task RedisUpdateFullServerAsync();
+
+	Task<ServerIdDTO> CreateServerAsync(Guid UserId, string severName, ServerTypeEnum? type);
 	Task SubscribeAsync(Guid UserId, string invitationToken, string? userName);
     Task UnsubscribeAsync(Guid serverId, Guid UserId);
     Task UnsubscribeForCreatorAsync(Guid serverId, Guid UserId, Guid newCreatorId);

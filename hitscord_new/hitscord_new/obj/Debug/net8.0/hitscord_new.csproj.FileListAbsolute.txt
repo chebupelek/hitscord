@@ -254,7 +254,6 @@ C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\NickBuhro.Translit.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Npgsql.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Npgsql.EntityFrameworkCore.PostgreSQL.dll
-C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Orient.Client.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\RabbitMQ.Client.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Serilog.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Serilog.AspNetCore.dll
@@ -569,3 +568,5 @@ C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Minio.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.IO.Hashing.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.Reactive.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Pipelines.Sockets.Unofficial.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\StackExchange.Redis.dll

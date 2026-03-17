@@ -8,6 +8,8 @@ using hitscord.Services;
 using hitscord.IServices;
 using hitscord_new.Migrations.Token;
 using hitscord.Models.DTOModels.request;
+using Newtonsoft.Json.Linq;
+using System.Threading.Tasks;
 
 namespace hitscord.Controllers;
 
@@ -16,35 +18,33 @@ namespace hitscord.Controllers;
 public class AdminController : ControllerBase
 {
 	private readonly IAdminService _adminService;
-	private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ITokenService _tokenService;
+	private readonly ICurrentUserService _currentUser;
 
-	public AdminController(IAdminService adminService, IHttpContextAccessor httpContextAccessor)
+	public AdminController(IAdminService adminService, ITokenService tokenService, ICurrentUserService currentUser)
 	{
 		_adminService = adminService ?? throw new ArgumentNullException(nameof(adminService));
-		_httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+		_tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
 	}
 
-	[Authorize]
-	[HttpPost]
-	[Route("registration")]
-	public async Task<IActionResult> Registration([FromBody] AdminRegistrationDTO loginData)
+	private void SetAuthCookies(TokenAdminDTO tokens)
 	{
-		try
+		Response.Cookies.Append("access_token", tokens.AccessToken, new CookieOptions
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			loginData.Validation();
-			await _adminService.CreateAccount(jwtToken, loginData);
-			return Ok();
-		}
-		catch (CustomException ex)
+			HttpOnly = true,
+			Secure = true,
+			SameSite = SameSiteMode.Strict,
+			Expires = DateTime.UtcNow.AddMinutes(15)
+		});
+
+		Response.Cookies.Append("session_id", tokens.SessionId, new CookieOptions
 		{
-			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
-		}
-		catch (Exception ex)
-		{
-			return StatusCode(500, ex.Message);
-		}
+			HttpOnly = true,
+			Secure = true,
+			SameSite = SameSiteMode.Strict,
+			Expires = DateTime.UtcNow.AddDays(10)
+		});
 	}
 
 	[HttpPost]
@@ -54,8 +54,12 @@ public class AdminController : ControllerBase
 		try
 		{
 			loginData.Validation();
+
 			var token = await _adminService.LoginAsync(loginData);
-			return Ok(token);
+
+			SetAuthCookies(token);
+
+			return Ok();
 		}
 		catch (CustomException ex)
 		{
@@ -74,9 +78,51 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.LogoutAsync(jwtToken);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId))
+			{
+				return Unauthorized();
+			}
+
+			if (!(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _tokenService.InvalidateSessionAdminAsync(sessionId);
+			Response.Cookies.Delete("access_token");
+			Response.Cookies.Delete("session_id");
+
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("registration")]
+	public async Task<IActionResult> Registration([FromBody] AdminRegistrationDTO loginData)
+	{
+		try
+		{
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			loginData.Validation();
+			await _adminService.CreateAccount(_currentUser.UserId, loginData);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -96,9 +142,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var users = await _adminService.UsersListAsync(jwtToken, num, page, sort, name, mail, rolesIds);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var users = await _adminService.UsersListAsync(_currentUser.UserId, num, page, sort, name, mail, rolesIds);
 			return Ok(users);
 		}
 		catch (CustomException ex)
@@ -118,9 +169,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var channels = await _adminService.DeletedChannelsListAsync(jwtToken, num, page);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var channels = await _adminService.DeletedChannelsListAsync(_currentUser.UserId, num, page);
 			return Ok(channels);
 		}
 		catch (CustomException ex)
@@ -140,9 +196,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.RewiveDeletedChannel(jwtToken, data.Id);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.RewiveDeletedChannel(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -162,9 +223,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var list = await _adminService.RolesFullListAsync(jwtToken);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var list = await _adminService.RolesFullListAsync(_currentUser.UserId);
 			return Ok(list);
 		}
 		catch (CustomException ex)
@@ -184,9 +250,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var list = await _adminService.RolesShortListAsync(jwtToken, name);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var list = await _adminService.RolesShortListAsync(_currentUser.UserId, name);
 			return Ok(list);
 		}
 		catch (CustomException ex)
@@ -206,9 +277,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.CreateSystemRoleAsync(jwtToken, data.Id, data.Name);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.CreateSystemRoleAsync(_currentUser.UserId, data.Id, data.Name);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -228,9 +304,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.RenameSystemRoleAsync(jwtToken, data.Id, data.Name);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.RenameSystemRoleAsync(_currentUser.UserId, data.Id, data.Name);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -250,9 +331,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.DeleteSystemRoleAsync(jwtToken, data.Id);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.DeleteSystemRoleAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -272,9 +358,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.AddSystemRoleAsync(jwtToken, data.RoleId, data.UsersIds);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.AddSystemRoleAsync(_currentUser.UserId, data.RoleId, data.UsersIds);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -294,9 +385,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.RemoveSystemRoleAsync(jwtToken, data.RoleId, data.UserId);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.RemoveSystemRoleAsync(_currentUser.UserId, data.RoleId, data.UserId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -316,8 +412,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var file = await _adminService.GetIconAsync(jwtToken, fileId);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var file = await _adminService.GetIconAsync(_currentUser.UserId, fileId);
 			return Ok(file);
 		}
 		catch (CustomException ex)
@@ -337,9 +439,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var operations = await _adminService.GetOperationHistoryAsync(jwtToken, num, page);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var operations = await _adminService.GetOperationHistoryAsync(_currentUser.UserId, num, page);
 			return Ok(operations);
 		}
 		catch (CustomException ex)
@@ -359,9 +466,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChangeUserPasswordAsync(jwtToken, data.UserId, data.Password);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChangeUserPasswordAsync(_currentUser.UserId, data.UserId, data.Password);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -381,9 +493,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var servers = await _adminService.GetServersListAsync(jwtToken, num, page, name);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var servers = await _adminService.GetServersListAsync(_currentUser.UserId, num, page, name);
 			return Ok(servers);
 		}
 		catch (CustomException ex)
@@ -403,9 +520,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var serverInfo = await _adminService.GetServerDataAsync(jwtToken, ServerId);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var serverInfo = await _adminService.GetServerDataAsync(_currentUser.UserId, ServerId);
 			return Ok(serverInfo);
 		}
 		catch (CustomException ex)
@@ -425,10 +547,15 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
 			data.Validation();
-			await _adminService.AddUserAsync(jwtToken, data.Mail, data.Name, data.Password, data.IconFile);
+			await _adminService.AddUserAsync(_currentUser.UserId, data.Mail, data.Name, data.Password, data.IconFile);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -448,9 +575,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChangeUserIconAdminAsync(jwtToken, data.UserId, data.IconFile);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChangeUserIconAdminAsync(_currentUser.UserId, data.UserId, data.IconFile);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -470,9 +602,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.DeleteUserIconAdminAsync(jwtToken, data.Id);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.DeleteUserIconAdminAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -492,10 +629,15 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
 			newUserData.Validation();
-			await _adminService.ChangeUserDataAsync(jwtToken, newUserData.UserId, newUserData.Mail, newUserData.Name);
+			await _adminService.ChangeUserDataAsync(_currentUser.UserId, newUserData.UserId, newUserData.Mail, newUserData.Name);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -515,9 +657,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.DeleteUserAsync(jwtToken, data.Id);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.DeleteUserAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -541,9 +688,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChangeServerDataAsync(jwtToken, data.ServerId, data.Name, data.ServerType, data.IsClosed, data.NewCreatorId);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChangeServerDataAsync(_currentUser.UserId, data.ServerId, data.Name, data.ServerType, data.IsClosed, data.NewCreatorId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -555,6 +707,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPut]
 	[Route("server/icon")]
@@ -562,9 +715,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChangeServerIconAdminAsync(jwtToken, data.ServerId, data.Icon);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChangeServerIconAdminAsync(_currentUser.UserId, data.ServerId, data.Icon);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -576,6 +734,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpDelete]
 	[Route("server/icon")]
@@ -583,9 +742,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.DeleteServerIconAdminAsync(jwtToken, data.Id);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.DeleteServerIconAdminAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -597,6 +761,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPost]
 	[Route("server/role/create")]
@@ -604,9 +769,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var newRole = await _adminService.CreateRoleAdminAsync(jwtToken, data.ServerId, data.Name, data.Color);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var newRole = await _adminService.CreateRoleAdminAsync(_currentUser.UserId, data.ServerId, data.Name, data.Color);
 			return Ok(newRole);
 		}
 		catch (CustomException ex)
@@ -618,6 +788,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpDelete]
 	[Route("server/role/create")]
@@ -625,9 +796,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.DeleteRoleAdminAsync(jwtToken, data.ServerId, data.RoleId);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.DeleteRoleAdminAsync(_currentUser.UserId, data.ServerId, data.RoleId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -639,6 +815,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPut]
 	[Route("server/role/update")]
@@ -646,9 +823,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.UpdateRoleAsync(jwtToken, data.ServerId, data.RoleId, data.Name, data.Color);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.UpdateRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Name, data.Color);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -660,6 +842,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpGet]
 	[Route("server/role/updatesttings")]
@@ -667,9 +850,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChangeRoleSettingsAdminAsync(jwtToken, data.ServerId, data.RoleId, data.Setting, data.Add);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChangeRoleSettingsAdminAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Setting, data.Add);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -681,6 +869,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpDelete]
 	[Route("server/user/delete")]
@@ -688,9 +877,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.DeleteUserFromServerAdminAsync(jwtToken, data.ServerId, data.UserId);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.DeleteUserFromServerAdminAsync(_currentUser.UserId, data.ServerId, data.UserId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -702,6 +896,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPut]
 	[Route("server/user/name")]
@@ -709,9 +904,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChangeUserNameAdminAsync(data.ServerId, jwtToken, data.UserId, data.Name);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChangeUserNameAdminAsync(data.ServerId, _currentUser.UserId, data.UserId, data.Name);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -723,6 +923,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPost]
 	[Route("server/user/addrole")]
@@ -730,9 +931,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.AddRoleToUserAdminAsync(jwtToken, data.ServerId, data.UserId, data.Role);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.AddRoleToUserAdminAsync(_currentUser.UserId, data.ServerId, data.UserId, data.Role);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -744,6 +950,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpDelete]
 	[Route("server/user/removerole")]
@@ -751,9 +958,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.RemoveRoleFromUserAdminAsync(jwtToken, data.ServerId, data.UserId, data.Role);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.RemoveRoleFromUserAdminAsync(_currentUser.UserId, data.ServerId, data.UserId, data.Role);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -765,6 +977,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPost]
 	[Route("server/channel/add")]
@@ -772,9 +985,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.CreateChannelAdminAsync(channelData.ServerId, jwtToken, channelData.Name, channelData.ChannelType, channelData.MaxCount);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.CreateChannelAdminAsync(channelData.ServerId, _currentUser.UserId, channelData.Name, channelData.ChannelType, channelData.MaxCount);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -786,6 +1004,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpGet]
 	[Route("server/channel/remove")]
@@ -793,9 +1012,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.DeleteChannelAdminAsync(data.Id, jwtToken);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.DeleteChannelAdminAsync(data.Id, _currentUser.UserId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -807,6 +1031,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPut]
 	[Route("server/channel/name")]
@@ -814,9 +1039,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChnageChannnelNameAdminAsync(jwtToken, data.Id, data.Name, data.Number);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChnageChannnelNameAdminAsync(_currentUser.UserId, data.Id, data.Name, data.Number);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -828,6 +1058,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPut]
 	[Route("settings/change/voice")]
@@ -835,9 +1066,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChangeVoiceChannelSettingsAdminAsync(jwtToken, channelRoleData);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChangeVoiceChannelSettingsAdminAsync(_currentUser.UserId, channelRoleData);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -849,6 +1085,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPut]
 	[Route("settings/change/text")]
@@ -856,9 +1093,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChangeTextChannelSettingsAdminAsync(jwtToken, channelRoleData);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChangeTextChannelSettingsAdminAsync(_currentUser.UserId, channelRoleData);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -870,6 +1112,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPut]
 	[Route("settings/change/notification")]
@@ -877,9 +1120,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.ChangeNotificationChannelSettingsAdminAsync(jwtToken, channelRoleData);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.ChangeNotificationChannelSettingsAdminAsync(_currentUser.UserId, channelRoleData);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -891,6 +1139,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpPost]
 	[Route("server/preset/add")]
@@ -898,9 +1147,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			var preset = await _adminService.CreatePresetAdminAsync(jwtToken, data.ServerId, data.ServerRoleId, data.SystemRoleId);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			var preset = await _adminService.CreatePresetAdminAsync(_currentUser.UserId, data.ServerId, data.ServerRoleId, data.SystemRoleId);
 			return Ok(preset);
 		}
 		catch (CustomException ex)
@@ -912,6 +1166,7 @@ public class AdminController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
 	[Authorize]
 	[HttpDelete]
 	[Route("server/preset/remove")]
@@ -919,9 +1174,14 @@ public class AdminController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			if (jwtToken == null || jwtToken == "") return Unauthorized();
-			await _adminService.DeletePresetAdminAsync(jwtToken, data.ServerId, data.ServerRoleId, data.SystemRoleId);
+			var accessToken = Request.Cookies["access_token"];
+			var sessionId = Request.Cookies["session_id"];
+			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(sessionId) || !(await _tokenService.CheckAdminAuthAsync(sessionId, accessToken)))
+			{
+				return Unauthorized();
+			}
+
+			await _adminService.DeletePresetAdminAsync(_currentUser.UserId, data.ServerId, data.ServerRoleId, data.SystemRoleId);
 			return Ok();
 		}
 		catch (CustomException ex)
