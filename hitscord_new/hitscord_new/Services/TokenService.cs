@@ -16,13 +16,11 @@ namespace hitscord.Services;
 public class TokenService: ITokenService
 {
     private readonly IConfiguration _configuration;
-    private readonly TokenContext _tokenContext;
     private readonly HitsContext _hitsContext;
 	private readonly IRedisSessionService _sessionService;
 
-	public TokenService(TokenContext tokenContext, HitsContext hitsContext, IConfiguration configuration, IRedisSessionService sessionService)
+	public TokenService(HitsContext hitsContext, IConfiguration configuration, IRedisSessionService sessionService)
     {
-        _tokenContext = tokenContext ?? throw new ArgumentNullException(nameof(tokenContext));
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _configuration = configuration;
 		_sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
