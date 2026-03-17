@@ -56,7 +56,6 @@ builder.Services.AddDbContext<HitsContext>(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpContextAccessor();
 

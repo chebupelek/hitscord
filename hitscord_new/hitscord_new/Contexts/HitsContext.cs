@@ -334,7 +334,7 @@ namespace hitscord.Contexts
 					.OnDelete(DeleteBehavior.Cascade);
 			});
 
-			modelBuilder.Entity<ChannelVariantUserDbModel>(entity =>
+			modelBuilder.Entity<ChatVariantUserDbModel>(entity =>
 			{
 				entity.HasOne(va => va.Variant)
 					.WithMany(vv => vv.UsersVariants)
@@ -345,6 +345,19 @@ namespace hitscord.Contexts
 					.WithMany()
 					.HasForeignKey(vv => vv.UserId)
 					.IsRequired();
+			});
+
+			modelBuilder.Entity<ChatMessageReactionDbModel>(entity =>
+			{
+				entity.HasOne(f => f.ChatMessage)
+					.WithMany(cm => cm.Reactions)
+					.HasForeignKey(f => f.ChatMessageId)
+					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(f => f.Author)
+					.WithMany()
+					.HasForeignKey(f => f.AuthorId)
+					.OnDelete(DeleteBehavior.SetNull);
 			});
 
 			modelBuilder.Entity<NonNotifiableChannelDbModel>(entity =>
