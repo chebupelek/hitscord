@@ -34,7 +34,7 @@ public class AdminController : ControllerBase
 		{
 			HttpOnly = true,
 			Secure = true,
-			SameSite = SameSiteMode.Strict,
+			SameSite = SameSiteMode.None,
 			Expires = DateTime.UtcNow.AddMinutes(15)
 		});
 
@@ -42,7 +42,7 @@ public class AdminController : ControllerBase
 		{
 			HttpOnly = true,
 			Secure = true,
-			SameSite = SameSiteMode.Strict,
+			SameSite = SameSiteMode.None,
 			Expires = DateTime.UtcNow.AddDays(10)
 		});
 	}
