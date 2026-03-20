@@ -18,8 +18,24 @@
       "DocumentGroups": [
         {
           "DockedWidth": 25,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 4,
           "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:2:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:1:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{e1b7d1f8-9b3c-49b1-8f4f-bfc63a88835d}"
+            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -28,7 +44,7 @@
               "RelativeDocumentMoniker": "hitscord_new\\appsettings.json",
               "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\appsettings.json",
               "RelativeToolTip": "hitscord_new\\appsettings.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAACEAAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB0AAAAZAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
               "WhenOpened": "2026-03-20T15:22:59.639Z",
               "EditorCaption": ""
@@ -45,22 +61,6 @@
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-03-20T15:20:41.03Z",
               "EditorCaption": ""
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:2:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:1:0:{6bf11835-8a31-496c-b01e-94f731afc7ce}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{e1b7d1f8-9b3c-49b1-8f4f-bfc63a88835d}"
             }
           ]
         }
