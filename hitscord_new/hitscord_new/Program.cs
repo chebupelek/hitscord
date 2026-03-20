@@ -43,7 +43,9 @@ string dbNameFirst = builder.Configuration["DB_NAME_FIRST"]!;
 string dbNameSecond = builder.Configuration["DB_NAME_SECOND"]!;
 var redisHost = builder.Configuration["REDIS_HOST"] ?? "localhost";
 var redisPort = builder.Configuration["REDIS_PORT"] ?? "6379";
-var redisConnString = $"{redisHost}:{redisPort}";
+var redisPassword = builder.Configuration["REDIS_PASSWORD"] ?? "";
+
+var redisConnString = $"{redisHost}:{redisPort},password={redisPassword}";
 
 string roomConn =
 	$"Host={dbHost};Database={dbNameFirst};Username={dbUser};Password={dbPassword};";
