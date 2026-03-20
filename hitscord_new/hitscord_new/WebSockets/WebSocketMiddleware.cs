@@ -25,7 +25,7 @@ public class WebSocketMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-		if (!context.WebSockets.IsWebSocketRequest)
+		if (!context.WebSockets.IsWebSocketRequest || context.Request.Path != "/api/wss")
 		{
 			await _next(context);
 			return;
