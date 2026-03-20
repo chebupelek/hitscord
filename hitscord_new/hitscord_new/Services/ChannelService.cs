@@ -1463,182 +1463,181 @@ public class ChannelService : IChannelService
 			throw new CustomException("User is not subscriber of this server", "Get channel messages", "User", 404, "Пользователь не является подписчиком сервера", "Получение списка сообщений канала");
 		}
 
-		if (!(((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && !(((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.Use)))
+		var rights = (ChannelRights)userSub.ChannelRights;
+		if (!rights.HasFlag(ChannelRights.See) && !rights.HasFlag(ChannelRights.Use))
 		{
 			throw new CustomException("User has no access to see this channel", "Get channel messages", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Получение списка сообщений канала");
 		}
 
-		var userRoleIds = await _hitsContext.SubscribeRole
+		var userRoleIds = (await _hitsContext.SubscribeRole
 			.Where(sr => sr.UserServer.UserId == UserId && sr.UserServer.ServerId == channel.ServerId)
 			.Select(sr => sr.RoleId)
+			.ToListAsync())
+			.ToHashSet();
+
+		var baseMessageQuery = _hitsContext.ChannelMessage
+			.AsNoTracking()
+			.Where(m => m.TextChannelId == channelId && m.DeleteTime == null);
+
+		var messagesQuery = down
+			? baseMessageQuery.Where(m => m.Id >= fromMessageId).OrderBy(m => m.Id)
+			: baseMessageQuery.Where(m => m.Id <= fromMessageId).OrderByDescending(m => m.Id);
+
+		var messagesFresh = await messagesQuery
+			.Take(number)
+			.Select(m => new
+			{
+				Entity = m,
+				Classic = m as ClassicChannelMessageDbModel,
+				Vote = m as ChannelVoteDbModel,
+				m.Reactions
+			})
 			.ToListAsync();
 
-		var messagesCount = await _hitsContext.ChannelMessage.CountAsync(m => m.TextChannelId == channel.Id);
+		if (!down)
+		{
+			messagesFresh.Reverse();
+		}
 
-		var messagesFresh = down == true
-			?
-				await _hitsContext.ChannelMessage
-				.Where(m => m.TextChannelId == channelId && m.DeleteTime == null && m.Id >= fromMessageId)
-				.Include(m => (m as ChannelVoteDbModel)!.Variants!)
-				.Include(m => (m as ClassicChannelMessageDbModel)!.Files)
-				.Include(m => m.Reactions)
-				.OrderBy(m => m.Id)
-				.Take(number)
-				.ToListAsync()
-			:
-				await _hitsContext.ChannelMessage
-				.Where(m => m.TextChannelId == channelId && m.DeleteTime == null && m.Id <= fromMessageId)
-				.Include(m => (m as ChannelVoteDbModel)!.Variants!)
-				.Include(m => (m as ClassicChannelMessageDbModel)!.Files)
-				.Include(m => m.Reactions)
-				.OrderByDescending(m => m.Id)
-				.Take(number)
-				.OrderBy(m => m.Id)
-				.ToListAsync();
-
-		var replies = messagesFresh.Select(mf => mf.ReplyToMessageId).ToList();
-		var repliesFresh = await _hitsContext.ChannelMessage
-				.Where(m => replies.Contains(m.Id) && m.TextChannelId == channelId)
-				.ToListAsync();
-
-		var variantIds = messagesFresh
-			.OfType<ChannelVoteDbModel>()
-			.SelectMany(v => v.Variants)
-			.Select(variant => variant.Id)
+		var replyIds = messagesFresh
+			.Where(m => m.Entity.ReplyToMessageId != null)
+			.Select(m => m.Entity.ReplyToMessageId!.Value)
+			.Distinct()
 			.ToList();
 
+		var repliesDict = await _hitsContext.ChannelMessage
+			.AsNoTracking()
+			.Where(m => replyIds.Contains(m.Id))
+			.ToDictionaryAsync(m => m.Id);
+
+		var variantIds = messagesFresh
+			.Where(m => m.Vote != null)
+			.SelectMany(m => m.Vote!.Variants.Select(v => v.Id))
+			.ToHashSet();
+
 		var votesByVariantId = await _hitsContext.ChannelVariantUser
-			.Where(vu => variantIds.Contains(vu.VariantId))
-			.GroupBy(vu => vu.VariantId)
+			.AsNoTracking()
+			.Where(v => variantIds.Contains(v.VariantId))
+			.GroupBy(v => v.VariantId)
 			.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
-		var maxId = messagesFresh.Any() ? messagesFresh.Max(m => m.Id) : 0;
-		var minId = messagesFresh.Any() ? messagesFresh.Min(m => m.Id) : 0;
+		var maxId = messagesFresh.Any() ? messagesFresh.Max(m => m.Entity.Id) : 0;
+		var minId = messagesFresh.Any() ? messagesFresh.Min(m => m.Entity.Id) : 0;
 
-		var remainingCount = down ? await _hitsContext.ChannelMessage
-			.Where(m => m.TextChannelId == channelId && m.DeleteTime == null && m.Id > maxId)
-			.CountAsync()
-			:
-			await _hitsContext.ChannelMessage
-			.Where(m => m.TextChannelId == channelId && m.DeleteTime == null && m.Id < minId)
-			.CountAsync();
+		var remainingCount = down
+			? await baseMessageQuery.CountAsync(m => m.Id > maxId)
+			: await baseMessageQuery.CountAsync(m => m.Id < minId);
 
-		var messages = new MessageListResponseDTO
+		var totalCount = await baseMessageQuery.CountAsync();
+
+		var result = new MessageListResponseDTO
 		{
 			Messages = new(),
 			NumberOfMessages = messagesFresh.Count,
-			StartMessageId = messagesFresh.Any() ? messagesFresh.Min(m => m.Id) : 0,
+			StartMessageId = minId,
 			RemainingMessagesCount = remainingCount,
-			AllMessagesCount = messagesCount
+			AllMessagesCount = totalCount
 		};
 
-		foreach (var message in messagesFresh)
+		foreach (var item in messagesFresh)
 		{
-			MessageResponceDTO dto;
+			var message = item.Entity;
 
-			switch (message)
+			repliesDict.TryGetValue(message.ReplyToMessageId ?? 0, out var reply);
+
+			if (item.Classic != null)
 			{
-				case ClassicChannelMessageDbModel classic:
-					dto = new ClassicMessageResponceDTO
+				var classic = item.Classic;
+
+				result.Messages.Add(new ClassicMessageResponceDTO
+				{
+					MessageType = message.MessageType,
+					ServerId = channel.ServerId,
+					ChannelId = classic.TextChannelId,
+					Id = classic.Id,
+					AuthorId = classic.AuthorId,
+					CreatedAt = classic.CreatedAt,
+					Text = classic.Text,
+					ModifiedAt = classic.UpdatedAt,
+					ReplyToMessage = reply != null ? MapReplyToMessage(channel.ServerId, reply) : null,
+					NestedChannel = classic.NestedChannel != null,
+					Files = classic.Files.Select(f => new FileMetaResponseDTO
 					{
-						MessageType = message.MessageType,
-						ServerId = channel.ServerId,
-						ChannelId = classic.TextChannelId,
-						Id = classic.Id,
-						AuthorId = classic.AuthorId,
-						CreatedAt = classic.CreatedAt,
-						Text = classic.Text,
-						ModifiedAt = classic.UpdatedAt,
-						ReplyToMessage = repliesFresh.FirstOrDefault(rf => rf.Id == message.ReplyToMessageId) is { } replyClassicMessage
-							? MapReplyToMessage(channel.ServerId, replyClassicMessage)
-							: null,
-						NestedChannel = classic.NestedChannel == null ? false : true,
-						Files = classic.Files.Select(f => new FileMetaResponseDTO
-						{
-							FileId = f.Id,
-							FileName = f.Name,
-							FileType = f.Type,
-							FileSize = f.Size,
-							Deleted = f.Deleted
-						})
-						.ToList(),
-						Reactions = classic.Reactions.Select(r => new MessageReactionShortDTO
-						{
-							Id = r.Id,
-							AuthorId = r.AuthorId,
-							CreatedAt = r.CreatedAt,
-							ReactionCode = r.ReactionCode
-						}).ToList(),
-						isTagged = message.TaggedUsers.Contains(UserId) || message.TaggedRoles.Any(taggedRoleId => userRoleIds.Contains(taggedRoleId))
-					};
-					break;
-
-				case ChannelVoteDbModel vote:
-					var voteVariantIds = vote.Variants.Select(v => v.Id).ToList();
-
-					var allVotesForThisVote = votesByVariantId
-						.Where(kv => voteVariantIds.Contains(kv.Key))
-						.SelectMany(kv => kv.Value)
-						.ToList();
-
-					var uniqueUserIds = allVotesForThisVote
-						.Select(v => v.UserId)
-						.Distinct()
-						.ToList();
-
-					dto = new VoteResponceDTO
+						FileId = f.Id,
+						FileName = f.Name,
+						FileType = f.Type,
+						FileSize = f.Size,
+						Deleted = f.Deleted
+					}).ToList(),
+					Reactions = item.Reactions.Select(r => new MessageReactionShortDTO
 					{
-						MessageType = message.MessageType,
-						ServerId = channel.ServerId,
-						ChannelId = vote.TextChannelId,
-						Id = vote.Id,
-						AuthorId = vote.AuthorId,
-						CreatedAt = vote.CreatedAt,
-						ReplyToMessage = repliesFresh.FirstOrDefault(rf => rf.Id == message.ReplyToMessageId) is { } replyVoteMessage
-							? MapReplyToMessage(channel.ServerId, replyVoteMessage)
-							: null,
-						Title = vote.Title,
-						Content = vote.Content,
-						IsAnonimous = vote.IsAnonimous,
-						Multiple = vote.Multiple,
-						Deadline = vote.Deadline,
-						TotalUsers = uniqueUserIds.Count,
-						Variants = vote.Variants.Select(variant =>
-							{
-								var votes = votesByVariantId.TryGetValue(variant.Id, out var list) ? list : new List<ChannelVariantUserDbModel>();
-
-								return new VoteVariantResponseDTO
-								{
-									Id = variant.Id,
-									Number = variant.Number,
-									Content = variant.Content,
-									TotalVotes = votes.Count,
-									VotedUserIds = vote.IsAnonimous
-									? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
-										: votes.Select(v => v.UserId).ToList()
-								};
-							})
-							.OrderBy(variant => variant.Number)
-							.ToList(),
-						Reactions = vote.Reactions.Select(r => new MessageReactionShortDTO
-						{
-							Id = r.Id,
-							AuthorId = r.AuthorId,
-							CreatedAt = r.CreatedAt,
-							ReactionCode = r.ReactionCode
-						}).ToList(),
-						isTagged = false
-					};
-					break;
-
-				default:
-					continue;
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					isTagged = message.TaggedUsers.Contains(UserId) || message.TaggedRoles.Any(r => userRoleIds.Contains(r))
+				});
 			}
+			else if (item.Vote != null)
+			{
+				var vote = item.Vote;
 
-			messages.Messages.Add(dto);
+				var voteVariantIds = vote.Variants.Select(v => v.Id).ToList();
+
+				var allVotes = voteVariantIds
+					.Where(votesByVariantId.ContainsKey)
+					.SelectMany(v => votesByVariantId[v])
+					.ToList();
+
+				var uniqueUsers = allVotes.Select(v => v.UserId).Distinct().Count();
+
+				result.Messages.Add(new VoteResponceDTO
+				{
+					MessageType = message.MessageType,
+					ServerId = channel.ServerId,
+					ChannelId = vote.TextChannelId,
+					Id = vote.Id,
+					AuthorId = vote.AuthorId,
+					CreatedAt = vote.CreatedAt,
+					ReplyToMessage = reply != null ? MapReplyToMessage(channel.ServerId, reply) : null,
+					Title = vote.Title,
+					Content = vote.Content,
+					IsAnonimous = vote.IsAnonimous,
+					Multiple = vote.Multiple,
+					Deadline = vote.Deadline,
+					TotalUsers = uniqueUsers,
+					Variants = vote.Variants
+						.Select(variant =>
+						{
+							var votes = votesByVariantId.TryGetValue(variant.Id, out var list)
+								? list
+								: new List<ChannelVariantUserDbModel>();
+
+							return new VoteVariantResponseDTO
+							{
+								Id = variant.Id,
+								Number = variant.Number,
+								Content = variant.Content,
+								TotalVotes = votes.Count,
+								VotedUserIds = vote.IsAnonimous ? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>()) : votes.Select(v => v.UserId).ToList()
+							};
+						})
+						.OrderBy(v => v.Number)
+						.ToList(),
+					Reactions = item.Reactions.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					isTagged = false
+				});
+			}
 		}
 
-		return messages;
+		return result;
 	}
 
 	public async Task<bool> ChangeVoiceChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData)
