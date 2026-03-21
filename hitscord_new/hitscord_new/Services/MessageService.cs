@@ -11,8 +11,8 @@ using hitscord.Models.Sockets;
 using hitscord.nClamUtil;
 using hitscord.Redis.CashedDB;
 using hitscord.Redis.CashedDB.Models;
+using hitscord.SignalR;
 using hitscord.Utils;
-using hitscord.WebSockets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -36,19 +36,19 @@ public class MessageService : IMessageService
 	//private readonly ILogger<MessageService> _logger;
 	private readonly nClamService _clamService;
 	private readonly IChannelService _channelService;
-	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRealtimeService _realtimeService;
 	private readonly MinioService _minioService;
 	private readonly IRedisCacheService _cacheService;
 
 
-	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, /*ILogger<MessageService> logger,*/ nClamService clamService, IChannelService channelService, WebSocketsManager webSocketManager, MinioService minioService, IRedisCacheService cacheService)
+	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, /*ILogger<MessageService> logger,*/ nClamService clamService, IChannelService channelService, IRealtimeService realtimeService, MinioService minioService, IRedisCacheService cacheService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		//_logger = logger;
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 	}
@@ -556,14 +556,14 @@ public class MessageService : IMessageService
 
 		if (onlyAlertedUsers != null && onlyAlertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(response, onlyAlertedUsers, "New message" + where);
+			await _realtimeService.SendToUsers(onlyAlertedUsers, response, "New message" + where);
 		}
 
 		((MessageResponceDTO)response).isTagged = true;
 		if (notificatedUsers != null && notificatedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(response, notificatedUsers, "New message" + where);
-			await _webSocketManager.BroadcastMessageAsync(response, notificatedUsers, "User notified");
+			await _realtimeService.SendToUsers(notificatedUsers, response, "New message" + where);
+			await _realtimeService.SendToUsers(notificatedUsers, response, "User notified");
 		}
 
 		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Channel.Id && lr.UserId == UserId);
@@ -674,17 +674,17 @@ public class MessageService : IMessageService
 
 		if (onlyAlertedUsers != null && onlyAlertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(messageDto, onlyAlertedUsers, "Updated message" + where);
+			await _realtimeService.SendToUsers(onlyAlertedUsers, messageDto, "Updated message" + where);
 		}
 
 		messageDto.isTagged = true;
 		if (notificatedUsers != null && notificatedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(messageDto, notificatedUsers, "Updated message" + where);
+			await _realtimeService.SendToUsers(notificatedUsers, messageDto, "Updated message" + where);
 		}
 	}
 
-	public async Task DeleteMessageWebsocketAsync(long messageId, Guid channelId, Guid UserId)
+	public async Task<(object response, string responseMessage)> DeleteMessageWebsocketAsync(long messageId, Guid channelId, Guid UserId)
 	{
 		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistAsync(channelId);
 
@@ -729,22 +729,6 @@ public class MessageService : IMessageService
 		_hitsContext.ChannelMessage.Update(message);
 		await _hitsContext.SaveChangesAsync();
 
-		var alertedUsers = await _hitsContext.UserServer
-			.Include(u => u.User)
-			.Include(u => u.SubscribeRoles)
-				.ThenInclude(sr => sr.Role)
-					.ThenInclude(r => r.ChannelCanSee)
-			.Include(u => u.SubscribeRoles)
-				.ThenInclude(sr => sr.Role)
-					.ThenInclude(r => r.ChannelCanUse)
-			.Where(u =>
-				u.SubscribeRoles.Any(sr =>
-					sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == channel.Id) ||
-					sr.Role.ChannelCanUse.Any(ccu => ccu.SubChannelId == channel.Id)
-				))
-			.Select(u => u.UserId)
-			.ToListAsync();
-
 		var where = channelType switch
 		{
 			ChannelTypeEnum.Text => " in text channel",
@@ -759,13 +743,11 @@ public class MessageService : IMessageService
 			ChannelId = (Guid)message.TextChannelId,
 			MessageId = message.Id
 		};
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Deleted message" + where);
-		}
 
-		
+		return (messageDto, "Deleted message" + where);
 	}
+
+
 
 	public async Task CreateMessageToChatWebsocketAsync(CreateMessageSocketDTO Content, Guid UserId)
 	{
@@ -992,7 +974,7 @@ public class MessageService : IMessageService
 				{
 					((MessageResponceDTO)response).isTagged = false;
 				}
-				await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { alertedUser }, "New message in chat");
+				await _realtimeService.SendToUsers(new List<Guid> { alertedUser }, response, "New message in chat");
 			}
 		}
 
@@ -1000,7 +982,7 @@ public class MessageService : IMessageService
 
 		if (notifiedUsers != null && notifiedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(response, notifiedUsers, "User notified in chat");
+			await _realtimeService.SendToUsers(notifiedUsers, response, "User notified in chat");
 		}
 
 		var lastRead = await _hitsContext.LastReadChatMessage.FirstOrDefaultAsync(lr => lr.ChatId == chat.Id && lr.UserId == UserId);
@@ -1102,12 +1084,12 @@ public class MessageService : IMessageService
 				{
 					messageDto.isTagged = false;
 				}
-				await _webSocketManager.BroadcastMessageAsync(messageDto, new List<Guid> { alertedUser }, "Updated message in chat");
+				await _realtimeService.SendToUsers(new List<Guid> { alertedUser }, messageDto, "Updated message in chat");
 			}
 		}
 	}
 
-	public async Task DeleteMessageInChatWebsocketAsync(long messageId, Guid chatId, Guid UserId)
+	public async Task<object> DeleteMessageInChatWebsocketAsync(long messageId, Guid chatId, Guid UserId)
 	{
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == chatId);
 		if (chat == null)
@@ -1135,12 +1117,10 @@ public class MessageService : IMessageService
 			ChatId = (Guid)message.ChatId,
 			MessageId = message.Id
 		};
-		var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == chat.Id).Select(us => us.UserId).ToListAsync();
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(messageDto, alertedUsers, "Deleted message in chat");
-		}
+
+		return messageDto;
 	}
+
 
 
 	public async Task VoteAsync(Guid UserId, bool channel, Guid variantId)
@@ -1273,26 +1253,7 @@ public class MessageService : IMessageService
 				_ => ""
 			};
 
-			var alertedUsers = await _hitsContext.UserServer
-				.Include(u => u.User)
-				.Include(u => u.SubscribeRoles)
-					.ThenInclude(sr => sr.Role)
-						.ThenInclude(r => r.ChannelCanSee)
-				.Include(u => u.SubscribeRoles)
-					.ThenInclude(sr => sr.Role)
-						.ThenInclude(r => r.ChannelCanUse)
-				.Where(u =>
-					u.SubscribeRoles.Any(sr =>
-						sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == variant.TextChannelId) ||
-						sr.Role.ChannelCanUse.Any(ccu => ccu.SubChannelId == variant.TextChannelId)
-					))
-				.Select(u => u.UserId)
-				.ToListAsync();
-
-			if (alertedUsers != null && alertedUsers.Count() > 0)
-			{
-				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User voted" + where);
-			}
+			await _realtimeService.SendToChannel(variant.TextChannelId, response, "User voted" + where);
 		}
 		else
 		{
@@ -1397,11 +1358,7 @@ public class MessageService : IMessageService
 				isTagged = false
 			};
 
-			var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == variant.ChatId).Select(us => us.UserId).ToListAsync();
-			if (alertedUsers != null && alertedUsers.Count() > 0)
-			{
-				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User voted in chat");
-			}
+			await _realtimeService.SendToChat(variant.ChatId, response, "User voted in chat");
 		}
 	}
 
@@ -1519,26 +1476,7 @@ public class MessageService : IMessageService
 				_ => ""
 			};
 
-			var alertedUsers = await _hitsContext.UserServer
-				.Include(u => u.User)
-				.Include(u => u.SubscribeRoles)
-					.ThenInclude(sr => sr.Role)
-						.ThenInclude(r => r.ChannelCanSee)
-				.Include(u => u.SubscribeRoles)
-					.ThenInclude(sr => sr.Role)
-						.ThenInclude(r => r.ChannelCanUse)
-				.Where(u =>
-					u.SubscribeRoles.Any(sr =>
-						sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == channelVariant.TextChannelId) ||
-						sr.Role.ChannelCanUse.Any(ccu => ccu.SubChannelId == channelVariant.TextChannelId)
-					))
-				.Select(u => u.UserId)
-				.ToListAsync();
-
-			if (alertedUsers != null && alertedUsers.Count() > 0)
-			{
-				await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User unvoted" + where);
-			}
+			await _realtimeService.SendToChannel(channelVariant.TextChannelId, response, "User unvoted" + where);
 
 			return;
 		}
@@ -1636,11 +1574,7 @@ public class MessageService : IMessageService
 					isTagged = false
 				};
 
-				var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == variant.ChatId).Select(us => us.UserId).ToListAsync();
-				if (alertedUsers != null && alertedUsers.Count() > 0)
-				{
-					await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "User unvoted in chat");
-				}
+				await _realtimeService.SendToChat(variant.ChatId, response, "User unvoted in chat");
 			}
 
 			return;
@@ -1828,7 +1762,7 @@ public class MessageService : IMessageService
 	}
 
 
-	public async Task AddReactionChannelAsync(Guid UserId, Guid ChannelId, long MessageId, string ReactionCode)
+	public async Task<(object response, string message)> AddReactionChannelAsync(Guid UserId, Guid ChannelId, long MessageId, string ReactionCode)
 	{
 		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistWithTypeAsync(ChannelId);
 
@@ -1883,15 +1817,10 @@ public class MessageService : IMessageService
 			_ => ""
 		};
 
-		var alertedUsers = await _cacheService.GetChannelToUserListFullAsync(channel.Channel.Id) ?? new List<Guid>();
-
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Added reaction" + where);
-		}
+		return (response, "Added reaction" + where);
 	}
 
-	public async Task AddReactionChatAsync(Guid UserId, Guid ChatId, long MessageId, string ReactionCode)
+	public async Task<object> AddReactionChatAsync(Guid UserId, Guid ChatId, long MessageId, string ReactionCode)
 	{
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == ChatId);
 		if (chat == null)
@@ -1934,15 +1863,10 @@ public class MessageService : IMessageService
 			ReactionCode = newReaction.ReactionCode
 		};
 
-		var alertedUsers = chat.Users.Select(cu => cu.UserId).ToList();
-
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Added reaction in chat");
-		}
+		return response;
 	}
 
-	public async Task RemoveReactionChannelAsync(Guid UserId, Guid ChannelId, Guid ReactionId)
+	public async Task<(object response, string message)> RemoveReactionChannelAsync(Guid UserId, Guid ChannelId, Guid ReactionId)
 	{
 		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistWithTypeAsync(ChannelId);
 
@@ -1985,15 +1909,10 @@ public class MessageService : IMessageService
 			_ => ""
 		};
 
-		var alertedUsers = await _cacheService.GetChannelToUserListFullAsync(channel.Channel.Id) ?? new List<Guid>();
-
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Removed reaction" + where);
-		}
+		return (response, "Removed reaction" + where);
 	}
 
-	public async Task RemoveReactionChatAsync(Guid UserId, Guid ChatId, Guid ReactionId)
+	public async Task<object> RemoveReactionChatAsync(Guid UserId, Guid ChatId, Guid ReactionId)
 	{
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == ChatId);
 		if (chat == null)
@@ -2024,12 +1943,7 @@ public class MessageService : IMessageService
 			ReactionCode = reaction.ReactionCode
 		};
 
-		var alertedUsers = chat.Users.Select(cu => cu.UserId).ToList();
-
-		if (alertedUsers != null && alertedUsers.Count() > 0)
-		{
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Removed reaction in chat");
-		}
+		return response;
 	}
 
 

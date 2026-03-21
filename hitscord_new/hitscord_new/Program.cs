@@ -9,13 +9,14 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using hitscord.Utils;
 using Microsoft.AspNetCore.HttpOverrides;
-using hitscord.WebSockets;
 using Quartz;
 using hitscord.nClamUtil;
 using hitscord.Models.db;
 using StackExchange.Redis;
 using hitscord.Redis.Sessions;
 using hitscord.Redis.CashedDB;
+using Microsoft.AspNetCore.SignalR;
+using hitscord.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -63,6 +64,11 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddHttpClient();
 
+builder.Services.AddSignalR();
+
+builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
+builder.Services.AddScoped<IRealtimeService, RealtimeService>();
+
 builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IChatService, ChatService>();
@@ -99,10 +105,6 @@ builder.Services.Configure<MinioSettings>(options =>
 
 builder.Services.AddSingleton<MinioService>();
 
-builder.Services.AddSingleton<WebSocketConnectionStore>();
-builder.Services.AddScoped<WebSocketsManager>();
-builder.Services.AddScoped<WebSocketHandler>();
-
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "defaultSecretTooShort";
 builder.Services.AddAuthentication(opt => {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -131,6 +133,16 @@ builder.Services.AddAuthentication(opt => {
 				if (!string.IsNullOrEmpty(token))
 				{
 					context.Token = token;
+				}
+
+				if (string.IsNullOrEmpty(context.Token))
+				{
+					var accessToken = context.Request.Query["access_token"];
+
+					if (!string.IsNullOrEmpty(accessToken))
+					{
+						context.Token = accessToken;
+					}
 				}
 
 				return Task.CompletedTask;
@@ -263,9 +275,10 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 
 app.UseWebSockets();
-app.UseMiddleware<WebSocketMiddleware>();
 
 app.MapGet("/", () => "WebSocket server is running!");
+
+app.MapHub<ChatHub>("/ws");
 
 app.UseSwagger();
 app.UseSwaggerUI();
