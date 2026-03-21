@@ -16,8 +16,6 @@ services:
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     restart: unless-stopped
-    ports:
-      - "5000:80"
     networks:
       - hitscord_network
 
@@ -37,8 +35,6 @@ services:
   clamav:
     image: clamav/clamav:latest
     restart: always
-    ports:
-      - "3310:3310"
     networks:
       - hitscord_network
 
@@ -50,8 +46,6 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -91,9 +85,6 @@ services:
       MINIO_ROOT_USER: ${MINIO_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
     command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     volumes:
       - minio_data:/data
     networks:
