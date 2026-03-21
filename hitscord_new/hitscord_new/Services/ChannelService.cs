@@ -2201,7 +2201,7 @@ public class ChannelService : IChannelService
 
 	public async Task RemoveChannels()
 	{
-		var now = DateTime.Now;
+		var now = DateTime.UtcNow;
 
 		var channels = await _hitsContext.TextChannel.Where(c =>
 				c.DeleteTime != null
