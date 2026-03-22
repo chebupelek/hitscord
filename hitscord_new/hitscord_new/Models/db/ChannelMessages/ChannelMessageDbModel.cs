@@ -30,6 +30,8 @@ public class ChannelMessageDbModel
 
     public DateTime? DeleteTime { get; set; }
 
+	public ICollection<ChannelMessageReactionDbModel> Reactions { get; set; }
+
 	[NotMapped]
 	private string? _messageType;
 
