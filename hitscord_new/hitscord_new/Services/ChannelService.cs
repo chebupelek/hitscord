@@ -13,6 +13,7 @@ using System.Threading.Channels;
 using System.Collections.Immutable;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using hitscord.Utils;
+using Minio.DataModel;
 
 namespace hitscord.Services;
 
@@ -1154,6 +1155,7 @@ public class ChannelService : IChannelService
 				.Include(m => (m as ChannelVoteDbModel)!.Variants!)
 				.Include(m => (m as ClassicChannelMessageDbModel)!.NestedChannel)
 				.Include(m => (m as ClassicChannelMessageDbModel)!.Files)
+				.Include(m => m.Reactions)
 				.Where(m => m.TextChannelId == channelId && m.DeleteTime == null && m.Id >= fromMessageId)
 				.OrderBy(m => m.Id)
 				.Take(number)
@@ -1163,6 +1165,7 @@ public class ChannelService : IChannelService
 				.Include(m => (m as ChannelVoteDbModel)!.Variants!)
 				.Include(m => (m as ClassicChannelMessageDbModel)!.NestedChannel)
 				.Include(m => (m as ClassicChannelMessageDbModel)!.Files)
+				.Include(m => m.Reactions)
 				.Where(m => m.TextChannelId == channelId && m.DeleteTime == null && m.Id <= fromMessageId)
 				.OrderByDescending(m => m.Id)
 				.Take(number)
@@ -1240,6 +1243,13 @@ public class ChannelService : IChannelService
 							Deleted = f.Deleted
 						})
 						.ToList(),
+						Reactions = classic.Reactions.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						}).ToList(),
 						isTagged = message.TaggedUsers.Contains(user.Id) || message.TaggedRoles.Any(taggedRoleId => userRoleIds.Contains(taggedRoleId))
 					};
 					break;
@@ -1291,6 +1301,13 @@ public class ChannelService : IChannelService
 							})
 							.OrderBy(variant => variant.Number)
 							.ToList(),
+						Reactions = vote.Reactions.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						}).ToList(),
 						isTagged = false
 					};
 					break;

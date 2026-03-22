@@ -322,7 +322,8 @@ public class MessageService : IMessageService
 					TaggedUsers = taggedUsers,
 					TaggedRoles = taggedRoles,
 					Text = Content.Classic.Text,
-					UpdatedAt = null
+					UpdatedAt = null,
+					Reactions = new List<ChannelMessageReactionDbModel>()
 				};
 
 				_hitsContext.ChannelMessage.Add(newMessage);
@@ -356,7 +357,8 @@ public class MessageService : IMessageService
 					IsAnonimous = Content.Vote.IsAnonimous,
 					Multiple = Content.Vote.Multiple,
 					Deadline = Content.Vote.Deadline,
-					Variants = new List<ChannelVoteVariantDbModel>()
+					Variants = new List<ChannelVoteVariantDbModel>(),
+					Reactions = new List<ChannelMessageReactionDbModel>()
 				};
 
 				((ChannelVoteDbModel)newMessage).Variants = Content.Vote.Variants
@@ -422,6 +424,7 @@ public class MessageService : IMessageService
 						FileSize = f.Size,
 						Deleted = f.Deleted
 					}).ToList(),
+					Reactions = new List<MessageReactionShortDTO> (),
 					isTagged = false
 				};
 				break;
@@ -474,6 +477,7 @@ public class MessageService : IMessageService
 						})
 						.OrderBy(variant => variant.Number)
 						.ToList(),
+					Reactions = new List<MessageReactionShortDTO> (),
 					isTagged = false
 				};
 				break;
@@ -636,6 +640,7 @@ public class MessageService : IMessageService
 			.Include(m => m.Files)
 			.Include(m => m.NestedChannel)
 				.ThenInclude(n => n.ChannelCanUse)
+			.Include(m => m.Reactions)
 			.FirstOrDefaultAsync(m => m.Id == messageId && m.TextChannelId == channel.Id);
 		if (message == null)
 		{
@@ -684,6 +689,15 @@ public class MessageService : IMessageService
 				FileSize = f.Size,
 				Deleted = f.Deleted
 			}).ToList(),
+			Reactions = message.Reactions
+				.Select(r => new MessageReactionShortDTO
+				{
+					Id = r.Id,
+					AuthorId = r.AuthorId,
+					CreatedAt = r.CreatedAt,
+					ReactionCode = r.ReactionCode
+				})
+				.ToList(),
 			isTagged = false
 		};
 
@@ -904,7 +918,8 @@ public class MessageService : IMessageService
 					DeleteTime = null,
 					TaggedUsers = taggedUsers,
 					Text = Content.Classic.Text,
-					UpdatedAt = null
+					UpdatedAt = null,
+					Reactions = new List<ChatMessageReactionDbModel> ()
 				};
 
 				_hitsContext.ChatMessage.Add(newMessage);
@@ -932,7 +947,8 @@ public class MessageService : IMessageService
 					IsAnonimous = Content.Vote.IsAnonimous,
 					Multiple = Content.Vote.Multiple,
 					Deadline = Content.Vote.Deadline,
-					Variants = new List<ChatVoteVariantDbModel>()
+					Variants = new List<ChatVoteVariantDbModel>(),
+					Reactions = new List<ChatMessageReactionDbModel>()
 				};
 
 				((ChatVoteDbModel)newMessage).Variants = Content.Vote.Variants
@@ -991,6 +1007,7 @@ public class MessageService : IMessageService
 						FileSize = f.Size,
 						Deleted = f.Deleted
 					}).ToList(),
+					Reactions = new List<MessageReactionShortDTO>(),
 					isTagged = false
 				};
 				break;
@@ -1043,6 +1060,7 @@ public class MessageService : IMessageService
 						})
 						.OrderBy(variant => variant.Number)
 						.ToList(),
+					Reactions = new List<MessageReactionShortDTO>(),
 					isTagged = false
 				};
 
@@ -1120,7 +1138,7 @@ public class MessageService : IMessageService
 			throw new CustomException("User not in chat", "Update normal message in chat", "User Id", 401, "Пользователь не состоит в чате", "Обновление сообщения в чате");
 		}
 
-		var message = await _hitsContext.ClassicChatMessage.Include(m => m.Files).FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
+		var message = await _hitsContext.ClassicChatMessage.Include(m => m.Files).Include(m => m.Reactions).FirstOrDefaultAsync(m => m.Id == messageId && m.ChatId == chatId && m.AuthorId == user.Id);
 		if (message == null)
 		{
 			throw new CustomException("Message not found", "Update normal message in chat", "Normal message", 404, "Сообщение не найдено", "Обновление сообщения в чате");
@@ -1154,6 +1172,15 @@ public class MessageService : IMessageService
 				FileSize = f.Size,
 				Deleted = f.Deleted
 			}).ToList(),
+			Reactions = message.Reactions
+				.Select(r => new MessageReactionShortDTO
+				{
+					Id = r.Id,
+					AuthorId = r.AuthorId,
+					CreatedAt = r.CreatedAt,
+					ReactionCode = r.ReactionCode
+				})
+				.ToList(),
 			isTagged = false
 		};
 
@@ -1222,6 +1249,277 @@ public class MessageService : IMessageService
 	}
 
 
+	public async Task AddReactionChannelAsync(string token, Guid ChannelId, long MessageId, string ReactionCode)
+	{
+		var user = await _authService.GetUserAsync(token);
+
+		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistAsync(ChannelId);
+
+		var userSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanUse)
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Add reaction", "Server id", 403, "Пользователь не является подписчиком сервера", "Добавление реакции");
+		}
+
+		var canSee = userSub.SubscribeRoles
+			.SelectMany(sr => sr.Role.ChannelCanSee)
+			.Any(ccs => ccs.ChannelId == channel.Id);
+		var canUse = userSub.SubscribeRoles
+			.SelectMany(sr => sr.Role.ChannelCanUse)
+			.Any(ccs => ccs.SubChannelId == channel.Id);
+		if (!canSee && !canUse)
+		{
+			throw new CustomException("User has no access to see this channel", "Add reaction", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Добавление реакции");
+		}
+
+		var message = await _hitsContext.ChannelMessage.FirstOrDefaultAsync(cm => cm.TextChannelId == ChannelId && cm.Id == MessageId);
+		if (message == null)
+		{
+			throw new CustomException("Message not found", "Add reaction", "Message", 404, "Сщщбщение не найдено", "Добавление реакции");
+		}
+
+		var reaction = await _hitsContext.ChannelMessageReaction.FirstOrDefaultAsync(cmr => cmr.ChannelMessageId == message.RealId && cmr.AuthorId == user.Id && cmr.ReactionCode == ReactionCode);
+		if (reaction != null)
+		{
+			throw new CustomException("Reaction already added", "Add reaction", "Message", 400, "Реакция уже добавлена", "Добавление реакции");
+		}
+
+		var newReaction = new ChannelMessageReactionDbModel
+		{
+			AuthorId = user.Id,
+			ChannelMessageId = message.RealId,
+			ReactionCode = ReactionCode
+		};
+		await _hitsContext.ChannelMessageReaction.AddAsync(newReaction);
+		await _hitsContext.SaveChangesAsync();
+
+		var response = new ChannelMessageReactionFullDTO
+		{
+			Id = newReaction.Id,
+			ServerId = channel.ServerId,
+			ChannelId = channel.Id,
+			MessageId = message.Id,
+			AuthorId = user.Id,
+			CreatedAt = newReaction.CreatedAt,
+			ReactionCode = newReaction.ReactionCode
+		};
+
+		var channelType = await _channelService.GetChannelType(channel.Id);
+
+		var where = channelType switch
+		{
+			ChannelTypeEnum.Text => " in text channel",
+			ChannelTypeEnum.Notification => " in notification channel",
+			ChannelTypeEnum.Sub => " in sub channel",
+			_ => ""
+		};
+
+		var alertedUsers = await _hitsContext.UserServer
+			.Include(u => u.User)
+			.Include(u => u.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.Include(u => u.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanUse)
+			.Where(u =>
+				u.SubscribeRoles.Any(sr =>
+					sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == channel.Id) ||
+					sr.Role.ChannelCanUse.Any(ccu => ccu.SubChannelId == channel.Id)
+				))
+			.Select(u => u.UserId)
+			.ToListAsync();
+
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Added reaction" + where);
+		}
+	}
+
+	public async Task AddReactionChatAsync(string token, Guid ChatId, long MessageId, string ReactionCode)
+	{
+		var user = await _authService.GetUserAsync(token);
+
+		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == ChatId);
+		if (chat == null)
+		{
+			throw new CustomException("Chat not found", "Add reaction", "Chat id", 404, "Чат не найден", "Добавление реакции");
+		}
+		if (chat.Users.Any(u => u.UserId == user.Id) == false)
+		{
+			throw new CustomException("User not in chat", "Add reaction", "User Id", 403, "Пользователь не состоит в чате", "Добавление реакции");
+		}
+
+		var message = await _hitsContext.ChatMessage.FirstOrDefaultAsync(cm => cm.ChatId == ChatId && cm.Id == MessageId);
+		if (message == null)
+		{
+			throw new CustomException("Message not found", "Add reaction", "Message", 404, "Сщщбщение не найдено", "Добавление реакции");
+		}
+
+		var reaction = await _hitsContext.ChatMessageReaction.FirstOrDefaultAsync(cmr => cmr.ChatMessageId == message.RealId && cmr.AuthorId == user.Id && cmr.ReactionCode == ReactionCode);
+		if (reaction != null)
+		{
+			throw new CustomException("Reaction already added", "Add reaction", "Message", 400, "Реакция уже добавлена", "Добавление реакции");
+		}
+
+		var newReaction = new ChatMessageReactionDbModel
+		{
+			AuthorId = user.Id,
+			ChatMessageId = message.RealId,
+			ReactionCode = ReactionCode
+		};
+		await _hitsContext.ChatMessageReaction.AddAsync(newReaction);
+		await _hitsContext.SaveChangesAsync();
+
+		var response = new ChatMessageReactionFullDTO
+		{
+			Id = newReaction.Id,
+			ChatId = chat.Id,
+			MessageId = message.Id,
+			AuthorId = user.Id,
+			CreatedAt = newReaction.CreatedAt,
+			ReactionCode = newReaction.ReactionCode
+		};
+
+		var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == ChatId).Select(cu => cu.UserId).ToListAsync();
+
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Added reaction in chat");
+		}
+	}
+
+	public async Task RemoveReactionChannelAsync(string token, Guid ChannelId, Guid ReactionId)
+	{
+		var user = await _authService.GetUserAsync(token);
+
+		var channel = await _channelService.CheckTextOrNotificationOrSubChannelExistAsync(ChannelId);
+
+		var userSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanUse)
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == user.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Remove reaction", "Server id", 403, "Пользователь не является подписчиком сервера", "Удаление реакции");
+		}
+
+		var canSee = userSub.SubscribeRoles
+			.SelectMany(sr => sr.Role.ChannelCanSee)
+			.Any(ccs => ccs.ChannelId == channel.Id);
+		var canUse = userSub.SubscribeRoles
+			.SelectMany(sr => sr.Role.ChannelCanUse)
+			.Any(ccs => ccs.SubChannelId == channel.Id);
+		if (!canSee && !canUse)
+		{
+			throw new CustomException("User has no access to see this channel", "Remove reaction", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Удаление реакции");
+		}
+
+		var reaction = await _hitsContext.ChannelMessageReaction.Include(cmr => cmr.ChannelMessage).FirstOrDefaultAsync(cmr => cmr.Id == ReactionId && cmr.AuthorId == user.Id);
+		if (reaction == null)
+		{
+			throw new CustomException("Reaction not found", "Remove reaction", "Message", 404, "Реакция не найдена", "Удаление реакции");
+		}
+
+		_hitsContext.ChannelMessageReaction.Remove(reaction);
+		await _hitsContext.SaveChangesAsync();
+
+		var response = new ChannelMessageReactionFullDTO
+		{
+			Id = reaction.Id,
+			ServerId = channel.ServerId,
+			ChannelId = channel.Id,
+			MessageId = reaction.ChannelMessage.Id,
+			AuthorId = user.Id,
+			CreatedAt = reaction.CreatedAt,
+			ReactionCode = reaction.ReactionCode
+		};
+
+		var channelType = await _channelService.GetChannelType(channel.Id);
+
+		var where = channelType switch
+		{
+			ChannelTypeEnum.Text => " in text channel",
+			ChannelTypeEnum.Notification => " in notification channel",
+			ChannelTypeEnum.Sub => " in sub channel",
+			_ => ""
+		};
+
+		var alertedUsers = await _hitsContext.UserServer
+			.Include(u => u.User)
+			.Include(u => u.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanSee)
+			.Include(u => u.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+					.ThenInclude(r => r.ChannelCanUse)
+			.Where(u =>
+				u.SubscribeRoles.Any(sr =>
+					sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == channel.Id) ||
+					sr.Role.ChannelCanUse.Any(ccu => ccu.SubChannelId == channel.Id)
+				))
+			.Select(u => u.UserId)
+			.ToListAsync();
+
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Removed reaction" + where);
+		}
+	}
+
+	public async Task RemoveReactionChatAsync(string token, Guid ChatId, Guid ReactionId)
+	{
+		var user = await _authService.GetUserAsync(token);
+
+		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == ChatId);
+		if (chat == null)
+		{
+			throw new CustomException("Chat not found", "Remove reaction", "Chat id", 404, "Чат не найден", "Удаление реакции");
+		}
+		if (chat.Users.Any(u => u.UserId == user.Id) == false)
+		{
+			throw new CustomException("User not in chat", "Remove reaction", "User Id", 403, "Пользователь не состоит в чате", "Удаление реакции");
+		}
+
+		var reaction = await _hitsContext.ChatMessageReaction.Include(cmr => cmr.ChatMessage).FirstOrDefaultAsync(cmr => cmr.Id == ReactionId && cmr.AuthorId == user.Id);
+		if (reaction == null)
+		{
+			throw new CustomException("Reaction not found", "Remove reaction", "Message", 400, "Реакция не найдена", "Удаление реакции");
+		}
+
+		_hitsContext.ChatMessageReaction.Remove(reaction);
+		await _hitsContext.SaveChangesAsync();
+
+		var response = new ChatMessageReactionFullDTO
+		{
+			Id = reaction.Id,
+			ChatId = chat.Id,
+			MessageId = reaction.ChatMessage.Id,
+			AuthorId = user.Id,
+			CreatedAt = reaction.CreatedAt,
+			ReactionCode = reaction.ReactionCode
+		};
+
+		var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == ChatId).Select(cu => cu.UserId).ToListAsync();
+
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "Removed reaction in chat");
+		}
+	}
+
+
 	public async Task VoteAsync(string token, bool channel, Guid variantId)
 	{
 		var user = await _authService.GetUserAsync(token);
@@ -1233,6 +1531,8 @@ public class MessageService : IMessageService
 					.ThenInclude(cv => cv.TextChannel)
 				.Include(cvv => cvv.Vote)
 					.ThenInclude(cv => cv.Variants)
+				.Include(cvv => cvv.Vote)
+					.ThenInclude(cv => cv.Reactions)
 				.Include(cvv => cvv.UsersVariants)
 				.FirstOrDefaultAsync(cvv => cvv.Id == variantId);
 
@@ -1334,6 +1634,15 @@ public class MessageService : IMessageService
 					})
 					.OrderBy(variant => variant.Number)
 					.ToList(),
+				Reactions = variant.Vote.Reactions
+					.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					})
+					.ToList(),
 				isTagged = false
 			};
 
@@ -1373,6 +1682,8 @@ public class MessageService : IMessageService
 					.ThenInclude(cv => cv.Chat)
 				.Include(cvv => cvv.Vote)
 					.ThenInclude(cv => cv.Variants)
+				.Include(cvv => cvv.Vote)
+					.ThenInclude(cv => cv.Reactions)
 				.Include(cvv => cvv.UsersVariants)
 				.FirstOrDefaultAsync(cvv => cvv.Id == variantId);
 
@@ -1457,6 +1768,15 @@ public class MessageService : IMessageService
 					})
 					.OrderBy(variant => variant.Number)
 					.ToList(),
+				Reactions = variant.Vote.Reactions
+					.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					})
+					.ToList(),
 				isTagged = false
 			};
 
@@ -1477,6 +1797,8 @@ public class MessageService : IMessageService
 					.ThenInclude(cv => cv.TextChannel)
 				.Include(cvv => cvv.Vote)
 					.ThenInclude(cv => cv.Variants)
+				.Include(cvv => cvv.Vote)
+					.ThenInclude(cv => cv.Reactions)
 				.Include(cvv => cvv.UsersVariants)
 				.FirstOrDefaultAsync(cvv => cvv.Id == variantId);
 
@@ -1564,6 +1886,15 @@ public class MessageService : IMessageService
 					})
 					.OrderBy(variant => variant.Number)
 					.ToList(),
+				Reactions = channelVariant.Vote.Reactions
+					.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					})
+					.ToList(),
 				isTagged = false
 			};
 
@@ -1605,6 +1936,8 @@ public class MessageService : IMessageService
 					.ThenInclude(cv => cv.Chat)
 				.Include(cvv => cvv.Vote)
 					.ThenInclude(cv => cv.Variants)
+				.Include(cvv => cvv.Vote)
+					.ThenInclude(cv => cv.Reactions)
 				.Include(cvv => cvv.UsersVariants)
 				.FirstOrDefaultAsync(cvv => cvv.Id == variantId);
 
@@ -1680,6 +2013,15 @@ public class MessageService : IMessageService
 						})
 						.OrderBy(variant => variant.Number)
 						.ToList(),
+					Reactions = variant.Vote.Reactions
+						.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						})
+						.ToList(),
 					isTagged = false
 				};
 
@@ -1707,6 +2049,7 @@ public class MessageService : IMessageService
 				.Include(cv => cv.Variants)
 				.Include(cvv => cvv.Variants)
 					.ThenInclude(v => v.UsersVariants)
+				.Include(cv => cv.Reactions)
 				.FirstOrDefaultAsync(cvv => cvv.Id == voteId && cvv.TextChannelId == channelId);
 
 			if (vote == null)
@@ -1782,6 +2125,15 @@ public class MessageService : IMessageService
 					})
 					.OrderBy(variant => variant.Number)
 					.ToList(),
+				Reactions = vote.Reactions
+					.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					})
+					.ToList(),
 				isTagged = false
 			};
 
@@ -1793,6 +2145,7 @@ public class MessageService : IMessageService
 				.Include(cv => cv.Chat)
 				.Include(cvv => cvv.Variants)
 					.ThenInclude(v => v.UsersVariants)
+				.Include(cv => cv.Reactions)
 				.FirstOrDefaultAsync(cvv => cvv.Id == voteId && cvv.ChatId == channelId);
 
 			if (vote == null)
@@ -1852,6 +2205,15 @@ public class MessageService : IMessageService
 						};
 					})
 					.OrderBy(variant => variant.Number)
+					.ToList(),
+				Reactions = vote.Reactions
+					.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					})
 					.ToList(),
 				isTagged = false
 			};

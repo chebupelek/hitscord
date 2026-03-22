@@ -23,11 +23,13 @@ namespace hitscord.Contexts
 		public DbSet<SubChannelDbModel> SubChannel { get; set; }
 		public DbSet<PairVoiceChannelDbModel> PairVoiceChannel { get; set; }
 		public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
+
 		public DbSet<ChannelMessageDbModel> ChannelMessage { get; set; }
 		public DbSet<ClassicChannelMessageDbModel> ClassicChannelMessage { get; set; }
 		public DbSet<ChannelVoteDbModel> ChannelVote { get; set; }
 		public DbSet<ChannelVoteVariantDbModel> ChannelVoteVariant { get; set; }
 		public DbSet<ChannelVariantUserDbModel> ChannelVariantUser { get; set; }
+		public DbSet<ChannelMessageReactionDbModel> ChannelMessageReaction { get; set; }
 
 		public DbSet<ChatDbModel> Chat { get; set; }
 		public DbSet<UserChatDbModel> UserChat { get; set; }
@@ -36,6 +38,7 @@ namespace hitscord.Contexts
 		public DbSet<ChatVoteDbModel> ChatVote { get; set; }
 		public DbSet<ChatVoteVariantDbModel> ChatVoteVariant { get; set; }
 		public DbSet<ChatVariantUserDbModel> ChatVariantUser { get; set; }
+		public DbSet<ChatMessageReactionDbModel> ChatMessageReaction { get; set; }
 
 		public DbSet<NonNotifiableChannelDbModel> NonNotifiableChannel { get; set; }
 		public DbSet<LastReadChannelMessageDbModel> LastReadChannelMessage { get; set; }
@@ -266,6 +269,32 @@ namespace hitscord.Contexts
 					.WithMany()
 					.HasForeignKey(vv => vv.UserId)
 					.IsRequired();
+			});
+
+			modelBuilder.Entity<ChatMessageReactionDbModel>(entity =>
+			{
+				entity.HasOne(f => f.ChatMessage)
+					.WithMany(cm => cm.Reactions)
+					.HasForeignKey(f => f.ChatMessageId)
+					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(f => f.Author)
+					.WithMany()
+					.HasForeignKey(f => f.AuthorId)
+					.OnDelete(DeleteBehavior.SetNull);
+			});
+
+			modelBuilder.Entity<ChannelMessageReactionDbModel>(entity =>
+			{
+				entity.HasOne(f => f.ChannelMessage)
+					.WithMany(cm => cm.Reactions)
+					.HasForeignKey(f => f.ChannelMessageId)
+					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(f => f.Author)
+					.WithMany()
+					.HasForeignKey(f => f.AuthorId)
+					.OnDelete(DeleteBehavior.SetNull);
 			});
 
 			modelBuilder.Entity<UserChatDbModel>(entity =>

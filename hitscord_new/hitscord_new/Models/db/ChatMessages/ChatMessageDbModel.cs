@@ -30,6 +30,8 @@ public class ChatMessageDbModel
 
     public DateTime? DeleteTime { get; set; }
 
+	public ICollection<ChatMessageReactionDbModel> Reactions { get; set; }
+
 	public required List<Guid> TaggedUsers { get; set; }
 
 	[NotMapped]

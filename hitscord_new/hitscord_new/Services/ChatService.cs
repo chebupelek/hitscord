@@ -617,6 +617,7 @@ public class ChatService : IChatService
 				.Include(m => m.Author)
 				.Include(m => (m as ChatVoteDbModel)!.Variants!)
 				.Include(m => (m as ClassicChatMessageDbModel)!.Files)
+				.Include(m => m.Reactions)
 				.Where(m => m.ChatId == chat.Id && m.DeleteTime == null && m.Id >= fromMessageId)
 				.OrderBy(m => m.Id)
 				.Take(number)
@@ -626,6 +627,7 @@ public class ChatService : IChatService
 				.Include(m => m.Author)
 				.Include(m => (m as ChatVoteDbModel)!.Variants!)
 				.Include(m => (m as ClassicChatMessageDbModel)!.Files)
+				.Include(m => m.Reactions)
 				.Where(m => m.ChatId == chat.Id && m.DeleteTime == null && m.Id <= fromMessageId)
 				.OrderByDescending(m => m.Id)
 				.Take(number)
@@ -698,6 +700,13 @@ public class ChatService : IChatService
 							Deleted = f.Deleted
 						})
 						.ToList(),
+						Reactions = classic.Reactions.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						}).ToList(),
 						isTagged = message.TaggedUsers.Contains(owner.Id)
 					};
 					break;
@@ -749,6 +758,13 @@ public class ChatService : IChatService
 							})
 							.OrderBy(variant => variant.Number)
 							.ToList(),
+						Reactions = vote.Reactions.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						}).ToList(),
 						isTagged = false
 					};
 					break;

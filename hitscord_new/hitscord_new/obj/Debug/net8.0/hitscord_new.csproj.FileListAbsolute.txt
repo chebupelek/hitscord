@@ -569,3 +569,4 @@ C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Minio.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.IO.Hashing.dll
 C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\System.Reactive.dll
+C:\Users\misti\Documents\GitHub\hitscord\hitscord_new\hitscord_new\bin\Debug\net8.0\Serilog.Sinks.Grafana.Loki.dll

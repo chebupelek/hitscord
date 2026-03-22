@@ -91,6 +91,25 @@ public class WebSocketHandler
 					}
 					break;
 
+				case "Add reaction":
+					var newReaction = System.Text.Json.JsonSerializer.Deserialize<AddReaction>(json);
+					//_logger.LogInformation("new message", newMessage);
+					if (newReaction != null)
+					{
+						var newReactionData = newReaction.Content;
+						await _messageService.AddReactionChannelAsync(newReactionData.Token, newReactionData.ChannelId, newReactionData.MessageId, newReactionData.ReactionCode);
+					}
+					break;
+
+				case "Remove reaction":
+					var removeReaction = System.Text.Json.JsonSerializer.Deserialize<RemoveReaction>(json);
+					if (removeReaction != null)
+					{
+						var removeReactionData = removeReaction.Content;
+						await _messageService.RemoveReactionChannelAsync(removeReactionData.Token, removeReactionData.ChannelId, removeReactionData.ReactionId);
+					}
+					break;
+
 
 
 				case "New message chat":
@@ -120,6 +139,26 @@ public class WebSocketHandler
 						await _messageService.UpdateMessageInChatWebsocketAsync(updateMessageData.MessageId, updateMessageData.ChannelId, updateMessageData.Token, updateMessageData.Text);
 					}
 					break;
+					 
+				case "Add reaction chat":
+					var newReactionChat = System.Text.Json.JsonSerializer.Deserialize<AddReaction>(json);
+					//_logger.LogInformation("new message", newMessage);
+					if (newReactionChat != null)
+					{
+						var newReactionChatData = newReactionChat.Content;
+						await _messageService.AddReactionChatAsync(newReactionChatData.Token, newReactionChatData.ChannelId, newReactionChatData.MessageId, newReactionChatData.ReactionCode);
+					}
+					break;
+
+				case "Remove reaction chat":
+					var removeReactionChat = System.Text.Json.JsonSerializer.Deserialize<RemoveReaction>(json);
+					if (removeReactionChat != null)
+					{
+						var removeReactionChatData = removeReactionChat.Content;
+						await _messageService.RemoveReactionChatAsync(removeReactionChatData.Token, removeReactionChatData.ChannelId, removeReactionChatData.ReactionId);
+					}
+					break;
+
 
 
 				case "Vote":
@@ -232,4 +271,14 @@ public class VoteSocket : WebSocketMessageBase
 public class SeeMessage : WebSocketMessageBase
 {
 	public SeeMessageDTO Content { get; set; } = default!;
+}
+
+public class AddReaction : WebSocketMessageBase
+{
+	public AddReactionSocketDTO Content { get; set; } = default!;
+}
+
+public class RemoveReaction : WebSocketMessageBase
+{
+	public RemoveReactionSocketDTO Content { get; set; } = default!;
 }
