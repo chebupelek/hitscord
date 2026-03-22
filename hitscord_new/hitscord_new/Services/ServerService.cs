@@ -9,7 +9,6 @@ using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.nClamUtil;
 using hitscord.Utils;
-using hitscord.WebSockets;
 using hitscord_new.Migrations;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +31,7 @@ using Pipelines.Sockets.Unofficial.Buffers;
 using System.Linq;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using System.Collections.Generic;
+using hitscord.SignalR;
 
 namespace hitscord.Services;
 
@@ -41,18 +41,18 @@ public class ServerService : IServerService
 {
     private readonly HitsContext _hitsContext;
 	private readonly IAuthorizationService _authorizationService;
-	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRealtimeService _realtimeService;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
 	private readonly IRedisCacheService _cacheService;
 	//private readonly ILogger<ServerService> _logger;
 
-	public ServerService(/*ILogger<ServerService> logger, */HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, INotificationService notificationsService, nClamService clamService, MinioService minioService, IRedisCacheService cacheService)
+	public ServerService(/*ILogger<ServerService> logger, */HitsContext hitsContext, IAuthorizationService authorizationService, IRealtimeService realtimeService, INotificationService notificationsService, nClamService clamService, MinioService minioService, IRedisCacheService cacheService)
 	{
 		//_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
@@ -673,12 +673,12 @@ public class ServerService : IServerService
 
 			if(nonFriendUsers != null && nonFriendUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, nonFriendUsers, "New user on server");
+				await _realtimeService.SendToUsers(nonFriendUsers, newSubscriberResponse, "New user on server");
 			}
 			if (inServerFriend != null && inServerFriend.Count() > 0)
 			{
 				newSubscriberResponse.isFriend = true;
-				await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, inServerFriend, "New user on server");
+				await _realtimeService.SendToUsers(inServerFriend, newSubscriberResponse, "New user on server");
 			}
 		}
 		else
@@ -701,7 +701,7 @@ public class ServerService : IServerService
 			await _hitsContext.ServerApplications.AddAsync(newApplication);
 			await _hitsContext.SaveChangesAsync();
 
-			await _webSocketManager.BroadcastMessageAsync(server.Id, new List<Guid> { user.Id }, "Server application created");
+			await _realtimeService.SendToUser(user.Id, server.Id, "Server application created");
 		}
 	}
 
@@ -765,7 +765,7 @@ public class ServerService : IServerService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+			await _realtimeService.SendToServer(server.Id, newUnsubscriberResponse, "User unsubscribe");
 		}
 	}
 
@@ -922,8 +922,8 @@ public class ServerService : IServerService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
-			await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role changed");
+			await _realtimeService.SendToServer(server.Id, newUnsubscriberResponse, "User unsubscribe");
+			await _realtimeService.SendToServer(server.Id, newUserRole, "Role changed");
 		}
 	}
 
@@ -1033,7 +1033,7 @@ public class ServerService : IServerService
         };
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-			await _webSocketManager.BroadcastMessageAsync(serverDelete, alertedUsers, "Server deleted");
+			await _realtimeService.SendToUsers(alertedUsers, serverDelete, "Server deleted");
 		}
 	}
 
@@ -1182,7 +1182,7 @@ public class ServerService : IServerService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+					await _realtimeService.SendToServer(server.Id, oldUserRole, "Role removed from user");
 				}
 			}
 		}
@@ -1222,7 +1222,7 @@ public class ServerService : IServerService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+					await _realtimeService.SendToServer(server.Id, oldUserRole, "Role removed from user");
 				}
 			}
 		}
@@ -1278,7 +1278,7 @@ public class ServerService : IServerService
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-			await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role added to user");
+			await _realtimeService.SendToServer(server.Id, newUserRole, "Role added to user");
         }
     }
 
@@ -1352,7 +1352,7 @@ public class ServerService : IServerService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role added to user");
+					await _realtimeService.SendToServer(server.Id, newUserRole, "Role added to user");
 				}
 			}
 		}
@@ -1394,7 +1394,7 @@ public class ServerService : IServerService
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+			await _realtimeService.SendToServer(server.Id, oldUserRole, "Role removed from user");
 		}
 	}
 
@@ -1707,7 +1707,7 @@ public class ServerService : IServerService
 		};
 		await _hitsContext.SaveChangesAsync();
 
-		await _webSocketManager.BroadcastMessageAsync(newRemovedUserResponse, new List<Guid> { DeletedUserId }, "You removed from server");
+		await _realtimeService.SendToUser(DeletedUserId, newRemovedUserResponse, "You removed from server");
 
 		var newUnsubscriberResponse = new UnsubscribeResponseDTO
 		{
@@ -1717,7 +1717,7 @@ public class ServerService : IServerService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+			await _realtimeService.SendToServer(server.Id, newUnsubscriberResponse, "User unsubscribe");
 		}
 
 		await _hitsContext.Notifications.AddAsync(new NotificationDbModel
@@ -1728,6 +1728,8 @@ public class ServerService : IServerService
 			IsReaded = false
 		});
 		await _hitsContext.SaveChangesAsync();
+
+		await _cacheService.RemoveServerToUserAsync(server.Id, DeletedUserId);
 	}
 
 	public async Task ChangeServerNameAsync(Guid serverId, Guid UserId, string name)
@@ -1760,7 +1762,7 @@ public class ServerService : IServerService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeServerName, alertedUsers, "New server name");
+			await _realtimeService.SendToServer(server.Id, changeServerName, "New server name");
 		}
 	}
 
@@ -1789,7 +1791,7 @@ public class ServerService : IServerService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeServerName, alertedUsers, "New users name on server");
+			await _realtimeService.SendToServer(server.Id, changeServerName, "New users name on server");
 		}
 	}
 
@@ -2075,7 +2077,7 @@ public class ServerService : IServerService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Any())
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeIconDto, alertedUsers, "New icon on server");
+			await _realtimeService.SendToServer(server.Id, changeIconDto, "New icon on server");
 		}
 	}
 
@@ -2124,7 +2126,7 @@ public class ServerService : IServerService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Any())
 		{
-			await _webSocketManager.BroadcastMessageAsync(serverIdResponse, alertedUsers, "Icon removed from server");
+			await _realtimeService.SendToServer(server.Id, serverIdResponse, "Icon removed from server");
 		}
 	}
 
@@ -2247,7 +2249,7 @@ public class ServerService : IServerService
 						alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
 						if (alertedUsers != null && alertedUsers.Count() > 0)
 						{
-							await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
+							await _realtimeService.SendToServer(server.Id, newSubscriberResponse, "New user on server");
 						}
 
 						await _hitsContext.Notifications.AddAsync(new NotificationDbModel
@@ -2375,7 +2377,7 @@ public class ServerService : IServerService
 		alertedUsers = alertedUsers.Where(a => a != user.Id).ToList();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, alertedUsers, "New user on server");
+			await _realtimeService.SendToUsers(alertedUsers, newSubscriberResponse, "New user on server");
 		}
 
 		await _hitsContext.Notifications.AddAsync(new NotificationDbModel
@@ -2778,7 +2780,7 @@ public class ServerService : IServerService
 						foreach (var alertedUser in alertedUsers)
 						{
 							newSubscriberResponse.isFriend = friendsSet.Contains(alertedUser);
-							await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, new List<Guid> { alertedUser }, "New user on server");
+							await _realtimeService.SendToUser(alertedUser, newSubscriberResponse, "New user on server");
 						}
 					}
 				}
@@ -2826,7 +2828,7 @@ public class ServerService : IServerService
 					};
 					if (alertedUsers != null && alertedUsers.Count() > 0)
 					{
-						await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role added to user");
+						await _realtimeService.SendToUsers(alertedUsers, newUserRole, "Role added to user");
 					}
 				}
 			}
@@ -2920,7 +2922,7 @@ public class ServerService : IServerService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+					await _realtimeService.SendToServer(server.Id, newUnsubscriberResponse, "User unsubscribe");
 				}
 			}
 			else
@@ -2960,7 +2962,7 @@ public class ServerService : IServerService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+					await _realtimeService.SendToServer(server.Id, oldUserRole, "Role removed from user");
 				}
 			}
 		}

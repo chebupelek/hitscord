@@ -6,7 +6,6 @@ using hitscord.Models.db;
 using hitscord.Models.inTime;
 using hitscord.Models.other;
 using hitscord.Models.response;
-using hitscord.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Data;
@@ -23,7 +22,6 @@ public class ScheduleService : IScheduleService
 	private readonly IAuthorizationService _authorizationService;
 	private readonly IChannelService _channelService;
 	private readonly IServerService _serverService;
-	private readonly WebSocketsManager _webSocketManager;
 	private readonly HttpClient _httpClient;
 	private readonly string _baseUrl;
 	//private readonly ILogger<ScheduleService> _logger;
