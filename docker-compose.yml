@@ -2,6 +2,7 @@ version: '3.9'
 
 services:
   hitscord:
+    container_name: hitscord
     build:
       context: ./hitscord_new
       dockerfile: hitscord_new/Dockerfile
