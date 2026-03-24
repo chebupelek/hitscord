@@ -1,4 +1,5 @@
 ﻿using hitscord.IServices;
+using hitscord.Metrics;
 using hitscord.Models.other;
 using hitscord.Models.Sockets;
 using System.Net.WebSockets;
@@ -38,7 +39,8 @@ public class WebSocketHandler
                 else
                 {
                     var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    await HandleMessageAsync(userId, json);
+					WebSocketMetrics.Messages.Inc();
+					await HandleMessageAsync(userId, json);
                 }
             }
             //_logger.LogInformation("WebSocket connection ended for user {UserId}", userId);

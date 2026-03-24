@@ -1,4 +1,4 @@
-﻿
+﻿using hitscord.Metrics;
 using hitscord.IServices;
 using hitscord.Models.other;
 
@@ -36,10 +36,20 @@ public class WebSocketMiddleware
 
                     var socket = await context.WebSockets.AcceptWebSocketAsync();
 
-                    var webSocketHandler = scope.ServiceProvider.GetRequiredService<WebSocketHandler>();
-                    await webSocketHandler.HandleAsync(userId, socket);
-                    //_logger.LogInformation("WebSocket session started for user {UserId}", userId);
-                }
+					WebSocketMetrics.Connections.Inc();
+					WebSocketMetrics.TotalConnections.Inc();
+
+					var webSocketHandler = scope.ServiceProvider.GetRequiredService<WebSocketHandler>();
+					try
+					{
+						await webSocketHandler.HandleAsync(userId, socket);
+					}
+					finally
+					{
+						WebSocketMetrics.Connections.Dec(); // 👈 ВАЖНО
+					}
+					//_logger.LogInformation("WebSocket session started for user {UserId}", userId);
+				}
                 catch (CustomException ex)
                 {
                     //_logger.LogWarning("CustomException during WebSocket authentication: {Message}", ex.Message);
