@@ -6,6 +6,7 @@ using hitscord.Models.db;
 using hitscord.Models.inTime;
 using hitscord.Models.other;
 using hitscord.Models.response;
+using hitscord.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Data;
@@ -22,18 +23,19 @@ public class ScheduleService : IScheduleService
 	private readonly IAuthorizationService _authorizationService;
 	private readonly IChannelService _channelService;
 	private readonly IServerService _serverService;
+	private readonly IRealtimeService _realtimeService;
 	private readonly HttpClient _httpClient;
 	private readonly string _baseUrl;
 	//private readonly ILogger<ScheduleService> _logger;
 	private readonly INotificationService _notificationsService;
 
-	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IChannelService channelService, IServerService serverService, WebSocketsManager webSocketManager, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, /*ILogger<ScheduleService> logger,*/ INotificationService notificationsService)
+	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IChannelService channelService, IServerService serverService, IRealtimeService realtimeService, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, /*ILogger<ScheduleService> logger,*/ INotificationService notificationsService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_httpClient = httpClientFactory.CreateClient();
 		_baseUrl = apiSettings.Value.BaseUrl;
 		//_logger = logger;
@@ -596,7 +598,6 @@ public class ScheduleService : IScheduleService
 
 
 		var alertedUsers = await _hitsContext.UserServer
-			.Include(us => us.SubscribeRoles)
 			.Where(us => us.SubscribeRoles.Any(sr => channelRoles.Contains(sr.RoleId)))
 			.Select(us => us.UserId)
 			.ToListAsync();
