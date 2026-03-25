@@ -144,8 +144,6 @@ builder.Services.AddSwaggerGen(c =>
 		Description = "API для hitscord"
 	});
 
-	c.AddServer(new OpenApiServer { Url = "/api" });
-
 	c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
 	{
 		Description = "JWT Authorization header using the Bearer scheme",
