@@ -102,7 +102,11 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = application.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(responseTo, new List<Guid> { friend.Id }, "New friendship application");
+		await _realtimeService.SendToUser(
+			friend.Id,
+			responseTo, 
+			"New friendship application"
+		);
 		var responseFrom = new ApplicationsListItem
 		{
 			Id = application.Id,
@@ -132,7 +136,11 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = application.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(responseFrom, new List<Guid> { user.Id }, "Created friendship application");
+		await _realtimeService.SendToUser(
+			user.Id,
+			responseFrom, 
+			"Created friendship application"
+		);
 	}
 
 	public async Task DeleteApplicationAsync(Guid UserId, Guid applicationId)
@@ -170,7 +178,11 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdTo }, "Friendship application deleted");
+		await _realtimeService.SendToUser(
+			app.UserIdTo,
+			response, 
+			"Friendship application deleted"
+		);
 	}
 
 	public async Task DeclineApplicationAsync(Guid UserId, Guid applicationId)
@@ -208,7 +220,11 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdFrom }, "Friendship application declined");
+		await _realtimeService.SendToUser(
+			app.UserIdFrom,
+			response,
+			"Friendship application declined"
+		);
 	}
 
 	public async Task ApproveApplicationAsync(Guid UserId, Guid applicationId)
@@ -275,7 +291,11 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(responseFrom, new List<Guid> { app.UserIdFrom }, "Friendship application approved");
+		await _realtimeService.SendToUser(
+			app.UserIdFrom,
+			responseFrom, 
+			"Friendship application approved"
+		);
 
 		var responseTo = new ApplicationsListItem
 		{
@@ -306,7 +326,11 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(responseTo, new List<Guid> { app.UserIdTo }, "You approved application");
+		await _realtimeService.SendToUser(
+			app.UserIdTo,
+			responseTo, 
+			"You approved application"
+		);
 	}
 
 	public async Task<ApplicationsList> GetApplicationListTo(Guid UserId)
@@ -473,6 +497,10 @@ public class FriendshipService : IFriendshipService
 				})
 				.ToList()
 		};
-		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { friend.UserIdFrom == user.Id ? friend.UserIdTo : friend.UserIdFrom }, "Friendship deleted");
+		await _realtimeService.SendToUser(
+			friend.UserIdFrom == user.Id ? friend.UserIdTo : friend.UserIdFrom,
+			response, 
+			"Friendship deleted"
+		);
 	}
 }
