@@ -6,7 +6,7 @@ using hitscord.Models.other;
 using hitscord.Models.response;
 using hitscord.Redis.CashedDB;
 using hitscord.Redis.CashedDB.Models;
-using hitscord.WebSockets;
+using hitscord.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NickBuhro.Translit;
 using StackExchange.Redis;
@@ -21,15 +21,15 @@ public class RolesService : IRolesService
     private readonly HitsContext _hitsContext;
     private readonly IAuthorizationService _authorizationService;
 	private readonly IServerService _serverService;
-	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRealtimeService _realtimeService;
 	private readonly IRedisCacheService _cacheService;
 
-	public RolesService(HitsContext hitsContext, IAuthorizationService authorizationService, IServerService serverService, WebSocketsManager webSocketManager, IRedisCacheService cacheService)
+	public RolesService(HitsContext hitsContext, IAuthorizationService authorizationService, IServerService serverService, IRealtimeService realtimeService, IRedisCacheService cacheService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 	}
 
@@ -283,7 +283,7 @@ public class RolesService : IRolesService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "New role");
+			await _realtimeService.SendToServer(server.Id, roleResponse, "New role");
 		}
 
 		return roleResponse;
@@ -405,12 +405,16 @@ public class RolesService : IRolesService
 					await _hitsContext.SubscribeRole.AddAsync(new SubscribeRoleDbModel { UserServerId = user.Id, RoleId = uncertainRole.Id });
 					await _hitsContext.SaveChangesAsync();
 
-					await _webSocketManager.BroadcastMessageAsync(new NewUserRoleResponseDTO
-					{
-						ServerId = serverId,
-						UserId = user.UserId,
-						RoleId = uncertainRole.Id,
-					}, alertedUsers, "Role added to user");
+					await _realtimeService.SendToServer(
+						server.Id,
+						new NewUserRoleResponseDTO
+						{
+							ServerId = serverId,
+							UserId = user.UserId,
+							RoleId = uncertainRole.Id,
+						}, 
+						"Role added to user"
+					);
 
 					var lastReads = await _hitsContext.LastReadChannelMessage
 						.Where(lrcm => lrcm.UserId == user.UserId)
@@ -441,12 +445,16 @@ public class RolesService : IRolesService
 
 				await UpdateCacheForUsersAsync(usersId, serverId);
 
-				await _webSocketManager.BroadcastMessageAsync(new NewUserRoleResponseDTO
-				{
-					ServerId = serverId,
-					UserId = user.UserId,
-					RoleId = role.Id,
-				}, alertedUsers, "Role removed from user");
+				await _realtimeService.SendToServer(
+					server.Id,
+					new NewUserRoleResponseDTO
+					{
+						ServerId = serverId,
+						UserId = user.UserId,
+						RoleId = role.Id,
+					}, 
+					"Role removed from user"
+				);
 			}
 		}
 
@@ -461,7 +469,11 @@ public class RolesService : IRolesService
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "Deleted role");
+			await _realtimeService.SendToServer(
+				server.Id, 
+				roleResponse, 
+				"Deleted role"
+			);
 		}
 	}
 
@@ -520,7 +532,11 @@ public class RolesService : IRolesService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(serverId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "Updated role");
+			await _realtimeService.SendToServer(
+				server.Id,
+				roleResponse, 
+				"Updated role"
+			);
 		}
 	}
 
@@ -794,7 +810,11 @@ public class RolesService : IRolesService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(serverId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "Updated role settings");
+			await _realtimeService.SendToServer(
+				server.Id,
+				roleResponse,
+				"Updated role settings"
+			);
 		}
 	}
 }

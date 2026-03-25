@@ -4,7 +4,7 @@ using hitscord.IServices;
 using hitscord.Models.db;
 using hitscord.Models.other;
 using hitscord.Models.response;
-using hitscord.WebSockets;
+using hitscord.SignalR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -17,15 +17,15 @@ public class FriendshipService : IFriendshipService
 {
     private readonly HitsContext _hitsContext;
 	private readonly IAuthorizationService _authorizationService;
-	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRealtimeService _realtimeService;
 	private readonly INotificationService _notificationsService;
 
-	public FriendshipService(HitsContext hitsContext, IAuthorizationService authorizationService, INotificationService notificationsService, WebSocketsManager webSocketManager)
+	public FriendshipService(HitsContext hitsContext, IAuthorizationService authorizationService, INotificationService notificationsService, IRealtimeService realtimeService)
 	{
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_notificationsService = notificationsService ?? throw new ArgumentNullException(nameof(notificationsService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 	}
 
     public async Task CreateApplicationAsync(Guid UserId, string userTag)

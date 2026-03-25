@@ -8,8 +8,8 @@ using hitscord.Models.other;
 using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.nClamUtil;
+using hitscord.SignalR;
 using hitscord.Utils;
-using hitscord.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using nClam;
 using System.Data;
@@ -22,17 +22,17 @@ public class ChatService : IChatService
 {
     private readonly HitsContext _hitsContext;
     private readonly IAuthorizationService _authorizationService;
-	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRealtimeService _realtimeService;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
 	//private readonly ILogger<ChatService> _logger;
 
-	public ChatService(/*ILogger<ChatService> logger, */HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
+	public ChatService(/*ILogger<ChatService> logger, */HitsContext hitsContext, IAuthorizationService authorizationService, IRealtimeService realtimeService, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
 	{
 		//_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
@@ -106,7 +106,8 @@ public class ChatService : IChatService
 		_hitsContext.LastReadChatMessage.AddRange(lastRead);
 		await _hitsContext.SaveChangesAsync();
 
-		await _webSocketManager.BroadcastMessageAsync(
+		await _realtimeService.SendToUser(
+			user.Id,
 			new ChatListItemDTO { 
 				ChatId = newChat.Id, 
 				ChatName = newChat.Name,
@@ -114,7 +115,8 @@ public class ChatService : IChatService
 				NonReadedTaggedCount = 0,
 				LastReadedMessageId = 0
 			}, 
-			new List<Guid> { user.Id }, "You have been added into a chat");
+			"You have been added into a chat"
+		);
 
 		await _hitsContext.Notifications.AddAsync(new NotificationDbModel
 		{
@@ -165,7 +167,11 @@ public class ChatService : IChatService
 				}
 			}
 		};
-		await _webSocketManager.BroadcastMessageAsync(chatInfoOwner, new List<Guid> { user.Id }, "You have been added into a chat");
+		await _realtimeService.SendToUser(
+			user.Id,
+			chatInfoOwner,
+			"You have been added into a chat"
+		);
 
 		var chatInfoUser = new ChatInfoDTO
 		{
@@ -231,8 +237,11 @@ public class ChatService : IChatService
 		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			//заменить дбшную модель
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "New chat name");
+			await _realtimeService.SendToChat(
+				chat.Id,
+				response, 
+				"New chat name"
+			);
 		}
 	}
 
@@ -449,7 +458,11 @@ public class ChatService : IChatService
 			foreach (var alertedUser in alertedUsers)
 			{
 				userResponse.isFriend = friendsIds.Contains(alertedUser);
-				await _webSocketManager.BroadcastMessageAsync(userResponse, new List<Guid> { alertedUser }, "New user in chat");
+				await _realtimeService.SendToUser(
+					alertedUser,
+					userResponse, 
+					"New user in chat"
+				);
 			}
 		}
 
@@ -497,7 +510,10 @@ public class ChatService : IChatService
 				})
 				.ToList()
 		};
-		await _webSocketManager.BroadcastMessageAsync(chatInfo, new List<Guid>() { user.Id }, "You added to chat");
+		await _realtimeService.SendToUser(
+			user.Id,
+			chatInfo,
+			"You added to chat");
 
 		await _hitsContext.Notifications.AddAsync(new NotificationDbModel
 		{
@@ -590,7 +606,11 @@ public class ChatService : IChatService
 			var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(userResponse, alertedUsers, "User removed from chat");
+				await _realtimeService.SendToChat(
+					chat.Id,
+					userResponse, 
+					"User removed from chat"
+				);
 			}
 		}
 	}
@@ -879,7 +899,11 @@ public class ChatService : IChatService
 		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Any())
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeIconDto, alertedUsers, "New icon on chat");
+			await _realtimeService.SendToChat(
+				chat.Id,
+				changeIconDto, 
+				"New icon on chat"
+			);
 		}
 	}
 
@@ -920,7 +944,11 @@ public class ChatService : IChatService
 		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Any())
 		{
-			await _webSocketManager.BroadcastMessageAsync(chatIdResponse, alertedUsers, "Icon removed from chat");
+			await _realtimeService.SendToChat(
+				chat.Id,
+				chatIdResponse, 
+				"Icon removed from chat"
+			);
 		}
 	}
 

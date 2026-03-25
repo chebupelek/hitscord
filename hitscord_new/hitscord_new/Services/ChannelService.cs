@@ -6,7 +6,6 @@ using hitscord.Models.other;
 using hitscord.Models.response;
 using hitscord.Models.request;
 using EasyNetQ;
-using hitscord.WebSockets;
 using Authzed.Api.V0;
 using Grpc.Core;
 using System.Threading.Channels;
@@ -18,6 +17,7 @@ using hitscord.Redis.CashedDB.Models;
 using System.Collections.Generic;
 using Grpc.Net.Client.Balancer;
 using System.Runtime.InteropServices;
+using hitscord.SignalR;
 
 namespace hitscord.Services;
 
@@ -26,15 +26,15 @@ public class ChannelService : IChannelService
     private readonly HitsContext _hitsContext;
     private readonly IAuthorizationService _authService;
     private readonly IServerService _serverService;
-	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRealtimeService _realtimeService;
 	private readonly IRedisCacheService _cacheService;
 
-	public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IServerService serverService, WebSocketsManager webSocketManager, IRedisCacheService cacheService)
+	public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IServerService serverService, IRealtimeService realtimeService, IRedisCacheService cacheService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 	}
 
@@ -764,7 +764,11 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newChannelResponse, alertedUsers, "New channel");
+			await _realtimeService.SendToServer(
+				server.Id,
+				newChannelResponse, 
+				"New channel"
+			);
 		}
 	}
 
@@ -839,7 +843,11 @@ public class ChannelService : IChannelService
 					ChannelId = userVoiceChannel.VoiceChannel.Id,
 					MuteStatus = userVoiceChannel.MutedOther == true ? MuteStatusEnum.Muted : (userVoiceChannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 				};
-				await _webSocketManager.BroadcastMessageAsync(userRemovedResponse, serverUsers, "User remove from voice channel");
+				await _realtimeService.SendToServer(
+					userVoiceChannel.VoiceChannel.ServerId, 
+					userRemovedResponse, 
+					"User remove from voice channel"
+				);
 			}
 			userVoiceChannel.Inside = false;
 			_hitsContext.UserVoiceChannel.Update(userVoiceChannel);
@@ -883,7 +891,11 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, alertedUsers, "New user in voice channel");
+			await _realtimeService.SendToServer(
+				channel.ServerId, 
+				newUserInVoiceChannel, 
+				"New user in voice channel"
+			);
 		}
 
 		return (newUserInVoiceChannel);
@@ -928,7 +940,11 @@ public class ChannelService : IChannelService
 		*/
 		if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, alertedUsers, "User remove from voice channel");
+			await _realtimeService.SendToServer(
+				server.Id, 
+				newUserInVoiceChannel, 
+				"User remove from voice channel"
+			);
         }
 
         return (true);
@@ -992,8 +1008,16 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, alertedUsers, "User removed from voice channel");
-			await _webSocketManager.BroadcastMessageAsync(newUserInVoiceChannel, new List<Guid> { RemovedUserId }, "You removed from voice channel");
+			await _realtimeService.SendToServer(
+				server.Id, 
+				newUserInVoiceChannel, 
+				"User removed from voice channel"
+			);
+			await _realtimeService.SendToUser(
+				RemovedUserId,
+				newUserInVoiceChannel,	
+				"You removed from voice channel"
+			);
         }
 
         return (true);
@@ -1035,7 +1059,11 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-			await _webSocketManager.BroadcastMessageAsync(muteStatusResponse, alertedUsers, "User change his mute status");
+			await _realtimeService.SendToServer(
+				channel.ServerId, 
+				muteStatusResponse, 
+				"User change his mute status"
+			);
         }
 
         return (true);
@@ -1103,7 +1131,11 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(muteStatusResponse, alertedUsers, "User mute status is changed");
+			await _realtimeService.SendToServer(
+				channel.ServerId, 
+				muteStatusResponse, 
+				"User mute status is changed"
+			);
 		}
 
 		return (true);
@@ -1142,7 +1174,11 @@ public class ChannelService : IChannelService
         var alertedUsers = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
         if (alertedUsers != null && alertedUsers.Count() > 0)
         {
-			await _webSocketManager.BroadcastMessageAsync(streamStatusResponse, alertedUsers, "User change his stream status");
+			await _realtimeService.SendToUsers(
+				alertedUsers,
+				streamStatusResponse, 
+				"User change his stream status"
+			);
         }
 
         return (true);
@@ -1185,8 +1221,16 @@ public class ChannelService : IChannelService
 						MuteStatus = MuteStatusEnum.NotMuted
 					};
 
-					await _webSocketManager.BroadcastMessageAsync(removedUser, alertedUsers, "User removed from voice channel");
-					await _webSocketManager.BroadcastMessageAsync(removedUser, new List<Guid> { userId }, "You removed from voice channel");
+					await _realtimeService.SendToServer(
+						channel.ServerId, 
+						removedUser, 
+						"User removed from voice channel"
+					);
+					await _realtimeService.SendToUser(
+						userId,
+						removedUser, 
+						"You removed from voice channel"
+					);
 				}
 			}
 
@@ -1213,7 +1257,11 @@ public class ChannelService : IChannelService
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(deletedChannelResponse, alertedUsers, "Channel deleted");
+			await _realtimeService.SendToServer(
+				channel.ServerId, 
+				deletedChannelResponse, 
+				"Channel deleted"
+			);
 		}
 
 		return true;
@@ -1678,7 +1726,7 @@ public class ChannelService : IChannelService
 				{
 					throw new CustomException("Role already can see channel", "Change voice channel sttings", "Role", 400, "Роль уже может видеть канал", "Изменение настроек голосового канала");
 				}
-				_hitsContext.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
 				await _hitsContext.SaveChangesAsync();
 			}
 			else
@@ -1711,10 +1759,10 @@ public class ChannelService : IChannelService
 				}
 				if (canSee == null)
 				{
-					_hitsContext.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+					await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
 					await _hitsContext.SaveChangesAsync();
 				}
-				_hitsContext.ChannelCanJoin.Add(new ChannelCanJoinDbModel { VoiceChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.ChannelCanJoin.AddAsync(new ChannelCanJoinDbModel { VoiceChannelId = channel.Id, RoleId = role.Id });
 				await _hitsContext.SaveChangesAsync();
 			}
 			else
@@ -1747,7 +1795,11 @@ public class ChannelService : IChannelService
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Voice channel settings edited");
+			await _realtimeService.SendToServer(
+				channel.ServerId, 
+				changedSettingsresponse, 
+				"Voice channel settings edited"
+			);
 		}
 
 		return true;
@@ -1801,7 +1853,7 @@ public class ChannelService : IChannelService
 				{
 					throw new CustomException("Role already can see channel", "Change text channel sttings", "Role", 400, "Роль уже может видеть канал", "Изменение настроек текстового канала");
 				}
-				_hitsContext.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
 				await _hitsContext.SaveChangesAsync();
 
 				foreach (var us in userServersLastRead)
@@ -1848,7 +1900,8 @@ public class ChannelService : IChannelService
 				foreach (var us in userServersLastRead)
 				{
 					var hasOtherAccess = us.SubscribeRoles
-						.Any(sr => sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == channel.Id && sr.RoleId != role.Id));
+						.Any(sr => sr.Role.ChannelCanSee
+						.Any(ccs => ccs.ChannelId == channel.Id && sr.RoleId != role.Id));
 					if (!hasOtherAccess)
 					{
 						var lastReadEntries = await _hitsContext.LastReadChannelMessage
@@ -1876,9 +1929,9 @@ public class ChannelService : IChannelService
 				var canSee = await _hitsContext.ChannelCanSee.FirstOrDefaultAsync(ccs => ccs.ChannelId == channel.Id && ccs.RoleId == role.Id);
 				if (canSee == null)
 				{
-					_hitsContext.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+					await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
 				}
-				_hitsContext.ChannelCanWrite.Add(new ChannelCanWriteDbModel { TextChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.ChannelCanWrite.AddAsync(new ChannelCanWriteDbModel { TextChannelId = channel.Id, RoleId = role.Id });
 				await _hitsContext.SaveChangesAsync();
 
 				foreach (var us in userServersLastRead)
@@ -1887,7 +1940,7 @@ public class ChannelService : IChannelService
 						.AnyAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
 					if (!alreadyExists)
 					{
-						_hitsContext.LastReadChannelMessage.Add(new LastReadChannelMessageDbModel
+						await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
 						{
 							UserId = us.UserId,
 							TextChannelId = channel.Id,
@@ -1931,14 +1984,14 @@ public class ChannelService : IChannelService
 				var canSee = await _hitsContext.ChannelCanSee.FirstOrDefaultAsync(ccs => ccs.ChannelId == channel.Id && ccs.RoleId == role.Id);
 				if (canSee == null)
 				{
-					_hitsContext.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+					await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
 				}
 				var canWrite = await _hitsContext.ChannelCanWrite.FirstOrDefaultAsync(ccs => ccs.TextChannelId == channel.Id && ccs.RoleId == role.Id);
 				if (canWrite == null)
 				{
-					_hitsContext.ChannelCanWrite.Add(new ChannelCanWriteDbModel { TextChannelId = channel.Id, RoleId = role.Id });
+					await _hitsContext.ChannelCanWrite.AddAsync(new ChannelCanWriteDbModel { TextChannelId = channel.Id, RoleId = role.Id });
 				}
-				_hitsContext.ChannelCanWriteSub.Add(new ChannelCanWriteSubDbModel { TextChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.ChannelCanWriteSub.AddAsync(new ChannelCanWriteSubDbModel { TextChannelId = channel.Id, RoleId = role.Id });
 				await _hitsContext.SaveChangesAsync();
 
 				foreach (var us in userServersLastRead)
@@ -1947,7 +2000,7 @@ public class ChannelService : IChannelService
 						.AnyAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
 					if (!alreadyExists)
 					{
-						_hitsContext.LastReadChannelMessage.Add(new LastReadChannelMessageDbModel
+						await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
 						{
 							UserId = us.UserId,
 							TextChannelId = channel.Id,
@@ -1990,7 +2043,11 @@ public class ChannelService : IChannelService
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Text channel settings edited");
+			await _realtimeService.SendToServer(
+				channel.ServerId, 
+				changedSettingsresponse, 
+				"Text channel settings edited"
+			);
 		}
 
 		return true;
@@ -2044,7 +2101,7 @@ public class ChannelService : IChannelService
 				{
 					throw new CustomException("Role already can see channel", "Change notification channel sttings", "Role", 400, "Роль уже может видеть канал", "Изменение настроек уведомительного канала");
 				}
-				_hitsContext.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
 				await _hitsContext.SaveChangesAsync();
 
 				foreach (var us in userServersLastRead)
@@ -2053,7 +2110,7 @@ public class ChannelService : IChannelService
 						.AnyAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
 					if (!alreadyExists)
 					{
-						_hitsContext.LastReadChannelMessage.Add(new LastReadChannelMessageDbModel
+						await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
 						{
 							UserId = us.UserId,
 							TextChannelId = channel.Id,
@@ -2113,9 +2170,9 @@ public class ChannelService : IChannelService
 				var canSee = await _hitsContext.ChannelCanSee.FirstOrDefaultAsync(ccs => ccs.ChannelId == channel.Id && ccs.RoleId == role.Id);
 				if (canSee == null)
 				{
-					_hitsContext.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+					await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
 				}
-				_hitsContext.ChannelCanWrite.Add(new ChannelCanWriteDbModel { TextChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.ChannelCanWrite.AddAsync(new ChannelCanWriteDbModel { TextChannelId = channel.Id, RoleId = role.Id });
 				await _hitsContext.SaveChangesAsync();
 
 				foreach (var us in userServersLastRead)
@@ -2124,7 +2181,7 @@ public class ChannelService : IChannelService
 						.AnyAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
 					if (!alreadyExists)
 					{
-						_hitsContext.LastReadChannelMessage.Add(new LastReadChannelMessageDbModel
+						await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
 						{
 							UserId = us.UserId,
 							TextChannelId = channel.Id,
@@ -2158,9 +2215,9 @@ public class ChannelService : IChannelService
 				var canSee = await _hitsContext.ChannelCanSee.FirstOrDefaultAsync(ccs => ccs.ChannelId == channel.Id && ccs.RoleId == role.Id);
 				if (canSee == null)
 				{
-					_hitsContext.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+					await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
 				}
-				_hitsContext.ChannelNotificated.Add(new ChannelNotificatedDbModel { NotificationChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.ChannelNotificated.AddAsync(new ChannelNotificatedDbModel { NotificationChannelId = channel.Id, RoleId = role.Id });
 				await _hitsContext.SaveChangesAsync();
 
 				foreach (var us in userServersLastRead)
@@ -2169,7 +2226,7 @@ public class ChannelService : IChannelService
 						.AnyAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
 					if (!alreadyExists)
 					{
-						_hitsContext.LastReadChannelMessage.Add(new LastReadChannelMessageDbModel
+						await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
 						{
 							UserId = us.UserId,
 							TextChannelId = channel.Id,
@@ -2212,7 +2269,11 @@ public class ChannelService : IChannelService
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Notification channel settings edited");
+			await _realtimeService.SendToServer(
+				channel.ServerId, 
+				changedSettingsresponse, 
+				"Notification channel settings edited"
+			);
 		}
 
 		return true;
@@ -2273,7 +2334,7 @@ public class ChannelService : IChannelService
 				{
 					throw new CustomException("Role not allowed to write", "Change Sub channel settings", "Role", 400, "Роль не имеет права писать в текстовый канал", "Изменение настроек под канала");
 				}
-				_hitsContext.ChannelCanUse.Add(new ChannelCanUseDbModel { SubChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.ChannelCanUse.AddAsync(new ChannelCanUseDbModel { SubChannelId = channel.Id, RoleId = role.Id });
 				await _hitsContext.SaveChangesAsync();
 
 				foreach (var us in userServersLastRead)
@@ -2282,7 +2343,7 @@ public class ChannelService : IChannelService
 						.AnyAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
 					if (!alreadyExists)
 					{
-						_hitsContext.LastReadChannelMessage.Add(new LastReadChannelMessageDbModel
+						await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
 						{
 							UserId = us.UserId,
 							TextChannelId = channel.Id,
@@ -2341,7 +2402,11 @@ public class ChannelService : IChannelService
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Sub channel settings edited");
+			await _realtimeService.SendToServer(
+				channel.ServerId, 
+				changedSettingsresponse, 
+				"Sub channel settings edited"
+			);
 		}
 
 		return true;
@@ -2380,7 +2445,11 @@ public class ChannelService : IChannelService
 			.ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeChannelName, alertedUsers, "Change channel name");
+			await _realtimeService.SendToServer(
+				channel.ServerId, 
+				changeChannelName, 
+				"Change channel name"
+			);
 		}
 	}
 
@@ -2430,7 +2499,7 @@ public class ChannelService : IChannelService
 		}
 		else
 		{
-			_hitsContext.NonNotifiableChannel.Add(new NonNotifiableChannelDbModel { UserServerId = userSub.Id, TextChannelId = channel.Id });
+			await _hitsContext.NonNotifiableChannel.AddAsync(new NonNotifiableChannelDbModel { UserServerId = userSub.Id, TextChannelId = channel.Id });
 			await _cacheService.UpdateUserNotifiableAsync(channel.Id, UserId, -1);
 		}
 		await _hitsContext.SaveChangesAsync();
@@ -2469,7 +2538,11 @@ public class ChannelService : IChannelService
 			.ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeMaxCount, alertedUsers, "Change max count");
+			await _realtimeService.SendToServer(
+				channel.ServerId,
+				changeMaxCount, 
+				"Change max count"
+			);
 		}
 	}
 

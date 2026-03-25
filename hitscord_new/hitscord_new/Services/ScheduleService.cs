@@ -608,7 +608,7 @@ public class ScheduleService : IScheduleService
 
 			if (targetUsers.Any())
 			{
-				await _webSocketManager.BroadcastMessageAsync(newPairResponse, targetUsers, "New pair on this channel");
+				await _realtimeService.SendToUsers(targetUsers, newPairResponse, "New pair on this channel");
 				//await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Вам назначили пару на сервере: {server.Name}");
 			}
 		}
@@ -730,7 +730,7 @@ public class ScheduleService : IScheduleService
 
 			if (targetUsers.Any())
 			{
-				await _webSocketManager.BroadcastMessageAsync(newPairResponse, alertedUsers, "Updated pair on this channel");
+				await _realtimeService.SendToUsers(targetUsers, newPairResponse, "Updated pair on this channel");
 				//await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {updatedPair.Server.Name}");
 			}
 		}
@@ -819,7 +819,7 @@ public class ScheduleService : IScheduleService
 
 			if (targetUsers.Any())
 			{
-				await _webSocketManager.BroadcastMessageAsync(deletedPairResponse, alertedUsers, "Deleted pair on this channel");
+				await _realtimeService.SendToUsers(targetUsers, deletedPairResponse, "Deleted pair on this channel");
 				//await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {pair.Server.Name}");
 			}
 		}

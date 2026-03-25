@@ -6,8 +6,8 @@ using hitscord.Models.db;
 using hitscord.Models.other;
 using hitscord.Models.response;
 using hitscord.nClamUtil;
+using hitscord.SignalR;
 using hitscord.Utils;
-using hitscord.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using nClam;
 using System.Data;
@@ -17,19 +17,13 @@ namespace hitscord.Services;
 public class FileService : IFileService
 {
 	private readonly HitsContext _hitsContext;
-    private readonly IAuthorizationService _authorizationService;
-	private readonly WebSocketsManager _webSocketManager;
-	private readonly IChannelService _channelService;
 	private readonly nClamService _clamService;
 	//private readonly ILogger<FileService> _logger;
 	private readonly MinioService _minioService;
 
-	public FileService(HitsContext hitsContext, /*ILogger<FileService> logger,*/ IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IChannelService channelService, nClamService clamService, MinioService minioService)
+	public FileService(HitsContext hitsContext, /*ILogger<FileService> logger,*/ IChannelService channelService, nClamService clamService, MinioService minioService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
-		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
-		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		//_logger = logger;
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
