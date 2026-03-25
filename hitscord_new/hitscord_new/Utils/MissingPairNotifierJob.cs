@@ -3,8 +3,8 @@ using hitscord.Contexts;
 using Microsoft.EntityFrameworkCore;
 using hitscord.Models.response;
 using hitscord.Services;
-using hitscord.WebSockets;
 using Microsoft.AspNetCore.Http;
+using hitscord.SignalR;
 using System.Data;
 
 namespace hitscord.Utils;
@@ -27,7 +27,7 @@ public class MissingPairNotifierJob : IJob
 			using var scope = _scopeFactory.CreateScope();
 			var dbContext = scope.ServiceProvider.GetRequiredService<HitsContext>();
 			var scheduleService = scope.ServiceProvider.GetRequiredService<ScheduleService>();
-			var webSocketManager = scope.ServiceProvider.GetRequiredService<WebSocketsManager>();
+			var webSocketManager = scope.ServiceProvider.GetRequiredService<RealtimeService>();
 
 			var now = DateTime.UtcNow;
 			var todayStr = now.ToString("yyyy-MM-dd");
@@ -105,7 +105,7 @@ public class MissingPairNotifierJob : IJob
 
 						if (targetUsers.Any())
 						{
-							await webSocketManager.BroadcastMessageAsync(newPairResponse, targetUsers, "Pair missed");
+							await webSocketManager.SendToUsers(targetUsers, newPairResponse, "Pair missed");
 						}
 					}
 				}
