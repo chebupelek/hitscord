@@ -1,0 +1,50 @@
+{
+  "title": "PostgreSQL Metrics",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "DB Connections",
+      "targets": [
+        {
+          "expr": "pg_stat_activity_count"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Transactions per second",
+      "targets": [
+        {
+          "expr": "rate(pg_stat_database_xact_commit[1m])"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Deadlocks",
+      "targets": [
+        {
+          "expr": "rate(pg_stat_database_deadlocks[1m])"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Rows Returned vs Fetched",
+      "targets": [
+        {
+          "expr": "rate(pg_stat_database_tup_returned[1m])",
+          "legendFormat": "returned"
+        },
+        {
+          "expr": "rate(pg_stat_database_tup_fetched[1m])",
+          "legendFormat": "fetched"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+    }
+  ]
+}

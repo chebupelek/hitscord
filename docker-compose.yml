@@ -2,6 +2,7 @@ version: '3.9'
 
 services:
   hitscord:
+    container_name: hitscord
     build:
       context: ./hitscord_new
       dockerfile: hitscord_new/Dockerfile
@@ -10,6 +11,8 @@ services:
       - minio
     env_file:
       - .env
+    volumes:
+      - ./logs:/app/logs
     environment:
       - ASPNETCORE_URLS=http://+:80
     restart: unless-stopped
@@ -37,14 +40,20 @@ services:
 
   postgres:
     image: postgres:15
+    container_name: postgres
     restart: always
     env_file:
       - .env
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
     networks:
       - hitscord_network
 
@@ -99,6 +108,8 @@ services:
 
   loki:
     image: grafana/loki:2.9.0
+    volumes:
+      - loki_data:/loki
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
@@ -114,14 +125,45 @@ services:
     command: -config.file=/etc/promtail/config.yaml
     networks:
       - hitscord_network
+  
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - hitscord_network
 
   grafana:
     image: grafana/grafana:latest
+    env_file:
+    - .env
     environment:
       - GF_SERVER_ROOT_URL=https://166664.msk.web.highserver.ru/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_USERS_DEFAULT_THEME=dark
+      - GF_EXPLORE_ENABLED=true
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
     ports:
       - "3000:3000"
+    networks:
+      - hitscord_network
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME_FIRST}?sslmode=disable"
+    networks:
+      - hitscord_network
+  
+  node-exporter:
+    image: prom/node-exporter
+    ports:
+      - "9100:9100"
     networks:
       - hitscord_network
 
@@ -129,6 +171,9 @@ volumes:
   pgdata:
   minio_data:
   frontend_build:
+  loki_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   hitscord_network:

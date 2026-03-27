@@ -15,10 +15,23 @@ using hitscord.nClamUtil;
 using hitscord.Models.db;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
+using Prometheus;
 
 Log.Logger = new LoggerConfiguration()
+	.Enrich.FromLogContext()
 	.WriteTo.Console()
-	.WriteTo.GrafanaLoki("http://loki:3100")
+	.WriteTo.File(
+		"logs/log-.txt",
+		rollingInterval: RollingInterval.Day,
+		retainedFileCountLimit: 7
+	)
+	.WriteTo.GrafanaLoki(
+		"http://loki:3100",
+		labels: new[]
+		{
+			new LokiLabel { Key = "app", Value = "hitscord" }
+		}
+	)
 	.CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -261,5 +274,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.UseHttpMetrics();
+
+app.MapMetrics();
 
 app.Run();

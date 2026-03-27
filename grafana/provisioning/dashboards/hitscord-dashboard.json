@@ -1,0 +1,70 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP Requests per second",
+      "targets": [
+        {
+          "expr": "rate(http_requests_received_total[1m])",
+          "legendFormat": "{{method}} {{code}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "API Response Time",
+      "targets": [
+        {
+          "expr": "rate(http_request_duration_seconds_sum[1m]) / rate(http_request_duration_seconds_count[1m])"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors (5xx)",
+      "targets": [
+        {
+          "expr": "rate(http_requests_received_total{code=~\"5..\"}[1m])"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "WebSocket Connections",
+      "targets": [
+        {
+          "expr": "websocket_connections"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Usage",
+      "targets": [
+        {
+          "expr": "rate(node_cpu_seconds_total{mode!=\"idle\"}[1m])"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "RAM Usage",
+      "targets": [
+        {
+          "expr": "node_memory_MemAvailable_bytes"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 }
+    }
+  ],
+  "schemaVersion": 36,
+  "title": "Hitscord Monitoring",
+  "version": 1
+}

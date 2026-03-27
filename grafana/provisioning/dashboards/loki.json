@@ -1,0 +1,15 @@
+{
+  "title": "PostgreSQL Logs",
+  "panels": [
+    {
+      "type": "logs",
+      "title": "DB Logs",
+      "targets": [
+        {
+          "expr": "{job=\"postgres\"}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 12 }
+    }
+  ]
+}

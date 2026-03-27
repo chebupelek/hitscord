@@ -1,0 +1,26 @@
+{
+  "title": "PostgreSQL Slow Queries",
+  "panels": [
+    {
+      "type": "table",
+      "title": "Top Slow Queries",
+      "targets": [
+        {
+          "expr": "pg_stat_statements_mean_time",
+          "format": "table"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Query Execution Time",
+      "targets": [
+        {
+          "expr": "rate(pg_stat_statements_total_time[1m])"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 10, "w": 24, "h": 8 }
+    }
+  ]
+}
