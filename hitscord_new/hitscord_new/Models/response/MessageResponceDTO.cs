@@ -12,5 +12,6 @@ public class MessageResponceDTO
     public required DateTime CreatedAt { get; set; }
     public ReplyToMessageResponceDTO? ReplyToMessage { get; set; }
 	public required List<MessageReactionShortDTO> Reactions { get; set; }
-	public required bool isTagged { get; set; }
+	public required List<Guid> taggedUsers { get; set; }
+	public List<Guid>? taggedRoles { get; set; }
 }

@@ -1,18 +1,29 @@
-﻿using hitscord.IServices;
+﻿using Google.Protobuf.Collections;
+using Grpc.Core;
+using hitscord.Contexts;
+using hitscord.IServices;
 using hitscord.Models.Sockets;
+using hitscord.Redis.CashedDB;
+using hitscord.Redis.CashedDB.Models;
+using hitscord.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace hitscord.SignalR;
 
 [Authorize]
 public class ChatHub : Hub
 {
+	private readonly HitsContext _hitsContext;
 	private readonly IMessageService _messageService;
+	private readonly IRedisCacheService _cacheService;
 
-	public ChatHub(IMessageService messageService)
+	public ChatHub(HitsContext hitsContext, IMessageService messageService, IRedisCacheService cacheService)
 	{
-		_messageService = messageService;
+		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
+		_messageService = messageService ?? throw new ArgumentNullException(nameof(messageService));
+		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 	}
 
 	public override async Task OnConnectedAsync()
@@ -30,6 +41,18 @@ public class ChatHub : Hub
 
 	public async Task JoinChat(Guid chatId)
 	{
+		var userIdString = Context.UserIdentifier;
+		if (!Guid.TryParse(userIdString, out var userId))
+		{
+			throw new HubException("Invalid user id");
+		}
+
+		var exists = await _hitsContext.UserChat.AnyAsync(uc => uc.UserId == userId && uc.ChatId == chatId);
+		if (!exists)
+		{
+			throw new HubException("You are not a member of this chat");
+		}
+
 		await Groups.AddToGroupAsync(Context.ConnectionId, $"chat:{chatId}");
 	}
 
@@ -40,6 +63,18 @@ public class ChatHub : Hub
 
 	public async Task JoinServer(Guid serverId)
 	{
+		var userIdString = Context.UserIdentifier;
+		if (!Guid.TryParse(userIdString, out var userId))
+		{
+			throw new HubException("Invalid user id");
+		}
+
+		var exist = await _cacheService.GetUsersInServerAsync(serverId);
+		if (!(exist.Contains(userId)))
+		{
+			throw new HubException("You are not a member of this server");
+		}
+
 		await Groups.AddToGroupAsync(Context.ConnectionId, $"server:{serverId}");
 	}
 
@@ -50,6 +85,18 @@ public class ChatHub : Hub
 
 	public async Task JoinChannel(Guid channelId)
 	{
+		var userIdString = Context.UserIdentifier;
+		if (!Guid.TryParse(userIdString, out var userId))
+		{
+			throw new HubException("Invalid user id");
+		}
+
+		var exist = await _cacheService.GetUserToChannelAsync(userId, channelId);
+		if (exist == null || !(((ChannelRights)exist.ChannelRights).HasFlag(ChannelRights.See)))
+		{
+			throw new HubException("You are not a member of this server");
+		}
+
 		await Groups.AddToGroupAsync(Context.ConnectionId, $"channel:{channelId}");
 	}
 

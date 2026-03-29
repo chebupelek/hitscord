@@ -416,6 +416,7 @@ public class MessageService : IMessageService
 
 		object response;
 
+		//заменить на списки id
 		switch (Content.MessageType)
 		{
 			case MessageTypeEnum.Classic:
@@ -462,7 +463,8 @@ public class MessageService : IMessageService
 					NestedChannel = Content.Classic.NestedChannel,
 					Files = filesResponse,
 					Reactions = new List<MessageReactionShortDTO>(),
-					isTagged = false
+					taggedUsers = taggedUsers,
+					taggedRoles = taggedRoles
 				};
 
 				break;
@@ -530,7 +532,8 @@ public class MessageService : IMessageService
 						.OrderBy(variant => variant.Number)
 						.ToList(),
 					Reactions = new List<MessageReactionShortDTO>(),
-					isTagged = false
+					taggedUsers = taggedUsers,
+					taggedRoles = taggedRoles
 				};
 
 				break;
@@ -550,19 +553,14 @@ public class MessageService : IMessageService
 		var alertedUsers = await _cacheService.GetChannelToUserListFullAsync(channel.Channel.Id) ?? new List<Guid>();
 		var notificatedUsers = await _cacheService.GetChannelToUserListSortedAsync(channel.Channel.Id, taggedRoles, taggedUsers) ?? new List<Guid>();
 
-		var onlyAlertedUsers = alertedUsers
-			.Except(notificatedUsers)
-			.ToList();
 
-		if (onlyAlertedUsers != null && onlyAlertedUsers.Count() > 0)
+		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _realtimeService.SendToUsers(onlyAlertedUsers, response, "New message" + where);
+			await _realtimeService.SendToUsers(alertedUsers, response, "New message" + where);
 		}
 
-		((MessageResponceDTO)response).isTagged = true;
 		if (notificatedUsers != null && notificatedUsers.Count() > 0)
 		{
-			await _realtimeService.SendToUsers(notificatedUsers, response, "New message" + where);
 			await _realtimeService.SendToUsers(notificatedUsers, response, "User notified");
 		}
 
@@ -654,7 +652,8 @@ public class MessageService : IMessageService
 				CreatedAt = r.CreatedAt,
 				ReactionCode = r.ReactionCode
 			}).ToList(),
-			isTagged = false
+			taggedUsers = taggedUsers,
+			taggedRoles = taggedRoles
 		};
 
 		var where = channel.Type switch
@@ -675,12 +674,6 @@ public class MessageService : IMessageService
 		if (onlyAlertedUsers != null && onlyAlertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToUsers(onlyAlertedUsers, messageDto, "Updated message" + where);
-		}
-
-		messageDto.isTagged = true;
-		if (notificatedUsers != null && notificatedUsers.Count() > 0)
-		{
-			await _realtimeService.SendToUsers(notificatedUsers, messageDto, "Updated message" + where);
 		}
 	}
 
@@ -887,7 +880,7 @@ public class MessageService : IMessageService
 						Deleted = f.Deleted
 					}).ToList(),
 					Reactions = new List<MessageReactionShortDTO>(),
-					isTagged = false
+					taggedUsers = taggedUsers
 				};
 				break;
 
@@ -940,7 +933,7 @@ public class MessageService : IMessageService
 						.OrderBy(variant => variant.Number)
 						.ToList(),
 					Reactions = new List<MessageReactionShortDTO>(),
-					isTagged = false
+					taggedUsers = taggedUsers
 				};
 
 				break;
@@ -964,21 +957,8 @@ public class MessageService : IMessageService
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			foreach (var alertedUser in alertedUsers)
-			{
-				if (notifiedUsers != null && notifiedUsers.Count > 0 && notifiedUsers.Contains(alertedUser))
-				{
-					((MessageResponceDTO)response).isTagged = true;
-				}
-				else
-				{
-					((MessageResponceDTO)response).isTagged = false;
-				}
-				await _realtimeService.SendToUsers(new List<Guid> { alertedUser }, response, "New message in chat");
-			}
+			await _realtimeService.SendToUsers(alertedUsers, response, "New message in chat");
 		}
-
-		((MessageResponceDTO)response).isTagged = true;
 
 		if (notifiedUsers != null && notifiedUsers.Count() > 0)
 		{
@@ -1059,7 +1039,7 @@ public class MessageService : IMessageService
 				CreatedAt = r.CreatedAt,
 				ReactionCode = r.ReactionCode
 			}).ToList(),
-			isTagged = false
+			taggedUsers = taggedUsers
 		};
 
 		var alertedUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == chat.Id).Select(us => us.UserId).ToListAsync();
@@ -1074,18 +1054,7 @@ public class MessageService : IMessageService
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			foreach (var alertedUser in alertedUsers)
-			{
-				if (notifiedUsers != null && notifiedUsers.Count > 0 && notifiedUsers.Contains(alertedUser))
-				{
-					messageDto.isTagged = true;
-				}
-				else
-				{
-					messageDto.isTagged = false;
-				}
-				await _realtimeService.SendToUsers(new List<Guid> { alertedUser }, messageDto, "Updated message in chat");
-			}
+			await _realtimeService.SendToUsers(alertedUsers, messageDto, "Updated message in chat");
 		}
 	}
 
@@ -1242,7 +1211,8 @@ public class MessageService : IMessageService
 					CreatedAt = r.CreatedAt,
 					ReactionCode = r.ReactionCode
 				}).ToList(),
-				isTagged = false
+				taggedUsers = variant.Vote.TaggedUsers,
+				taggedRoles = variant.Vote.TaggedRoles
 			};
 
 			var where = channelType switch
@@ -1355,7 +1325,7 @@ public class MessageService : IMessageService
 					CreatedAt = r.CreatedAt,
 					ReactionCode = r.ReactionCode
 				}).ToList(),
-				isTagged = false
+				taggedUsers = variant.Vote.TaggedUsers
 			};
 
 			await _realtimeService.SendToChat(variant.ChatId, response, "User voted in chat");
@@ -1465,7 +1435,8 @@ public class MessageService : IMessageService
 					CreatedAt = r.CreatedAt,
 					ReactionCode = r.ReactionCode
 				}).ToList(),
-				isTagged = false
+				taggedUsers = channelVariant.Vote.TaggedUsers,
+				taggedRoles = channelVariant.Vote.TaggedRoles
 			};
 
 			var where = channelType switch
@@ -1571,7 +1542,7 @@ public class MessageService : IMessageService
 						CreatedAt = r.CreatedAt,
 						ReactionCode = r.ReactionCode
 					}).ToList(),
-					isTagged = false
+					taggedUsers = variant.Vote.TaggedUsers
 				};
 
 				await _realtimeService.SendToChat(variant.ChatId, response, "User unvoted in chat");
@@ -1675,7 +1646,8 @@ public class MessageService : IMessageService
 					CreatedAt = r.CreatedAt,
 					ReactionCode = r.ReactionCode
 				}).ToList(),
-				isTagged = false
+				taggedUsers = vote.TaggedUsers,
+				taggedRoles = vote.TaggedRoles
 			};
 
 			return response;
@@ -1754,7 +1726,7 @@ public class MessageService : IMessageService
 					CreatedAt = r.CreatedAt,
 					ReactionCode = r.ReactionCode
 				}).ToList(),
-				isTagged = false
+				taggedUsers = vote.TaggedUsers
 			};
 
 			return response;

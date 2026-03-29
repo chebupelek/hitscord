@@ -1624,7 +1624,8 @@ public class ChannelService : IChannelService
 						CreatedAt = r.CreatedAt,
 						ReactionCode = r.ReactionCode
 					}).ToList(),
-					isTagged = message.TaggedUsers.Contains(UserId) || message.TaggedRoles.Any(r => userRoleIds.Contains(r))
+					taggedUsers = classic.TaggedUsers,
+					taggedRoles = classic.TaggedRoles
 				});
 			}
 			else if (item.Vote != null)
@@ -1680,7 +1681,8 @@ public class ChannelService : IChannelService
 						CreatedAt = r.CreatedAt,
 						ReactionCode = r.ReactionCode
 					}).ToList(),
-					isTagged = false
+					taggedUsers = vote.TaggedUsers,
+					taggedRoles = vote.TaggedRoles
 				});
 			}
 		}

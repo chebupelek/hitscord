@@ -721,7 +721,7 @@ public class ChatService : IChatService
 							CreatedAt = r.CreatedAt,
 							ReactionCode = r.ReactionCode
 						}).ToList(),
-						isTagged = message.TaggedUsers.Contains(UserId)
+						taggedUsers = classic.TaggedUsers,
 					};
 					break;
 
@@ -779,7 +779,7 @@ public class ChatService : IChatService
 							CreatedAt = r.CreatedAt,
 							ReactionCode = r.ReactionCode
 						}).ToList(),
-						isTagged = false
+						taggedUsers = vote.TaggedUsers,
 					};
 					break;
 

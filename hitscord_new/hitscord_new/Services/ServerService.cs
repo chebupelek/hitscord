@@ -626,6 +626,7 @@ public class ServerService : IServerService
 				}
 			}
 
+			//отдельный запрос под друзей
 			var newSubscriberResponse = new ServerUserDTO
 			{
 				ServerId = server.Id,
