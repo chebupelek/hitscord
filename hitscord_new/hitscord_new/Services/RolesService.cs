@@ -242,6 +242,16 @@ public class RolesService : IRolesService
 			throw new CustomException("User does not have rights to create roles", "Create role", "User", 403, "Пользователь не имеет права создавать роли", "Создание роли");
 		}
 
+		var looserRole = await _hitsContext.Role
+			.FirstOrDefaultAsync(r =>
+				r.ServerId == serverId
+				&& r.Role == RoleEnum.Uncertain
+			);
+		if (looserRole == null)
+		{
+			throw new CustomException("Uncertain role not found", "Uncertain role", "Role", 404, "Неопределенная роль не найдена", "Создание роли");
+		}
+
 		var newRole = new RoleDbModel()
 		{
 			Name = roleName,
@@ -249,6 +259,7 @@ public class RolesService : IRolesService
 			ServerId = server.Id,
 			Color = color,
 			Tag = Regex.Replace(Transliteration.CyrillicToLatin(roleName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower(),
+			Position = looserRole.Position,
 			ServerCanChangeRole = false,
 			ServerCanWorkChannels = false,
 			ServerCanDeleteUsers = false,
@@ -266,8 +277,10 @@ public class RolesService : IRolesService
 			ChannelCanUse = new List<ChannelCanUseDbModel>(),
 			ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
 		};
+		looserRole.Position++;
 
 		await _hitsContext.Role.AddAsync(newRole);
+		_hitsContext.Role.Update(looserRole);
 		await _hitsContext.SaveChangesAsync();
 
 		var roleResponse = new RolesItemDTO
@@ -277,7 +290,8 @@ public class RolesService : IRolesService
 			Name = newRole.Name,
 			Tag = newRole.Tag,
 			Color = newRole.Color,
-			Type = newRole.Role
+			Type = newRole.Role,
+			Position = newRole.Position
 		};
 
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
@@ -305,6 +319,10 @@ public class RolesService : IRolesService
 		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateRoles) == false)
 		{
 			throw new CustomException("User does not have rights to create roles", "Delete role", "User", 403, "Пользователь не имеет права удалять роли", "Удаление роли");
+		}
+		if (ownerSub.SubscribeRoles.Min(sr => sr.Role.Position) > role.Position)
+		{
+			throw new CustomException("Owner lower in ierarchy than deleted role", "Delete role", "Deleted role", 403, "Пользователь ниже по иерархии чем удаляемая роль", "Удаление роли");
 		}
 
 		if (role.Role != RoleEnum.Custom)
@@ -477,8 +495,10 @@ public class RolesService : IRolesService
 		}
 	}
 
-	public async Task UpdateRoleAsync(Guid UserId, Guid serverId, Guid roleId, string name, string color)
+	public async Task UpdateRoleAsync(Guid UserId, Guid serverId, Guid roleId, string name, string color, int position)
 	{
+		using var transaction = await _hitsContext.Database.BeginTransactionAsync();
+
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
 		var role = await CheckRoleAsync(roleId, serverId);
 
@@ -490,7 +510,7 @@ public class RolesService : IRolesService
 		{
 			throw new CustomException("User is not subscriber of this server", "UpdateRoleAsync", "User", 404, "Пользователь не является подписчиком сервера", "Обновление роли");
 		}
-		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateRoles) == false)
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateRoles && sr.Role.Position > role.Position && sr.Role.Position > position) == false)
 		{
 			throw new CustomException("User does not have rights to create roles", "UpdateRoleAsync", "User", 403, "Пользователь не имеет права удалять роли", "Обновление роли");
 		}
@@ -505,6 +525,40 @@ public class RolesService : IRolesService
 			role.Name = name;
 			role.Tag = Regex.Replace(Transliteration.CyrillicToLatin(name, Language.Russian), "[^a-zA-Z0-9]", "").ToLower();
 
+			if (role.Position != position)
+			{
+				var maxPosition = await _hitsContext.Role
+					.Where(r => r.ServerId == serverId)
+					.MaxAsync(r => (int?)r.Position) ?? 0;
+
+				if (position < 1 || position > maxPosition)
+				{
+					throw new CustomException("Invalid position", "UpdateRoleAsync", "Position", 400, $"Позиция должна быть от 1 до {maxPosition}", "Обновление роли");
+				}
+				var oldPosition = role.Position;
+
+				if (position < oldPosition)
+				{
+					await _hitsContext.Role
+						.Where(r => r.ServerId == serverId &&
+									r.Position >= position &&
+									r.Position < oldPosition)
+						.ExecuteUpdateAsync(s => s
+							.SetProperty(r => r.Position, r => r.Position + 1));
+				}
+				else
+				{
+					await _hitsContext.Role
+						.Where(r => r.ServerId == serverId &&
+									r.Position <= position &&
+									r.Position > oldPosition)
+						.ExecuteUpdateAsync(s => s
+							.SetProperty(r => r.Position, r => r.Position - 1));
+				}
+
+				role.Position = position;
+			}
+
 			var channelsId = await _hitsContext.Channel
 				.Where(c => c.ServerId == serverId)
 				.Select(c => c.Id)
@@ -516,7 +570,6 @@ public class RolesService : IRolesService
 		}
 		role.Color = color;
 
-		_hitsContext.Role.Update(role);
 		await _hitsContext.SaveChangesAsync();
 
 		var roleResponse = new RolesItemDTO
@@ -526,8 +579,11 @@ public class RolesService : IRolesService
 			Name = role.Name,
 			Tag = role.Tag,
 			Color = role.Color,
-			Type = role.Role
+			Type = role.Role,
+			Position = role.Position,
 		};
+
+		await transaction.CommitAsync();
 
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(serverId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
@@ -570,7 +626,8 @@ public class RolesService : IRolesService
 					Name = role.Name,
 					Tag = role.Tag,
 					Color = role.Color,
-					Type = role.Role
+					Type = role.Role,
+					Position = role.Position,
 				},
 				Settings = new SettingsDTO
 				{
@@ -607,6 +664,10 @@ public class RolesService : IRolesService
 		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateRoles) == false)
 		{
 			throw new CustomException("User does not have rights to create roles", "Change role settings", "User", 403, "Пользователь не имеет права удалять роли", "Изменение настроек роли");
+		}
+		if (ownerSub.SubscribeRoles.Min(sr => sr.Role.Position) > role.Position)
+		{
+			throw new CustomException("Owner lower in ierarchy than updated role", "Change role settings", "Updated role", 403, "Пользователь ниже по иерархии чем обновляемая роль", "Изменение настроек роли");
 		}
 
 		if (role.Role != RoleEnum.Custom)
@@ -790,7 +851,8 @@ public class RolesService : IRolesService
 				Name = role.Name,
 				Tag = role.Tag,
 				Color = role.Color,
-				Type = role.Role
+				Type = role.Role,
+				Position = role.Position,
 			},
 			Settings = new SettingsDTO
 			{

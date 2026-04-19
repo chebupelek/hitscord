@@ -40,7 +40,7 @@ public interface IAdminService
 	Task DeleteServerIconAdminAsync(Guid adminId, Guid serverId);
 	Task<RolesItemDTO> CreateRoleAdminAsync(Guid adminId, Guid serverId, string roleName, string color);
 	Task DeleteRoleAdminAsync(Guid adminId, Guid serverId, Guid roleId);
-	Task UpdateRoleAsync(Guid adminId, Guid serverId, Guid roleId, string name, string color);
+	Task UpdateRoleAsync(Guid adminId, Guid serverId, Guid roleId, string name, string color, int position);
 	Task ChangeRoleSettingsAdminAsync(Guid adminId, Guid serverId, Guid roleId, SettingsEnum setting, bool settingsData);
 	Task DeleteUserFromServerAdminAsync(Guid adminId, Guid serverId, Guid userId);
 	Task ChangeUserNameAdminAsync(Guid serverId, Guid adminId, Guid userId, string name);

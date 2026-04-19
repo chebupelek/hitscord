@@ -32,6 +32,8 @@ public class RoleDbModel
 
     public required string Tag { get; set; }
 
+    public required int Position { get; set; }
+
     public required bool ServerCanChangeRole { get; set; }
 
     public required bool ServerCanWorkChannels { get; set; }

@@ -2076,6 +2076,16 @@ public class AdminService : IAdminService
 			throw new CustomException("Invalid color format", "CreateRoleAdminAsync", "Color", 400, "Неверный формат цвета. Используйте шестизначный HEX в формате #RRGGBB", "Создание роли админом");
 		}
 
+		var looserRole = await _hitsContext.Role
+			.FirstOrDefaultAsync(r =>
+				r.ServerId == serverId
+				&& r.Role == RoleEnum.Uncertain
+			);
+		if (looserRole == null)
+		{
+			throw new CustomException("Uncertain role not found", "Uncertain role", "Role", 404, "Неопределенная роль не найдена", "Создание роли админом");
+		}
+
 		var newRole = new RoleDbModel()
 		{
 			Name = roleName,
@@ -2083,6 +2093,7 @@ public class AdminService : IAdminService
 			ServerId = server.Id,
 			Color = color,
 			Tag = Regex.Replace(Transliteration.CyrillicToLatin(roleName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower(),
+			Position = looserRole.Position,
 			ServerCanChangeRole = false,
 			ServerCanWorkChannels = false,
 			ServerCanDeleteUsers = false,
@@ -2100,8 +2111,10 @@ public class AdminService : IAdminService
 			ChannelCanUse = new List<ChannelCanUseDbModel>(),
 			ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
 		};
+		looserRole.Position++;
 
 		await _hitsContext.Role.AddAsync(newRole);
+		_hitsContext.Role.Update(looserRole);
 		await _hitsContext.SaveChangesAsync();
 
 		var roleResponse = new RolesItemDTO
@@ -2111,7 +2124,8 @@ public class AdminService : IAdminService
 			Name = newRole.Name,
 			Tag = newRole.Tag,
 			Color = newRole.Color,
-			Type = newRole.Role
+			Type = newRole.Role,
+			Position = newRole.Position
 		};
 
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
@@ -2305,8 +2319,10 @@ public class AdminService : IAdminService
 		}
 	}
 
-	public async Task UpdateRoleAsync(Guid adminId, Guid serverId, Guid roleId, string name, string color)
+	public async Task UpdateRoleAsync(Guid adminId, Guid serverId, Guid roleId, string name, string color, int position)
 	{
+		using var transaction = await _hitsContext.Database.BeginTransactionAsync();
+
 		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
@@ -2337,6 +2353,39 @@ public class AdminService : IAdminService
 		{
 			role.Name = name;
 			role.Tag = Regex.Replace(Transliteration.CyrillicToLatin(name, Language.Russian), "[^a-zA-Z0-9]", "").ToLower();
+			if (role.Position != position)
+			{
+				var maxPosition = await _hitsContext.Role
+					.Where(r => r.ServerId == serverId)
+					.MaxAsync(r => (int?)r.Position) ?? 0;
+
+				if (position < 1 || position > maxPosition)
+				{
+					throw new CustomException("Invalid position", "UpdateRoleAsync", "Position", 400, $"Позиция должна быть от 1 до {maxPosition}", "Обновление роли");
+				}
+				var oldPosition = role.Position;
+
+				if (position < oldPosition)
+				{
+					await _hitsContext.Role
+						.Where(r => r.ServerId == serverId &&
+									r.Position >= position &&
+									r.Position < oldPosition)
+						.ExecuteUpdateAsync(s => s
+							.SetProperty(r => r.Position, r => r.Position + 1));
+				}
+				else
+				{
+					await _hitsContext.Role
+						.Where(r => r.ServerId == serverId &&
+									r.Position <= position &&
+									r.Position > oldPosition)
+						.ExecuteUpdateAsync(s => s
+							.SetProperty(r => r.Position, r => r.Position - 1));
+				}
+
+				role.Position = position;
+			}
 		}
 		role.Color = color;
 
@@ -2350,8 +2399,11 @@ public class AdminService : IAdminService
 			Name = role.Name,
 			Tag = role.Tag,
 			Color = role.Color,
-			Type = role.Role
+			Type = role.Role,
+			Position = role.Position
 		};
+
+		await transaction.CommitAsync();
 
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
@@ -2553,7 +2605,8 @@ public class AdminService : IAdminService
 				Name = role.Name,
 				Tag = role.Tag,
 				Color = role.Color,
-				Type = role.Role
+				Type = role.Role,
+				Position = role.Position
 			},
 			Settings = new SettingsDTO
 			{

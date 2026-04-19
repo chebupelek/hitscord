@@ -83,7 +83,7 @@ public class ServerService : IServerService
         return server;
     }
 
-    private async Task<RoleDbModel> CreateRoleAsync(Guid serverId, RoleEnum role, string roleName, string color, bool ServerCanChangeRole, bool ServerCanWorkChannels, bool ServerCanDeleteUsers, bool ServerCanMuteOther, bool ServerCanDeleteOthersMessages, bool ServerCanIgnoreMaxCount, bool ServerCanCreateRoles, bool ServerCanCreateLessons, bool ServerCanCheckAttendance, bool ServerCanUseInvitations)
+    private async Task<RoleDbModel> CreateRoleAsync(Guid serverId, RoleEnum role, string roleName, string color, bool ServerCanChangeRole, bool ServerCanWorkChannels, bool ServerCanDeleteUsers, bool ServerCanMuteOther, bool ServerCanDeleteOthersMessages, bool ServerCanIgnoreMaxCount, bool ServerCanCreateRoles, bool ServerCanCreateLessons, bool ServerCanCheckAttendance, bool ServerCanUseInvitations, int position)
     {
         var newRole = new RoleDbModel()
         {
@@ -92,6 +92,7 @@ public class ServerService : IServerService
             ServerId = serverId,
             Color = color,
             Tag = Regex.Replace(Transliteration.CyrillicToLatin(roleName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower(),
+			Position = position,
 			ServerCanChangeRole = ServerCanChangeRole,
 			ServerCanWorkChannels = ServerCanWorkChannels,
 			ServerCanDeleteUsers = ServerCanDeleteUsers,
@@ -353,9 +354,9 @@ public class ServerService : IServerService
 		await _hitsContext.Server.AddAsync(newServer);
 		await _hitsContext.SaveChangesAsync();
 
-		var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Владелец", "#FF0000", true, true, true, true, true, true, true, true, true, true);
-        var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Администратор", "#00FF00", true, true, true, true, true, true, true, true, true, true);
-        var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Базовая", "#FFFF00", false, false, false, false, false, false, false, false, false, false);
+		var creatorRole = await CreateRoleAsync(newServer.Id, RoleEnum.Creator, "Владелец", "#FF0000", true, true, true, true, true, true, true, true, true, true, 0);
+        var adminRole = await CreateRoleAsync(newServer.Id, RoleEnum.Admin, "Администратор", "#00FF00", true, true, true, true, true, true, true, true, true, true, 1);
+        var uncertainRole = await CreateRoleAsync(newServer.Id, RoleEnum.Uncertain, "Базовая", "#FFFF00", false, false, false, false, false, false, false, false, false, false, 2);
         newServer.Roles = new List<RoleDbModel> { creatorRole, adminRole, uncertainRole };
         _hitsContext.Server.Update(newServer);
         await _hitsContext.SaveChangesAsync();
@@ -1124,7 +1125,7 @@ public class ServerService : IServerService
 		{
 			throw new CustomException("User is not subscriber of this server", "Check user", "User", 404, "Пользователь не найден", "Добавление роли пользователю");
 		}
-		if(ownerSub.SubscribeRoles.Min(sr => sr.Role.Role) > userSub.SubscribeRoles.Min(sr => sr.Role.Role))
+		if(ownerSub.SubscribeRoles.Min(sr => sr.Role.Position) > userSub.SubscribeRoles.Min(sr => sr.Role.Position))
 		{
 			throw new CustomException("Owner lower in ierarchy than changed user", "Change user role", "Changed user role", 401, "Пользователь ниже по иерархии чем изменяемый пользователь", "Добавление роли пользователю");
 		}
@@ -1135,7 +1136,7 @@ public class ServerService : IServerService
 		{
 			throw new CustomException("Role not found", "Change user role", "Role ID", 404, "Роль не найдена", "Добавление роли пользователю");
 		}
-		if (ownerSub.SubscribeRoles.Min(sr => sr.Role.Role) > role.Role)
+		if (ownerSub.SubscribeRoles.Min(sr => sr.Role.Position) > role.Position)
 		{
 			throw new CustomException("Owner lower in ierarchy than added role", "Change role", "Changed user role", 401, "Пользователь ниже по иерархии чем назначаемая роль", "Добавление роли пользователю");
 		}
@@ -1310,7 +1311,7 @@ public class ServerService : IServerService
 			throw new CustomException("User is not subscriber of this server", "Check user sub", "User sub", 404, "Пользователь не является подписчиком сервера", "Удаление роли у пользователя");
 		}
 
-		if (ownerSub.SubscribeRoles.Min(sr => sr.Role.Role) > userSub.SubscribeRoles.Min(sr => sr.Role.Role))
+		if (ownerSub.SubscribeRoles.Min(sr => sr.Role.Position) > userSub.SubscribeRoles.Min(sr => sr.Role.Position))
 		{
 			throw new CustomException("Owner lower in ierarchy than changed user", "User and Owner roles comparasion", "Changed user role", 401, "Вы ниже по роли чеи пользователь у которого удаляется роль", "Удаление роли у пользователя");
 		}
@@ -1609,7 +1610,8 @@ public class ServerService : IServerService
 					ServerId = r.ServerId,
 					Tag = r.Tag,
 					Color = r.Color,
-					Type = r.Role
+					Type = r.Role,
+					Position = r.Position,
 				})
 				.ToListAsync(),
 			UserRoles = sub.SubscribeRoles
@@ -1685,7 +1687,7 @@ public class ServerService : IServerService
 		{
 			throw new CustomException("User cant delete himself", "Delete user from server", "User", 400, "Пользователь не может удалить сам себя", "Удаление пользователя с сервера");
 		}
-		if (ownerSub.SubscribeRoles.Min(sr => sr.Role.Role) > userSub.SubscribeRoles.Min(sr => sr.Role.Role))
+		if (ownerSub.SubscribeRoles.Min(sr => sr.Role.Position) > userSub.SubscribeRoles.Min(sr => sr.Role.Position))
 		{
 			throw new CustomException("Owner lower in ierarchy than deleted user", "Delete user from server", "Changed user role", 401, "Пользователь ниже по иерархии чем удаляемый пользователь", "Удаление пользователя с сервера");
 		}

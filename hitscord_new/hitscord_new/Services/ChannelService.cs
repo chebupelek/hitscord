@@ -989,7 +989,7 @@ public class ChannelService : IChannelService
             throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400, "Пользователь не находится на этом канале", "Удаление пользователя из голосового канала");
         }
 
-		if (userSub.SubscribeRoles.Min(sr => sr.Role.Role) > removedUserSub.SubscribeRoles.Min(sr => sr.Role.Role))
+		if (userSub.SubscribeRoles.Min(sr => sr.Role.Position) > removedUserSub.SubscribeRoles.Min(sr => sr.Role.Position))
 		{
 			throw new CustomException("User lower in ierarchy than removed user", "Remove user from voice channel", "Removed user role", 401, "Пользователь ниже по иерархии чем удаляемый пользователь", "Удаление пользователя из голосового канала");
 		}
@@ -1111,7 +1111,7 @@ public class ChannelService : IChannelService
 			throw new CustomException("Changed user not on this channel", "Change user mute status", "Voice channel - Removed user", 400, "Пользователь которому необходимо изменить статус мута не находится в голосовом канале канале", "Изменение статуса другого пользователя в голосовом канале");
 		}
 
-		if (userSub.SubscribeRoles.Min(sr => sr.Role.Role) > changedSub.SubscribeRoles.Min(sr => sr.Role.Role))
+		if (userSub.SubscribeRoles.Min(sr => sr.Role.Position) > changedSub.SubscribeRoles.Min(sr => sr.Role.Position))
 		{
 			throw new CustomException("User lower in ierarchy than changed user", "Change user mute status", "Changed user role", 401, "Пользователь ниже по иерархии чем изменяемый пользователь", "Изменение статуса другого пользователя в голосовом канале");
 		}
@@ -1307,7 +1307,8 @@ public class ChannelService : IChannelService
 							Name = ccs.Role.Name,
 							Tag = ccs.Role.Tag,
 							Color = ccs.Role.Color,
-							Type = ccs.Role.Role
+							Type = ccs.Role.Role,
+							Position = ccs.Role.Position
 						}).ToList(),
 						CanWrite = tc.ChannelCanWrite.Select(ccw => new RolesItemDTO
 						{
@@ -1316,7 +1317,8 @@ public class ChannelService : IChannelService
 							Name = ccw.Role.Name,
 							Tag = ccw.Role.Tag,
 							Color = ccw.Role.Color,
-							Type = ccw.Role.Role
+							Type = ccw.Role.Role,
+							Position = ccw.Role.Position
 						}).ToList(),
 						CanWriteSub = tc.ChannelCanWriteSub.Select(ccws => new RolesItemDTO
 						{
@@ -1325,7 +1327,8 @@ public class ChannelService : IChannelService
 							Name = ccws.Role.Name,
 							Tag = ccws.Role.Tag,
 							Color = ccws.Role.Color,
-							Type = ccws.Role.Role
+							Type = ccws.Role.Role,
+							Position = ccws.Role.Position
 						}).ToList(),
 						CanJoin = null,
 						CanUse = null,
@@ -1354,7 +1357,8 @@ public class ChannelService : IChannelService
 							Name = ccs.Role.Name,
 							Tag = ccs.Role.Tag,
 							Color = ccs.Role.Color,
-							Type = ccs.Role.Role
+							Type = ccs.Role.Role,
+							Position = ccs.Role.Position
 						}).ToList(),
 						CanWrite = null,
 						CanWriteSub = null,
@@ -1365,7 +1369,8 @@ public class ChannelService : IChannelService
 							Name = ccj.Role.Name,
 							Tag = ccj.Role.Tag,
 							Color = ccj.Role.Color,
-							Type = ccj.Role.Role
+							Type = ccj.Role.Role,
+							Position = ccj.Role.Position
 						}).ToList(),
 						CanUse = null,
 						Notificated = null
@@ -1394,7 +1399,8 @@ public class ChannelService : IChannelService
 							Name = ccs.Role.Name,
 							Tag = ccs.Role.Tag,
 							Color = ccs.Role.Color,
-							Type = ccs.Role.Role
+							Type = ccs.Role.Role,
+							Position = ccs.Role.Position
 						}).ToList(),
 						CanWrite = null,
 						CanWriteSub = null,
@@ -1405,7 +1411,8 @@ public class ChannelService : IChannelService
 							Name = ccj.Role.Name,
 							Tag = ccj.Role.Tag,
 							Color = ccj.Role.Color,
-							Type = ccj.Role.Role
+							Type = ccj.Role.Role,
+							Position = ccj.Role.Position
 						}).ToList(),
 						CanUse = null,
 						Notificated = null
@@ -1435,7 +1442,8 @@ public class ChannelService : IChannelService
 							Name = ccs.Role.Name,
 							Tag = ccs.Role.Tag,
 							Color = ccs.Role.Color,
-							Type = ccs.Role.Role
+							Type = ccs.Role.Role,
+							Position = ccs.Role.Position
 						}).ToList(),
 						CanWrite = ntc.ChannelCanWrite.Select(ccw => new RolesItemDTO
 						{
@@ -1444,7 +1452,8 @@ public class ChannelService : IChannelService
 							Name = ccw.Role.Name,
 							Tag = ccw.Role.Tag,
 							Color = ccw.Role.Color,
-							Type = ccw.Role.Role
+							Type = ccw.Role.Role,
+							Position = ccw.Role.Position
 						}).ToList(),
 						CanWriteSub = null,
 						CanJoin = null,
@@ -1456,7 +1465,8 @@ public class ChannelService : IChannelService
 							Name = cn.Role.Name,
 							Tag = cn.Role.Tag,
 							Color = cn.Role.Color,
-							Type = cn.Role.Role
+							Type = cn.Role.Role,
+							Position = cn.Role.Position
 						}).ToList()
 					})
 					.FirstOrDefaultAsync();
@@ -1485,7 +1495,8 @@ public class ChannelService : IChannelService
 							Name = ccu.Role.Name,
 							Tag = ccu.Role.Tag,
 							Color = ccu.Role.Color,
-							Type = ccu.Role.Role
+							Type = ccu.Role.Role,
+							Position = ccu.Role.Position
 						}).ToList(),
 						Notificated = null
 					})

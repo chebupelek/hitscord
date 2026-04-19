@@ -551,8 +551,29 @@ public class MessageService : IMessageService
 		};
 
 		var alertedUsers = await _cacheService.GetChannelToUserListFullAsync(channel.Channel.Id) ?? new List<Guid>();
-		var notificatedUsers = await _cacheService.GetChannelToUserListSortedAsync(channel.Channel.Id, taggedRoles, taggedUsers) ?? new List<Guid>();
+		var notificatedUsers = new List<Guid>();
+		if (channel.Type == ChannelTypeEnum.Notification)
+		{
+			var roleIds = await _hitsContext.Set<ChannelNotificatedDbModel>()
+				.Where(cn => cn.NotificationChannelId == channel.Channel.Id)
+				.Select(cn => cn.RoleId)
+				.ToListAsync();
 
+			var combinedRoles = taggedRoles
+				.Concat(roleIds)
+				.Distinct()
+				.ToList();
+
+			notificatedUsers = await _cacheService
+				.GetChannelToUserListSortedAsync(channel.Channel.Id, combinedRoles, taggedUsers)
+				?? new List<Guid>();
+		}
+		else
+		{
+			notificatedUsers = await _cacheService
+				.GetChannelToUserListSortedAsync(channel.Channel.Id, taggedRoles, taggedUsers) 
+				?? new List<Guid>();
+		}
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{

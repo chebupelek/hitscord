@@ -830,7 +830,7 @@ public class AdminController : ControllerBase
 				return Unauthorized();
 			}
 
-			await _adminService.UpdateRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Name, data.Color);
+			await _adminService.UpdateRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Name, data.Color, data.Position);
 			return Ok();
 		}
 		catch (CustomException ex)

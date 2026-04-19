@@ -6,4 +6,5 @@ public class UpdateRoleRequestDTO
 	public required Guid RoleId { get; set; }
 	public required string Name { get; set; }
 	public required string Color { get; set; }
+	public required int Position { get; set; }
 }

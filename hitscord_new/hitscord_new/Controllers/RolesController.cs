@@ -68,7 +68,7 @@ public class RolesController : ControllerBase
 	{
 		try
 		{
-			await _roleService.UpdateRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Name, data.Color);
+			await _roleService.UpdateRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Name, data.Color, data.Position);
 			return Ok();
 		}
 		catch (CustomException ex)
