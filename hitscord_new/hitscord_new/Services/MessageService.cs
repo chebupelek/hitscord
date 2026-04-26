@@ -15,7 +15,9 @@ using hitscord.SignalR;
 using hitscord.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
 using Npgsql.Replication.PgOutput.Messages;
 using System;
 using System.Collections.Generic;
@@ -39,9 +41,10 @@ public class MessageService : IMessageService
 	private readonly IRealtimeService _realtimeService;
 	private readonly MinioService _minioService;
 	private readonly IRedisCacheService _cacheService;
+	private readonly IFirebaseService _firebaseService;
 
 
-	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, /*ILogger<MessageService> logger,*/ nClamService clamService, IChannelService channelService, IRealtimeService realtimeService, MinioService minioService, IRedisCacheService cacheService)
+	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, /*ILogger<MessageService> logger,*/ nClamService clamService, IChannelService channelService, IRealtimeService realtimeService, MinioService minioService, IRedisCacheService cacheService, IFirebaseService firebaseService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -51,6 +54,7 @@ public class MessageService : IMessageService
 		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
+		_firebaseService = firebaseService ?? throw new ArgumentNullException(nameof(firebaseService));
 	}
 
 	private static readonly Regex UserTagRegex = new(@"\/\/\{usertag:([0-9a-f\-]{36})\}\/\/", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -131,6 +135,27 @@ public class MessageService : IMessageService
 			Deleted = f.Deleted
 		}).ToList());
 	}
+
+	private async Task DeleteFilesAsync(List<FileDbModel> Files)
+	{
+		foreach (var file in Files)
+		{
+			try
+			{
+				await _minioService.DeleteFileAsync(file.Path);
+			}
+			catch (Exception fileEx)
+			{
+
+			}
+
+			file.Deleted = true;
+		}
+
+		_hitsContext.File.UpdateRange(Files);
+		await _hitsContext.SaveChangesAsync();
+	}
+
 
 	private async Task<ReplyToMessageResponceDTO?> MapChannelReplyToMessage(long? replyId, Guid textChannelId, Guid serverId)
 	{
@@ -341,7 +366,8 @@ public class MessageService : IMessageService
 			ChannelMessageId = messageId,
 			TextChannelId = textChannelId,
 			ChannelMessageRealId = RealId,
-			ChannelCanUse = new List<ChannelCanUseDbModel>()
+			ChannelCanUse = new List<ChannelCanUseDbModel>(),
+			Position = 0
 		};
 
 		var rolesIds = await _hitsContext.ChannelCanWrite.Where(ccw => ccw.TextChannelId == textChannelId).Select(ccw => ccw.RoleId).ToListAsync();
@@ -583,6 +609,20 @@ public class MessageService : IMessageService
 		if (notificatedUsers != null && notificatedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToUsers(notificatedUsers, response, "User notified");
+			var tokens = await _hitsContext.UserDeviceToken
+				.Where(t => notificatedUsers.Contains(t.UserId))
+				.Select(t => t.Token)
+				.ToListAsync();
+
+			foreach (var token in tokens)
+			{
+				await _firebaseService.SendToUserAsync(
+					token,
+					"Вас упомянули",
+					"В канале пришло сообщение с вашим тегом",
+					response
+				);
+			}
 		}
 
 		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Channel.Id && lr.UserId == UserId);
@@ -1109,6 +1149,961 @@ public class MessageService : IMessageService
 		};
 
 		return messageDto;
+	}
+
+
+	//Создание задания
+	public async Task CreateTaskWebsocketAsync(Guid UserId, Guid ChannelId, string Description, DateTime? Deadline, List<Guid>? Files, List<Guid> Roles)
+	{
+		var channel = await _channelService.CheckLessonChannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание задания");
+		}
+
+		if (!((((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && (((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.Task))))
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание задания");
+		}
+
+		var lastId = await _hitsContext.LessonChannelMessageTask
+			.Where(m => m.TextLessonChannelId == ChannelId)
+			.OrderByDescending(m => m.Id)
+			.Select(m => (long?)m.Id)
+			.FirstOrDefaultAsync();
+
+		var newId = (lastId ?? 0) + 1;
+
+		if (Deadline != null && Deadline <= DateTime.UtcNow)
+		{
+			throw new CustomException("Invalid deadline", "Create message", "Deadline", 400, "Неправильный дедлайн", "Создание задания");
+		}
+
+		if (!Roles.Any())
+		{
+			throw new CustomException("Invalid roles", "Create message", "Roles", 400, "Нужно назначить роли", "Создание задания");
+		}
+
+		var roles = await _hitsContext.ChannelCanSee
+			.Where(ccs => ccs.ChannelId == channel.Id && Roles.Contains(ccs.RoleId))
+			.Select(ccs => ccs.Role)
+			.ToListAsync();
+		if (roles.Count != Roles.Count)
+		{
+			throw new CustomException(
+				"Invalid role",
+				"Create message",
+				"Roles",
+				400,
+				"Одна или несколько ролей не имеют доступа к каналу",
+				"Создание задания"
+			);
+		}
+
+		var newTask = new LessonChannelMessageTaskDbModel
+		{
+			Id = newId,
+			AuthorId = UserId,
+			TextLessonChannelId = channel.Id,
+			Description = Description,
+			Deadline = Deadline,
+			AssignedRoles = roles
+		};
+
+		await _hitsContext.LessonChannelMessageTask.AddAsync(newTask);
+		await _hitsContext.SaveChangesAsync();
+
+		List<FileMetaResponseDTO>? filesResponse = null;
+		if (Files != null && Files.Any())
+		{
+			filesResponse = await CreateFilesAsync(Files, UserId, newTask.Id, channel.Id, null, null, newTask.RealId, null);
+		}
+
+		var rolesIds = roles.Select(r => r.Id).ToList();
+
+		var response = new TaskResponceDTO
+		{
+			MessageType = "Task",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = newTask.Id,
+			AuthorId = newTask.AuthorId,
+			CreatedAt = newTask.CreatedAt,
+			Description = newTask.Description,
+			UpdatedAt = newTask.UpdatedAt,
+			Deadline = newTask.Deadline,
+			Files = filesResponse,
+			AssignedRolesIds = rolesIds
+		};
+
+		var rolesCanTask = await _hitsContext.ChannelCanMakeTasks
+			.Where(ccmt => ccmt.TextLessonChannelId == channel.Id)
+			.Select(ccmt => ccmt.RoleId)
+			.ToListAsync();
+
+		var allRolesSet = rolesIds.ToHashSet();
+		allRolesSet.UnionWith(rolesCanTask);
+
+		var allNotificatedUsers = await _cacheService
+			.GetChannelToUserListSortedAsync(channel.Id, allRolesSet.ToList(), new List<Guid>())
+			?? new List<Guid>();
+
+		var notificatedUsers = await _cacheService
+			.GetChannelToUserListSortedAsync(channel.Id, rolesIds, new List<Guid>())
+			?? new List<Guid>();
+
+		await _realtimeService.SendToUsers(allNotificatedUsers, response, "New task message");
+		await _realtimeService.SendToUsers(notificatedUsers, response, "New task notification");
+	}
+	//Обновление задания
+	public async Task UpdateTaskWebsocketAsync(Guid UserId, Guid ChannelId, long TaskId, string Description)
+	{
+		var channel = await _channelService.CheckLessonChannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание задания");
+		}
+
+		var task = await _hitsContext.LessonChannelMessageTask
+			.Include(lcmt => lcmt.AssignedRoles)
+			.FirstOrDefaultAsync(lcmt => lcmt.TextLessonChannelId == ChannelId && lcmt.Id == TaskId);
+		if (task == null)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if (task.Deadline != null && task.Deadline <= DateTime.UtcNow)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if (!((((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && (((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.Task))) && !(task.AuthorId == UserId))
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание задания");
+		}
+
+		task.Description = Description;
+		task.UpdatedAt = DateTime.UtcNow;
+		await _hitsContext.SaveChangesAsync();
+
+		var rolesIds = task.AssignedRoles.Select(r => r.Id).ToList();
+
+		var response = new TaskResponceDTO
+		{
+			MessageType = "Task",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = task.Id,
+			AuthorId = task.AuthorId,
+			CreatedAt = task.CreatedAt,
+			Description = task.Description,
+			UpdatedAt = task.UpdatedAt,
+			Deadline = task.Deadline,
+			Files = new List<FileMetaResponseDTO>(),
+			AssignedRolesIds = rolesIds
+		};
+
+		var rolesCanTask = await _hitsContext.ChannelCanMakeTasks
+			.Where(ccmt => ccmt.TextLessonChannelId == channel.Id)
+			.Select(ccmt => ccmt.RoleId)
+			.ToListAsync();
+
+		var allRolesSet = rolesIds.ToHashSet();
+		allRolesSet.UnionWith(rolesCanTask);
+
+		var allNotificatedUsers = await _cacheService
+			.GetChannelToUserListSortedAsync(channel.Id, allRolesSet.ToList(), new List<Guid>())
+			?? new List<Guid>();
+
+		var notificatedUsers = await _cacheService
+			.GetChannelToUserListSortedAsync(channel.Id, rolesIds, new List<Guid>())
+			?? new List<Guid>();
+
+		await _realtimeService.SendToUsers(allNotificatedUsers, response, "Task updated");
+		await _realtimeService.SendToUsers(notificatedUsers, response, "Task updated notification");
+	}
+	//Удаление задания
+	public async Task DeleteTaskWebsocketAsync(Guid UserId, Guid ChannelId, long TaskId)
+	{
+		var channel = await _channelService.CheckLessonChannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание задания");
+		}
+
+		var task = await _hitsContext.LessonChannelMessageTask
+			.Include(lcmt => lcmt.AssignedRoles)
+			.Include(lcmt => lcmt.Files)
+			.FirstOrDefaultAsync(lcmt => lcmt.TextLessonChannelId == ChannelId && lcmt.Id == TaskId);
+		if (task == null)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if (task.Deadline != null && task.Deadline <= DateTime.UtcNow)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if (!((((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && (((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.Task))) && !(task.AuthorId == UserId))
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание задания");
+		}
+
+		await _hitsContext.LessonChannelMessage
+			.Where(m => m.ReplyToMessageId == task.Id &&
+						m.TextLessonChannelId == channel.Id)
+			.ExecuteDeleteAsync();
+
+		_hitsContext.LessonChannelMessageTask.Remove(task);
+		await _hitsContext.SaveChangesAsync();
+
+		await DeleteFilesAsync((List<FileDbModel>)task.Files);
+
+		var rolesIds = task.AssignedRoles.Select(r => r.Id).ToList();
+
+		var response = new TaskResponceDTO
+		{
+			MessageType = "Task",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = task.Id,
+			AuthorId = task.AuthorId,
+			CreatedAt = task.CreatedAt,
+			Description = task.Description,
+			UpdatedAt = task.UpdatedAt,
+			Deadline = task.Deadline,
+			Files = new List<FileMetaResponseDTO>(),
+			AssignedRolesIds = rolesIds
+		};
+
+		var rolesCanTask = await _hitsContext.ChannelCanMakeTasks
+			.Where(ccmt => ccmt.TextLessonChannelId == channel.Id)
+			.Select(ccmt => ccmt.RoleId)
+			.ToListAsync();
+
+		var allRolesSet = rolesIds.ToHashSet();
+		allRolesSet.UnionWith(rolesCanTask);
+
+		var allNotificatedUsers = await _cacheService
+			.GetChannelToUserListSortedAsync(channel.Id, allRolesSet.ToList(), new List<Guid>())
+			?? new List<Guid>();
+
+		var notificatedUsers = await _cacheService
+			.GetChannelToUserListSortedAsync(channel.Id, rolesIds, new List<Guid>())
+			?? new List<Guid>();
+
+		await _realtimeService.SendToUsers(allNotificatedUsers, response, "Task deleted");
+		await _realtimeService.SendToUsers(notificatedUsers, response, "Task deleted notification");
+	}
+
+	//Создание ответа
+	public async Task CreateSolutionWebsocketAsync(Guid UserId, Guid ChannelId, string Description, long TaskId, List<Guid>? Files)
+	{
+		var channel = await _channelService.CheckLessonChannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание задания");
+		}
+
+		if (!(((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)))
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание задания");
+		}
+
+		var task = await _hitsContext.LessonChannelMessageTask
+			.Include(lcmt => lcmt.AssignedRoles)
+			.FirstOrDefaultAsync(lcmt => lcmt.TextLessonChannelId == ChannelId && lcmt.Id == TaskId);
+		if (task == null)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if(task.Deadline != null && task.Deadline <= DateTime.UtcNow)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		var isAssigned = await _hitsContext.UserServer
+			.Where(us => us.UserId == UserId)
+			.AnyAsync(us =>
+				us.SubscribeRoles.Any(sr =>
+					_hitsContext.LessonChannelMessageTask
+						.Where(t => t.Id == TaskId)
+						.SelectMany(t => t.AssignedRoles)
+						.Any(r => r.Id == sr.RoleId)
+				)
+			);
+
+		if (!isAssigned)
+		{
+			throw new CustomException(
+				"User not assigned to task",
+				"Check roles",
+				"Roles",
+				403,
+				"Пользователь не назначен на задание",
+				"Проверка доступа"
+			);
+		}
+
+		var lastId = await _hitsContext.LessonChannelMessageSolution
+			.Where(m => m.TextLessonChannelId == ChannelId && m.ReplyToMessageId == task.Id)
+			.OrderByDescending(m => m.Id)
+			.Select(m => (long?)m.Id)
+			.FirstOrDefaultAsync();
+
+		var newId = (lastId ?? 0) + 1;
+
+		var newSolution = new LessonChannelMessageSolutionDbModel
+		{
+			Id = newId,
+			AuthorId = UserId,
+			TextLessonChannelId = channel.Id,
+			Description = Description,
+			ReplyToMessageId = task.Id
+		};
+
+		await _hitsContext.LessonChannelMessageSolution.AddAsync(newSolution);
+		await _hitsContext.SaveChangesAsync();
+
+		List<FileMetaResponseDTO>? filesResponse = null;
+		if (Files != null && Files.Any())
+		{
+			filesResponse = await CreateFilesAsync(Files, UserId, newSolution.Id, channel.Id, null, null, newSolution.RealId, null);
+		}
+
+		var response = new SolutionResponceDTO
+		{
+			MessageType = "Solution",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = newSolution.Id,
+			AuthorId = newSolution.AuthorId,
+			CreatedAt = newSolution.CreatedAt,
+			Description = newSolution.Description,
+			UpdatedAt = newSolution.UpdatedAt,
+			Files = filesResponse
+		};
+
+		var rolesCanTask = await _hitsContext.ChannelCanMakeTasks
+			.Where(ccmt => ccmt.TextLessonChannelId == channel.Id)
+			.Select(ccmt => ccmt.RoleId)
+			.ToListAsync();
+
+		rolesCanTask.Add(UserId);
+
+		await _realtimeService.SendToUsers(rolesCanTask, response, "New solution");
+	}
+	//Обновление ответа
+	public async Task UpdateSolutionWebsocketAsync(Guid UserId, Guid ChannelId, string Description, long SolutionId)
+	{
+		var channel = await _channelService.CheckLessonChannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание задания");
+		}
+
+		var solution = await _hitsContext.LessonChannelMessageSolution
+			.FirstOrDefaultAsync(lcmt => lcmt.TextLessonChannelId == ChannelId && lcmt.Id == SolutionId);
+		if (solution == null)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		var task = await _hitsContext.LessonChannelMessageTask
+			.Include(lcmt => lcmt.AssignedRoles)
+			.FirstOrDefaultAsync(lcmt => lcmt.TextLessonChannelId == ChannelId && lcmt.Id == solution.ReplyToMessageId);
+		if (task == null)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if (task.Deadline != null && task.Deadline <= DateTime.UtcNow)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if (!(((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && !(solution.AuthorId == UserId))
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание задания");
+		}
+
+		solution.Description = Description;
+		solution.UpdatedAt = DateTime.UtcNow;
+
+		await _hitsContext.SaveChangesAsync();
+
+		var response = new SolutionResponceDTO
+		{
+			MessageType = "Solution",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = solution.Id,
+			AuthorId = solution.AuthorId,
+			CreatedAt = solution.CreatedAt,
+			Description = solution.Description,
+			UpdatedAt = solution.UpdatedAt,
+			Files = new List<FileMetaResponseDTO>()
+		};
+
+		var rolesCanTask = await _hitsContext.ChannelCanMakeTasks
+			.Where(ccmt => ccmt.TextLessonChannelId == channel.Id)
+			.Select(ccmt => ccmt.RoleId)
+			.ToListAsync();
+
+		rolesCanTask.Add(UserId);
+
+		await _realtimeService.SendToUsers(rolesCanTask, response, "Solution updated");
+	}
+	//Удаление ответа
+	public async Task RemoceSolutionWebsocketAsync(Guid UserId, Guid ChannelId, long SolutionId)
+	{
+		var channel = await _channelService.CheckLessonChannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание задания");
+		}
+
+		var solution = await _hitsContext.LessonChannelMessageSolution
+			.FirstOrDefaultAsync(lcmt => lcmt.TextLessonChannelId == ChannelId && lcmt.Id == SolutionId);
+		if (solution == null)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		var task = await _hitsContext.LessonChannelMessageTask
+			.Include(lcmt => lcmt.AssignedRoles)
+			.FirstOrDefaultAsync(lcmt => lcmt.TextLessonChannelId == ChannelId && lcmt.Id == solution.ReplyToMessageId);
+		if (task == null)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if (task.Deadline != null && task.Deadline <= DateTime.UtcNow)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if (!(((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && !(solution.AuthorId == UserId))
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание задания");
+		}
+		_hitsContext.LessonChannelMessageSolution.Remove(solution);
+		await _hitsContext.SaveChangesAsync();
+		await DeleteFilesAsync((List<FileDbModel>)solution.Files);
+
+		var response = new SolutionResponceDTO
+		{
+			MessageType = "Solution",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = solution.Id,
+			AuthorId = solution.AuthorId,
+			CreatedAt = solution.CreatedAt,
+			Description = solution.Description,
+			UpdatedAt = solution.UpdatedAt,
+			Files = new List<FileMetaResponseDTO>()
+		};
+
+		var rolesCanTask = await _hitsContext.ChannelCanMakeTasks
+			.Where(ccmt => ccmt.TextLessonChannelId == channel.Id)
+			.Select(ccmt => ccmt.RoleId)
+			.ToListAsync();
+
+		rolesCanTask.Add(UserId);
+
+		await _realtimeService.SendToUsers(rolesCanTask, response, "Solution removed");
+	}
+
+	//Выставление оценки
+	public async Task CreateGradeWebsocketAsync(Guid UserId, Guid ChannelId, long SolutionId, int Grade)
+	{
+		var channel = await _channelService.CheckLessonChannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание задания");
+		}
+
+		if (!(((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) || !(((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.Task)))
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание задания");
+		}
+
+		var solution = await _hitsContext.LessonChannelMessageSolution
+			.FirstOrDefaultAsync(lcmt => lcmt.TextLessonChannelId == ChannelId && lcmt.Id == SolutionId);
+		if (solution == null)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		var task = await _hitsContext.LessonChannelMessageTask
+			.Include(lcmt => lcmt.AssignedRoles)
+			.FirstOrDefaultAsync(lcmt => lcmt.TextLessonChannelId == ChannelId && lcmt.Id == solution.ReplyToMessageId);
+		if (task == null)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		if (task.Deadline != null && task.Deadline <= DateTime.UtcNow)
+		{
+			throw new CustomException("Task not founf", "Create message", "Task", 404, "Задание не найдено", "Создание задания");
+		}
+
+		solution.Grade = Grade;
+		solution.GradeDate = DateTime.UtcNow;
+		solution.GradeAuthorId = UserId;
+
+		await _hitsContext.SaveChangesAsync();
+
+
+		var response = new SolutionResponceDTO
+		{
+			MessageType = "Solution",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = solution.Id,
+			AuthorId = solution.AuthorId,
+			CreatedAt = solution.CreatedAt,
+			Description = solution.Description,
+			UpdatedAt = solution.UpdatedAt,
+			Files = new List<FileMetaResponseDTO>(),
+			Grade = solution.Grade,
+			GradeDate = solution.GradeDate,
+			GradeAuthorId = solution.GradeAuthorId
+		};
+
+		var rolesCanTask = await _hitsContext.ChannelCanMakeTasks
+			.Where(ccmt => ccmt.TextLessonChannelId == channel.Id)
+			.Select(ccmt => ccmt.RoleId)
+			.ToListAsync();
+
+		rolesCanTask.Add(UserId);
+
+		await _realtimeService.SendToUsers(rolesCanTask, response, "New grade");
+	}
+
+	//Получить оценки - вынести в каналы
+
+	//Встать в очередь
+	public async Task InQueueWebsocketAsync(Guid ChannelId, Guid UserId)
+	{
+		var channel = await _channelService.CheckQueuehannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание сообщения");
+		}
+
+		var isInQueue = await _hitsContext.QueueItem
+			.AnyAsync(q => q.ChannelId == ChannelId && q.UserId == UserId);
+
+		if (!((((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && (((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.JoinQueue))) || isInQueue)
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание сообщения");
+		}
+
+		var lastId = await _hitsContext.ChannelMessage
+			.Where(m => m.TextChannelId == ChannelId)
+			.OrderByDescending(m => m.Id)
+			.Select(m => (long?)m.Id)
+			.FirstOrDefaultAsync();
+
+		var newId = (lastId ?? 0) + 1;
+
+		var maxPosition = await _hitsContext.QueueItem
+			.Where(q => q.ChannelId == ChannelId)
+			.MaxAsync(q => (int?)q.Position) ?? 0;
+
+		var newQueueItem = new QueueItemDbModel
+		{
+			ChannelId = ChannelId,
+			UserId = UserId,
+			Position = maxPosition + 1,
+			CreatedAt = DateTime.UtcNow
+		};
+		await _hitsContext.QueueItem.AddAsync(newQueueItem);
+		await _hitsContext.SaveChangesAsync();
+
+		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == UserId);
+		var newMessage = new ClassicChannelMessageDbModel()
+		{
+			Id = newId,
+			AuthorId = UserId,
+			TextChannelId = ChannelId,
+			ReplyToMessageId = null,
+			DeleteTime = null,
+			TaggedUsers = new List<Guid>(),
+			TaggedRoles = new List<Guid>(),
+			Text = $"{user.AccountName} встал в очередь",
+			UpdatedAt = null
+		};
+		await _hitsContext.ClassicChannelMessage.AddAsync(newMessage);
+		await _hitsContext.SaveChangesAsync();
+
+		object response = new ClassicMessageResponceDTO
+		{
+			MessageType = "Classic",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = newMessage.Id,
+			AuthorId = newMessage.AuthorId,
+			CreatedAt = newMessage.CreatedAt,
+			Text = newMessage.Text,
+			ModifiedAt = null,
+			ReplyToMessage = null,
+			NestedChannel = false,
+			Files = new List<FileMetaResponseDTO>(),
+			Reactions = new List<MessageReactionShortDTO>(),
+			taggedUsers = new List<Guid>(),
+			taggedRoles = new List<Guid>()
+		};
+
+		var alertedUsers = await _cacheService.GetChannelToUserListFullAsync(channel.Id) ?? new List<Guid>();
+
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _realtimeService.SendToUsers(alertedUsers, response, "New message in queue channel");
+		}
+
+		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Id && lr.UserId == UserId);
+		if (lastRead == null)
+		{
+			await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
+			{
+				UserId = UserId,
+				TextChannelId = channel.Id,
+				LastReadedMessageId = newMessage.Id
+			});
+		}
+		else
+		{
+			lastRead.LastReadedMessageId = newMessage.Id;
+			_hitsContext.LastReadChannelMessage.Update(lastRead);
+			await _hitsContext.SaveChangesAsync();
+		}
+	}
+	//Выйти из очереди
+	public async Task OutQueueWebsocketAsync(Guid ChannelId, Guid UserId)
+	{
+		var channel = await _channelService.CheckQueuehannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание сообщения");
+		}
+
+		var isInQueue = await _hitsContext.QueueItem
+			.AnyAsync(q => q.ChannelId == ChannelId && q.UserId == UserId);
+
+		if (!((((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && (((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.JoinQueue))) || !isInQueue)
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание сообщения");
+		}
+
+		var lastId = await _hitsContext.ChannelMessage
+			.Where(m => m.TextChannelId == ChannelId)
+			.OrderByDescending(m => m.Id)
+			.Select(m => (long?)m.Id)
+			.FirstOrDefaultAsync();
+
+		var newId = (lastId ?? 0) + 1;
+
+		var queueItem = await _hitsContext.QueueItem
+			.FirstOrDefaultAsync(q => q.ChannelId == ChannelId && q.UserId == UserId);
+		_hitsContext.QueueItem.Remove(queueItem);
+		await _hitsContext.SaveChangesAsync();
+
+		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == UserId);
+		var newMessage = new ClassicChannelMessageDbModel()
+		{
+			Id = newId,
+			AuthorId = UserId,
+			TextChannelId = ChannelId,
+			ReplyToMessageId = null,
+			DeleteTime = null,
+			TaggedUsers = new List<Guid>(),
+			TaggedRoles = new List<Guid>(),
+			Text = $"{user.AccountName} вышел из очереди",
+			UpdatedAt = null
+		};
+		await _hitsContext.ClassicChannelMessage.AddAsync(newMessage);
+		await _hitsContext.SaveChangesAsync();
+
+		object response = new ClassicMessageResponceDTO
+		{
+			MessageType = "Classic",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = newMessage.Id,
+			AuthorId = newMessage.AuthorId,
+			CreatedAt = newMessage.CreatedAt,
+			Text = newMessage.Text,
+			ModifiedAt = null,
+			ReplyToMessage = null,
+			NestedChannel = false,
+			Files = new List<FileMetaResponseDTO>(),
+			Reactions = new List<MessageReactionShortDTO>(),
+			taggedUsers = new List<Guid>(),
+			taggedRoles = new List<Guid>()
+		};
+
+		var alertedUsers = await _cacheService.GetChannelToUserListFullAsync(channel.Id) ?? new List<Guid>();
+
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _realtimeService.SendToUsers(alertedUsers, response, "New message in queue channel");
+		}
+
+		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Id && lr.UserId == UserId);
+		if (lastRead == null)
+		{
+			await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
+			{
+				UserId = UserId,
+				TextChannelId = channel.Id,
+				LastReadedMessageId = newMessage.Id
+			});
+		}
+		else
+		{
+			lastRead.LastReadedMessageId = newMessage.Id;
+			_hitsContext.LastReadChannelMessage.Update(lastRead);
+			await _hitsContext.SaveChangesAsync();
+		}
+	}
+
+	//Взять человека из очереди
+	public async Task TakeQueueWebsocketAsync(Guid ChannelId, Guid UserId)
+	{
+		var channel = await _channelService.CheckQueuehannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание сообщения");
+		}
+
+		var queueTakeItem = await _hitsContext.QueueTake
+			.FirstOrDefaultAsync(qt => qt.TextQueueChannelId == channel.Id && qt.TakerId == UserId);
+		if (!((((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && (((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.TakeQueue))) || queueTakeItem != null)
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание сообщения");
+		}
+
+		if((await _hitsContext.QueueItem.Where(q => q.ChannelId == ChannelId).CountAsync()) == 0)
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание сообщения");
+		}
+
+		var lastId = await _hitsContext.ChannelMessage
+			.Where(m => m.TextChannelId == ChannelId)
+			.OrderByDescending(m => m.Id)
+			.Select(m => (long?)m.Id)
+			.FirstOrDefaultAsync();
+
+		var newId = (lastId ?? 0) + 1;
+
+		var queueItem = await _hitsContext.QueueItem
+			.Where(q => q.ChannelId == ChannelId && q.UserId == UserId)
+			.OrderByDescending(q => q.CreatedAt)
+			.FirstOrDefaultAsync();
+		_hitsContext.QueueItem.Remove(queueItem);
+		await _hitsContext.SaveChangesAsync();
+
+		var newQueueTake = new QueueTakeDbModel
+		{
+			TextQueueChannelId = channel.Id,
+			TakerId = UserId,
+			FromQueueId = queueItem.UserId
+		};
+		await _hitsContext.QueueTake.AddAsync(newQueueTake);
+		await _hitsContext.SaveChangesAsync();
+
+		var userFirst = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == UserId);
+		var userSecond = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == queueItem.UserId);
+		var newMessage = new ClassicChannelMessageDbModel()
+		{
+			Id = newId,
+			AuthorId = UserId,
+			TextChannelId = ChannelId,
+			ReplyToMessageId = null,
+			DeleteTime = null,
+			TaggedUsers = new List<Guid>(),
+			TaggedRoles = new List<Guid>(),
+			Text = $"{userFirst.AccountName} взял из очереди {userSecond.AccountName}",
+			UpdatedAt = null
+		};
+		await _hitsContext.ClassicChannelMessage.AddAsync(newMessage);
+		await _hitsContext.SaveChangesAsync();
+
+		object response = new ClassicMessageResponceDTO
+		{
+			MessageType = "Classic",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = newMessage.Id,
+			AuthorId = newMessage.AuthorId,
+			CreatedAt = newMessage.CreatedAt,
+			Text = newMessage.Text,
+			ModifiedAt = null,
+			ReplyToMessage = null,
+			NestedChannel = false,
+			Files = new List<FileMetaResponseDTO>(),
+			Reactions = new List<MessageReactionShortDTO>(),
+			taggedUsers = new List<Guid>(),
+			taggedRoles = new List<Guid>()
+		};
+
+		var alertedUsers = await _cacheService.GetChannelToUserListFullAsync(channel.Id) ?? new List<Guid>();
+
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _realtimeService.SendToUsers(alertedUsers, response, "New message in queue channel");
+		}
+
+		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Id && lr.UserId == UserId);
+		if (lastRead == null)
+		{
+			await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
+			{
+				UserId = UserId,
+				TextChannelId = channel.Id,
+				LastReadedMessageId = newMessage.Id
+			});
+		}
+		else
+		{
+			lastRead.LastReadedMessageId = newMessage.Id;
+			_hitsContext.LastReadChannelMessage.Update(lastRead);
+			await _hitsContext.SaveChangesAsync();
+		}
+	}
+	//Отпустить человека
+	public async Task LetGoQueueWebsocketAsync(Guid ChannelId, Guid UserId)
+	{
+		var channel = await _channelService.CheckQueuehannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User not subscriber of this server", "Create message", "Server id", 404, "Пользователь не является подписчиком сервера", "Создание сообщения");
+		}
+
+		var queueTakeItem = await _hitsContext.QueueTake
+			.FirstOrDefaultAsync(qt => qt.TextQueueChannelId == channel.Id && qt.TakerId == UserId);
+		if (!((((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.See)) && (((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.TakeQueue))) || queueTakeItem == null)
+		{
+			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание сообщения");
+		}
+
+		var lastId = await _hitsContext.ChannelMessage
+			.Where(m => m.TextChannelId == ChannelId)
+			.OrderByDescending(m => m.Id)
+			.Select(m => (long?)m.Id)
+			.FirstOrDefaultAsync();
+
+		var newId = (lastId ?? 0) + 1;
+
+		_hitsContext.QueueTake.Remove(queueTakeItem);
+		await _hitsContext.SaveChangesAsync();
+
+		var userFirst = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == UserId);
+		var userSecond = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == queueTakeItem.FromQueueId);
+		var newMessage = new ClassicChannelMessageDbModel()
+		{
+			Id = newId,
+			AuthorId = UserId,
+			TextChannelId = ChannelId,
+			ReplyToMessageId = null,
+			DeleteTime = null,
+			TaggedUsers = new List<Guid>(),
+			TaggedRoles = new List<Guid>(),
+			Text = $"{userFirst.AccountName} отпустил {userSecond.AccountName}",
+			UpdatedAt = null
+		};
+		await _hitsContext.ClassicChannelMessage.AddAsync(newMessage);
+		await _hitsContext.SaveChangesAsync();
+
+		object response = new ClassicMessageResponceDTO
+		{
+			MessageType = "Classic",
+			ServerId = channel.ServerId,
+			ServerName = channel.Server.Name,
+			ChannelId = channel.Id,
+			ChannelName = channel.Name,
+			Id = newMessage.Id,
+			AuthorId = newMessage.AuthorId,
+			CreatedAt = newMessage.CreatedAt,
+			Text = newMessage.Text,
+			ModifiedAt = null,
+			ReplyToMessage = null,
+			NestedChannel = false,
+			Files = new List<FileMetaResponseDTO>(),
+			Reactions = new List<MessageReactionShortDTO>(),
+			taggedUsers = new List<Guid>(),
+			taggedRoles = new List<Guid>()
+		};
+
+		var alertedUsers = await _cacheService.GetChannelToUserListFullAsync(channel.Id) ?? new List<Guid>();
+
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _realtimeService.SendToUsers(alertedUsers, response, "New message in queue channel");
+		}
+
+		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Id && lr.UserId == UserId);
+		if (lastRead == null)
+		{
+			await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
+			{
+				UserId = UserId,
+				TextChannelId = channel.Id,
+				LastReadedMessageId = newMessage.Id
+			});
+		}
+		else
+		{
+			lastRead.LastReadedMessageId = newMessage.Id;
+			_hitsContext.LastReadChannelMessage.Update(lastRead);
+			await _hitsContext.SaveChangesAsync();
+		}
 	}
 
 

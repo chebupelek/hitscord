@@ -9,6 +9,8 @@ using hitscord.IServices;
 using System.Security.Claims;
 using Authzed.Api.V0;
 using hitscord.Redis;
+using hitscord.Models.db;
+using Microsoft.EntityFrameworkCore;
 
 namespace hitscord.Controllers;
 
@@ -101,6 +103,29 @@ public class AuthorizationController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+	[Authorize]
+	[HttpPost]
+	[Route("device/register")]
+	public async Task<IActionResult> RegisterToken([FromBody] RegisterDeviceTokenDTO dto)
+	{
+		try
+		{
+			var userId = Guid.Parse(User.FindFirst("id")!.Value);
+
+			await _authService.RegisterDeviceAsync(dto.Token, _currentUser.UserId);
+
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 
 	[Authorize]
 	[HttpPost]

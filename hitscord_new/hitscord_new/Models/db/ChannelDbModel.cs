@@ -26,4 +26,11 @@ public abstract class ChannelDbModel
     public ServerDbModel Server { get; set; }
 
 	public required ICollection<ChannelCanSeeDbModel> ChannelCanSee { get; set; }
+	[Required]
+	public required int Position { get; set; }
+
+	public Guid? GroupId { get; set; }
+
+	[ForeignKey(nameof(GroupId))]
+	public ChannelGroupDbModel? Group { get; set; }
 }

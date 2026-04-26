@@ -15,13 +15,16 @@ public interface IChannelService
 	Task<PairVoiceChannelDbModel> CheckPairVoiceChannelExistAsync(Guid channelId, bool joinedUsers);
     Task<ChannelDbModel> CheckNotificationChannelExistAsync(Guid channelId);
     Task<(ChannelDbModel Channel, ChannelTypeEnum Type)> CheckTextOrNotificationOrSubChannelExistWithTypeAsync(Guid channelId);
+    Task<TextLessonChannelDbModel> CheckLessonChannelExistAsync(Guid channelId);
+    Task<TextQueueChannelDbModel> CheckQueuehannelExistAsync(Guid channelId);
 
 
-    Task UpdateReddisFullChannelAsync();
+
+	Task UpdateReddisFullChannelAsync();
 
 
 
-	Task CreateChannelAsync(Guid serverId, Guid UserId, string name, ChannelTypeEnum channelType, int? maxCount);
+	Task CreateChannelAsync(Guid serverId, Guid UserId, string name, ChannelTypeEnum channelType, int? maxCount, Guid? groupId);
     Task<UserVoiceChannelResponseDTO> JoinToVoiceChannelAsync(Guid chnnelId, Guid UserId);
     Task<bool> RemoveFromVoiceChannelAsync(Guid channelId, Guid UserId);
     Task<bool> RemoveUserFromVoiceChannelAsync(Guid channelId, Guid UserId, Guid RemovedUserId);
@@ -33,7 +36,7 @@ public interface IChannelService
 	Task<bool> ChangeTextChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData);
 	Task<bool> ChangeNotificationChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData);
 	Task<bool> ChangeSubChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData);
-	Task ChangeChannnelNameAsync(Guid UserId, Guid channelId, string name);
+	Task UpdateChannnelAsync(Guid UserId, Guid channelId, string name, Guid? groupId, int? position);
 	Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, Guid UserId, int number, long fromMessageId, bool down);
     Task<bool> ChangeStreamStatusAsync(Guid UserId);
     Task<UserVoiceChannelCheck?> CheckVoiceChannelAsync(Guid UserId);
@@ -44,6 +47,12 @@ public interface IChannelService
     Task<MessageSubChannelResponceDTO?> GetSubChannelDataAsync(Guid UserId, Guid ChannelId, long MessageId);
 
 
+    Task CreateGroupAsync(Guid UserId, Guid ServerId, string Name);
+    Task UpdateGroupAsync(Guid UserId, Guid GroupId, string? Name, int? Position);
+    Task RemoveGroupAsync(Guid UserId, Guid GroupId);
+
+
+    Task<List<TaskGradeItemDTO>> GetTaskGradesAsync(Guid UserId, Guid ChannelId, long TaskId);
 
 	Task RemoveChannels();
 }

@@ -161,7 +161,21 @@ public class AuthorizationService : IAuthorizationService
         return tokens;
     }
 
-    public async Task<ProfileDTO> GetProfileAsync(Guid UserId)
+	public async Task RegisterDeviceAsync(string token, Guid id)
+	{
+		var tokenDevice = new UserDeviceTokenDbModel
+		{
+			Id = Guid.NewGuid(),
+			UserId = id,
+			Token = token,
+			CreatedAt = DateTime.UtcNow
+		};
+
+		await _hitsContext.UserDeviceToken.AddAsync(tokenDevice);
+		await _hitsContext.SaveChangesAsync();
+	}
+
+	public async Task<ProfileDTO> GetProfileAsync(Guid UserId)
     {
 		var user = await GetUserAsync(UserId);
 

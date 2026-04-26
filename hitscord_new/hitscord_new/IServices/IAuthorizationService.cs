@@ -11,7 +11,9 @@ public interface IAuthorizationService
     Task<UserDbModel> GetUserByTagAsync(string UserTag);
 	Task<TokensDTO> CreateAccount(UserRegistrationDTO registrationData);
     Task<TokensDTO> LoginAsync(LoginDTO loginData);
-    Task<ProfileDTO> GetProfileAsync(Guid UserId);
+    Task RegisterDeviceAsync(string token, Guid id);
+
+	Task<ProfileDTO> GetProfileAsync(Guid UserId);
     Task<ProfileDTO> ChangeProfileAsync(Guid UserId, ChangeProfileDTO newData);
     Task ChangeNotifiableAsync(Guid UserId);
     Task ChangeFriendshipAsync(Guid UserId);

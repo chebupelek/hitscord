@@ -9,19 +9,25 @@ namespace hitscord.Contexts
     {
         public HitsContext(DbContextOptions<HitsContext> options) : base(options) { }
         public DbSet<UserDbModel> User { get; set; }
-        public DbSet<ServerDbModel> Server { get; set; }
+		public DbSet<UserDeviceTokenDbModel> UserDeviceToken { get; set; }
+		public DbSet<ServerDbModel> Server { get; set; }
 		public DbSet<RoleDbModel> Role { get; set; }
         public DbSet<UserServerDbModel> UserServer { get; set; }
 		public DbSet<SubscribeRoleDbModel> SubscribeRole { get; set; }
 		public DbSet<ServerApplicationDbModel> ServerApplications { get; set; }
 		public DbSet<FriendshipApplicationDbModel> FriendshipApplication { get; set; }
 		public DbSet<FriendshipDbModel> Friendship { get; set; }
+		public DbSet<ChannelGroupDbModel> ChannelGroup { get; set; }
 		public DbSet<ChannelDbModel> Channel { get; set; }
-        public DbSet<TextChannelDbModel> TextChannel { get; set; }
+		public DbSet<TextChannelDbModel> TextChannel { get; set; }
         public DbSet<VoiceChannelDbModel> VoiceChannel { get; set; }
 		public DbSet<NotificationChannelDbModel> NotificationChannel { get; set; }
 		public DbSet<SubChannelDbModel> SubChannel { get; set; }
 		public DbSet<PairVoiceChannelDbModel> PairVoiceChannel { get; set; }
+		public DbSet<TextLessonChannelDbModel> TextLessonChannel { get; set; }
+		public DbSet<TextQueueChannelDbModel> TextQueueChannel { get; set; }
+		public DbSet<QueueTakeDbModel> QueueTake { get; set; }
+		public DbSet<QueueItemDbModel> QueueItem { get; set; }
 		public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
 
 		public DbSet<ChannelMessageDbModel> ChannelMessage { get; set; }
@@ -40,6 +46,10 @@ namespace hitscord.Contexts
 		public DbSet<ChatVariantUserDbModel> ChatVariantUser { get; set; }
 		public DbSet<ChatMessageReactionDbModel> ChatMessageReaction { get; set; }
 
+		public DbSet<LessonChannelMessageDbModel> LessonChannelMessage { get; set; }
+		public DbSet<LessonChannelMessageTaskDbModel> LessonChannelMessageTask { get; set; }
+		public DbSet<LessonChannelMessageSolutionDbModel> LessonChannelMessageSolution { get; set; }
+
 		public DbSet<NonNotifiableChannelDbModel> NonNotifiableChannel { get; set; }
 		public DbSet<LastReadChannelMessageDbModel> LastReadChannelMessage { get; set; }
 		public DbSet<LastReadChatMessageDbModel> LastReadChatMessage { get; set; }
@@ -50,6 +60,9 @@ namespace hitscord.Contexts
 		public DbSet<ChannelNotificatedDbModel> ChannelNotificated { get; set; }
 		public DbSet<ChannelCanUseDbModel> ChannelCanUse { get; set; }
 		public DbSet<ChannelCanJoinDbModel> ChannelCanJoin { get; set; }
+		public DbSet<ChannelCanMakeTasksDbModel> ChannelCanMakeTasks { get; set; }
+		public DbSet<ChannelCanJoinQueueDbModel> ChannelCanJoinQueue { get; set; }
+		public DbSet<ChannelCanTakeFromQueueDbModel> ChannelCanTakeFromQueue { get; set; }
 
 		public DbSet<NotificationDbModel> Notifications { get; set; }
 
@@ -185,6 +198,14 @@ namespace hitscord.Contexts
 					.IsUnique();
 			});
 
+			modelBuilder.Entity<ChannelGroupDbModel>(entity =>
+			{
+				entity.HasOne(g => g.Server)
+					.WithMany(s => s.Groups)
+					.HasForeignKey(f => f.ServerId)
+					.IsRequired();
+			});
+
 			modelBuilder.Entity<ChannelDbModel>(entity =>
             {
                 entity.HasDiscriminator<string>("ChannelType")
@@ -192,13 +213,20 @@ namespace hitscord.Contexts
                     .HasValue<VoiceChannelDbModel>("Voice")
                     .HasValue<NotificationChannelDbModel>("Notification")
 					.HasValue<SubChannelDbModel>("Sub")
-					.HasValue<PairVoiceChannelDbModel>("PairVoice");
+					.HasValue<PairVoiceChannelDbModel>("PairVoice")
+					.HasValue<TextLessonChannelDbModel>("LessonText")
+					.HasValue<TextQueueChannelDbModel>("Queue");
 
 				entity.HasOne(c => c.Server)
                     .WithMany(s => s.Channels)
                     .HasForeignKey(c => c.ServerId)
                     .IsRequired();
-            });
+
+				entity.HasOne(c => c.Group)
+					.WithMany(g => g.Channels)
+					.HasForeignKey(c => c.GroupId)
+					.IsRequired(false);
+			});
 
 			modelBuilder.Entity<UserVoiceChannelDbModel>(entity =>
             {
@@ -282,6 +310,52 @@ namespace hitscord.Contexts
 					.WithMany()
 					.HasForeignKey(f => f.AuthorId)
 					.OnDelete(DeleteBehavior.SetNull);
+			});
+
+			modelBuilder.Entity<LessonChannelMessageDbModel>(entity =>
+			{
+				entity.HasIndex(cm => new { cm.Id, cm.TextLessonChannelId })
+					.IsUnique();
+
+				entity.HasDiscriminator<string>("MessageType")
+					.HasValue<LessonChannelMessageTaskDbModel>("Task")
+					.HasValue<LessonChannelMessageSolutionDbModel>("Solution");
+
+				entity.HasOne(m => m.Author)
+					.WithMany()
+					.HasForeignKey(m => m.AuthorId);
+
+				entity.HasOne(m => m.TextLessonChannel)
+					.WithMany(e => e.Messages)
+					.HasForeignKey(m => m.TextLessonChannelId)
+					.OnDelete(DeleteBehavior.Cascade);
+			});
+
+			modelBuilder.Entity<TextQueueChannelDbModel>(entity =>
+			{
+				entity.HasMany(e => e.Queue)
+					.WithMany()
+					.UsingEntity(j => j.ToTable("TextQueueChannelUsers"));
+			});
+
+			modelBuilder.Entity<QueueTakeDbModel>(entity =>
+			{
+				entity.HasKey(x => new { x.TextQueueChannelId, x.TakerId, x.FromQueueId });
+
+				entity.HasOne(x => x.TextQueueChannel)
+					.WithMany(c => c.Takes)
+					.HasForeignKey(x => x.TextQueueChannelId)
+					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(x => x.Taker)
+					.WithMany()
+					.HasForeignKey(x => x.TakerId)
+					.OnDelete(DeleteBehavior.Restrict);
+
+				entity.HasOne(x => x.FromQueue)
+					.WithMany()
+					.HasForeignKey(x => x.FromQueueId)
+					.OnDelete(DeleteBehavior.Restrict);
 			});
 
 			modelBuilder.Entity<UserChatDbModel>(entity =>
@@ -452,6 +526,51 @@ namespace hitscord.Contexts
 				entity.HasOne(e => e.VoiceChannel)
 					.WithMany(e => e.ChannelCanJoin)
 					.HasForeignKey(e => e.VoiceChannelId)
+					.IsRequired();
+			});
+
+			modelBuilder.Entity<ChannelCanMakeTasksDbModel>(entity =>
+			{
+				entity.HasKey(e => new { e.RoleId, e.TextLessonChannelId });
+
+				entity.HasOne(e => e.Role)
+					.WithMany(e => e.ChannelCanMakeTasks)
+					.HasForeignKey(e => e.RoleId)
+					.IsRequired();
+
+				entity.HasOne(e => e.TextLessonChannel)
+					.WithMany(e => e.ChannelCanMakeTasks)
+					.HasForeignKey(e => e.TextLessonChannelId)
+					.IsRequired();
+			});
+
+			modelBuilder.Entity<ChannelCanJoinQueueDbModel>(entity =>
+			{
+				entity.HasKey(e => new { e.RoleId, e.TextQueueChannelId });
+
+				entity.HasOne(e => e.Role)
+					.WithMany(e => e.ChannelCanJoinQueue)
+					.HasForeignKey(e => e.RoleId)
+					.IsRequired();
+
+				entity.HasOne(e => e.TextQueueChannel)
+					.WithMany(e => e.ChannelCanJoinQueue)
+					.HasForeignKey(e => e.TextQueueChannelId)
+					.IsRequired();
+			});
+
+			modelBuilder.Entity<ChannelCanTakeFromQueueDbModel>(entity =>
+			{
+				entity.HasKey(e => new { e.RoleId, e.TextQueueChannelId });
+
+				entity.HasOne(e => e.Role)
+					.WithMany(e => e.ChannelCanTakeFromQueue)
+					.HasForeignKey(e => e.RoleId)
+					.IsRequired();
+
+				entity.HasOne(e => e.TextQueueChannel)
+					.WithMany(e => e.ChannelCanTakeFromQueue)
+					.HasForeignKey(e => e.TextQueueChannelId)
 					.IsRequired();
 			});
 

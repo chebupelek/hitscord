@@ -20,6 +20,7 @@ public class ServerDbModel
     public required string Name { get; set; }
     public ICollection<RoleDbModel> Roles { get; set; }
     public ICollection<ChannelDbModel> Channels { get; set; }
+	public ICollection<ChannelGroupDbModel> Groups { get; set; }
 	public ICollection<UserServerDbModel> Subscribtions { get; set; }
 	public ICollection<ServerInvitationDbModel> Invitations { get; set; }
 	public Guid? IconFileId { get; set; }

@@ -1,7 +1,9 @@
-﻿using Google.Protobuf.Collections;
+﻿using Authzed.Api.V0;
+using Google.Protobuf.Collections;
 using Grpc.Core;
 using hitscord.Contexts;
 using hitscord.IServices;
+using hitscord.Models.other;
 using hitscord.Models.Sockets;
 using hitscord.Redis.CashedDB;
 using hitscord.Redis.CashedDB.Models;
@@ -9,6 +11,10 @@ using hitscord.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading.Channels;
+using System.Threading.Tasks;
 
 namespace hitscord.SignalR;
 
@@ -111,32 +117,88 @@ public class ChatHub : Hub
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		await _messageService.CreateMessageWebsocketAsync(dto, userId);
+		try
+		{
+			await _messageService.CreateMessageWebsocketAsync(dto, userId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 	public async Task DeleteMessageChannel(DeleteMessageSocketDTO dto)
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		var result = await _messageService.DeleteMessageWebsocketAsync(
-			dto.MessageId,
-			dto.ChannelId,
-			userId
-		);
+		try
+		{
+			var result = await _messageService.DeleteMessageWebsocketAsync(
+				dto.MessageId,
+				dto.ChannelId,
+				userId
+			);
 
-		await Clients.Group($"channel:{dto.ChannelId}").SendAsync(result.responseMessage, result.response);
+			await Clients.Group($"channel:{dto.ChannelId}").SendAsync(result.responseMessage, result.response);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 	public async Task UpdateMessageChannel(UpdateMessageSocketDTO dto)
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
-
-		await _messageService.UpdateMessageWebsocketAsync(
-			dto.MessageId,
-			dto.ChannelId,
-			userId,
-			dto.Text
-		);
+		try
+		{
+			await _messageService.UpdateMessageWebsocketAsync(
+				dto.MessageId,
+				dto.ChannelId,
+				userId,
+				dto.Text
+			);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 
@@ -145,27 +207,65 @@ public class ChatHub : Hub
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		var result = await _messageService.AddReactionChannelAsync(
-			userId,
-			dto.ChannelId,
-			dto.MessageId,
-			dto.ReactionCode
-		);
+		try
+		{
+			var result = await _messageService.AddReactionChannelAsync(
+				userId,
+				dto.ChannelId,
+				dto.MessageId,
+				dto.ReactionCode
+			);
 
-		await Clients.Group($"channel:{dto.ChannelId}").SendAsync(result.message, result.response);
+			await Clients.Group($"channel:{dto.ChannelId}").SendAsync(result.message, result.response);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 	public async Task RemoveReactionChannel(RemoveReactionSocketDTO dto)
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		var result = await _messageService.RemoveReactionChannelAsync(
-			userId,
-			dto.ChannelId,
-			dto.ReactionId
-		);
+		try
+		{
+			var result = await _messageService.RemoveReactionChannelAsync(
+				userId,
+				dto.ChannelId,
+				dto.ReactionId
+			);
 
-		await Clients.Group($"channel:{dto.ChannelId}").SendAsync(result.message, result.response);
+			await Clients.Group($"channel:{dto.ChannelId}").SendAsync(result.message, result.response);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 	//Chat
@@ -173,32 +273,89 @@ public class ChatHub : Hub
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		await _messageService.CreateMessageToChatWebsocketAsync(dto, userId);
+		try
+		{
+			await _messageService.CreateMessageToChatWebsocketAsync(dto, userId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 	public async Task DeleteMessageChat(DeleteMessageSocketDTO dto)
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		var result = await _messageService.DeleteMessageInChatWebsocketAsync(
-			dto.MessageId,
-			dto.ChannelId,
-			userId
-		);
+		try
+		{
+			var result = await _messageService.DeleteMessageInChatWebsocketAsync(
+				dto.MessageId,
+				dto.ChannelId,
+				userId
+			);
 
-		await Clients.Group($"chat:{dto.ChannelId}").SendAsync("Deleted message in chat", result);
+			await Clients.Group($"chat:{dto.ChannelId}").SendAsync("Deleted message in chat", result);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 	public async Task UpdateMessageChat(UpdateMessageSocketDTO dto)
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		await _messageService.UpdateMessageInChatWebsocketAsync(
-			dto.MessageId,
-			dto.ChannelId,
-			userId,
-			dto.Text
-		);
+		try
+		{
+			await _messageService.UpdateMessageInChatWebsocketAsync(
+				dto.MessageId,
+				dto.ChannelId,
+				userId,
+				dto.Text
+			);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 
@@ -207,29 +364,352 @@ public class ChatHub : Hub
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		var result = await _messageService.AddReactionChatAsync(
-			userId,
-			dto.ChannelId,
-			dto.MessageId,
-			dto.ReactionCode
-		);
+		try
+		{
+			var result = await _messageService.AddReactionChatAsync(
+				userId,
+				dto.ChannelId,
+				dto.MessageId,
+				dto.ReactionCode
+			);
 
-		await Clients.Group($"chat:{dto.ChannelId}").SendAsync("Added reaction in chat", result);
+			await Clients.Group($"chat:{dto.ChannelId}").SendAsync("Added reaction in chat", result);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 	public async Task RemoveReactionChat(RemoveReactionSocketDTO dto)
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		var result = await _messageService.RemoveReactionChatAsync(
-			userId,
-			dto.ChannelId,
-			dto.ReactionId
-		);
+		try
+		{
+			var result = await _messageService.RemoveReactionChatAsync(
+				userId,
+				dto.ChannelId,
+				dto.ReactionId
+			);
 
-		await Clients.Group($"chat:{dto.ChannelId}").SendAsync("Removed reaction in chat", result);
+			await Clients.Group($"chat:{dto.ChannelId}").SendAsync("Removed reaction in chat", result);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
+
+	//Task
+	public async Task SendTask(Guid ChannelId, string Description, DateTime? Deadline, List<Guid>? Files, List<Guid> Roles)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.CreateTaskWebsocketAsync(userId, ChannelId, Description, Deadline, Files, Roles);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+	public async Task UpdateTask(Guid ChannelId, long TaskId, string Description)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.UpdateTaskWebsocketAsync(userId, ChannelId, TaskId, Description);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+	public async Task DeleteTask(Guid ChannelId, long TaskId)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.DeleteTaskWebsocketAsync(userId, ChannelId, TaskId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+
+	//Solution
+	public async Task SendSolution(Guid ChannelId, string Description, long TaskId, List<Guid>? Files)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.CreateSolutionWebsocketAsync(userId, ChannelId, Description, TaskId, Files);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+	public async Task UpdateSolution(Guid ChannelId, string Description, long SolutionId)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.UpdateSolutionWebsocketAsync(userId, ChannelId, Description, SolutionId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+	public async Task DeleteSolution(Guid ChannelId, long SolutionId)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.RemoceSolutionWebsocketAsync(userId, ChannelId, SolutionId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+
+	//Grade
+	public async Task SendGrade(Guid ChannelId, long SolutionId, int Grade)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.CreateGradeWebsocketAsync(userId, ChannelId, SolutionId, Grade);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+
+	//Queue
+	public async Task InQueue(Guid ChannelId)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.InQueueWebsocketAsync(ChannelId, userId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+	public async Task OutQueue(Guid ChannelId)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.OutQueueWebsocketAsync(ChannelId, userId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+
+	//Queue
+	public async Task TakeQueue(Guid ChannelId)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.TakeQueueWebsocketAsync(ChannelId, userId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
+	public async Task RemoveQueue(Guid ChannelId)
+	{
+		var userId = Guid.Parse(Context.UserIdentifier!);
+
+		try
+		{
+			await _messageService.LetGoQueueWebsocketAsync(ChannelId, userId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
+	}
 
 
 	//Vote
@@ -237,28 +717,85 @@ public class ChatHub : Hub
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		await _messageService.VoteAsync(userId, dto.isChannel, dto.VoteVariantId);
+		try
+		{
+			await _messageService.VoteAsync(userId, dto.isChannel, dto.VoteVariantId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 	public async Task Unvote(VoteVariantSocketDTO dto)
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		await _messageService.UnVoteAsync(userId, dto.VoteVariantId);
+		try
+		{
+			await _messageService.UnVoteAsync(userId, dto.VoteVariantId);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 	public async Task GetVote(VoteSocketDTO dto)
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		var result = await _messageService.GetVotingAsync(
-			userId,
-			dto.isChannel,
-			dto.ChannelId,
-			dto.VoteId
-		);
+		try
+		{
+			var result = await _messageService.GetVotingAsync(
+				userId,
+				dto.isChannel,
+				dto.ChannelId,
+				dto.VoteId
+			);
 
-		await Clients.Caller.SendAsync("VoteData", result);
+			await Clients.Caller.SendAsync("VoteData", result);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 
 
@@ -267,11 +804,30 @@ public class ChatHub : Hub
 	{
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
-		await _messageService.MessageSeeAsync(
-			userId,
-			dto.isChannel,
-			dto.ChannelId,
-			dto.MessageId
-		);
+		try
+		{
+			await _messageService.MessageSeeAsync(
+				userId,
+				dto.isChannel,
+				dto.ChannelId,
+				dto.MessageId
+			);
+		}
+		catch (CustomException ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				ex.Code,
+				ex.ObjectFront,
+				ex.MessageFront
+			});
+		}
+		catch (Exception ex)
+		{
+			await Clients.Caller.SendAsync("Error", new
+			{
+				Message = "Internal server error"
+			});
+		}
 	}
 }

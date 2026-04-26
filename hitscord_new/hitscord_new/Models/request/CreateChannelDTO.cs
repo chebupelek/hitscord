@@ -8,6 +8,7 @@ public class CreateChannelDTO
     public required string Name { get; set; }
     public required ChannelTypeEnum ChannelType { get; set; }
     public int? MaxCount { get; set; }
+    public Guid? GroupId { get; set; }
 
     public void Validation()
     {

@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using hitscord.Services;
 using hitscord.Models.response;
+using Authzed.Api.V0;
+using Grpc.Core;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace hitscord.Controllers;
 
@@ -29,7 +32,7 @@ public class ChannelController : ControllerBase
         try
         {
             channelData.Validation();
-            await _channelService.CreateChannelAsync(channelData.ServerId, _currentUser.UserId, channelData.Name, channelData.ChannelType, channelData.MaxCount);
+            await _channelService.CreateChannelAsync(channelData.ServerId, _currentUser.UserId, channelData.Name, channelData.ChannelType, channelData.MaxCount, channelData.GroupId);
             return Ok();
         }
         catch (CustomException ex)
@@ -191,7 +194,7 @@ public class ChannelController : ControllerBase
 		try
 		{
 			data.Validation();
-			await _channelService.ChangeChannnelNameAsync(_currentUser.UserId, data.Id, data.Name);
+			await _channelService.UpdateChannnelAsync(_currentUser.UserId, data.Id, data.Name, data.GroupId, data.Position);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -414,6 +417,89 @@ public class ChannelController : ControllerBase
 		{
 			var data = await _channelService.GetSubChannelDataAsync(_currentUser.UserId, ChannelId, MessagelId);
 			return Ok(data);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+
+
+
+	[Authorize]
+	[HttpPost]
+	[Route("group/create")]
+	public async Task<IActionResult> CreateGroup([FromBody] CreateGroupDTO data)
+	{
+		try
+		{
+			await _channelService.CreateGroupAsync(_currentUser.UserId, data.ServerId, data.Name);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpDelete]
+	[Route("group/delete")]
+	public async Task<IActionResult> DeleteGroup([FromBody] IdRequestDTO data)
+	{
+		try
+		{
+			await _channelService.RemoveGroupAsync(_currentUser.UserId, data.Id);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPut]
+	[Route("group/change")]
+	public async Task<IActionResult> ChangeGroup([FromBody] UpdateGroupDTO data)
+	{
+		try
+		{
+			await _channelService.UpdateGroupAsync(_currentUser.UserId, data.GroupId, data.Name, data.Position);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("grades")]
+	public async Task<IActionResult> GetGradesByTask([FromQuery] Guid channelId, [FromQuery] long TaskId)
+	{
+		try
+		{
+			var grades = await _channelService.GetTaskGradesAsync(_currentUser.UserId, channelId, TaskId);
+			return Ok(grades);
 		}
 		catch (CustomException ex)
 		{

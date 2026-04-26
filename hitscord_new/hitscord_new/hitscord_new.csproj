@@ -19,6 +19,7 @@
   <ItemGroup>
     <PackageReference Include="Authzed.Net" Version="1.3.0" />
     <PackageReference Include="EasyNetQ" Version="7.8.0" />
+    <PackageReference Include="FirebaseAdmin" Version="3.5.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.70.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" NoWarn="NU1605" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.0" NoWarn="NU1605" />
@@ -38,7 +39,7 @@
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.19.5" />
     <PackageReference Include="Minio" Version="6.0.5" />
     <PackageReference Include="nClam" Version="9.0.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="NickBuhro.Translit" Version="1.4.5" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
     <PackageReference Include="Quartz" Version="3.14.0" />

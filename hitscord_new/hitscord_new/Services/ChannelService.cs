@@ -18,22 +18,23 @@ using System.Collections.Generic;
 using Grpc.Net.Client.Balancer;
 using System.Runtime.InteropServices;
 using hitscord.SignalR;
+using Pipelines.Sockets.Unofficial.Buffers;
 
 namespace hitscord.Services;
 
 public class ChannelService : IChannelService
 {
-    private readonly HitsContext _hitsContext;
-    private readonly IAuthorizationService _authService;
-    private readonly IServerService _serverService;
+	private readonly HitsContext _hitsContext;
+	private readonly IAuthorizationService _authService;
+	private readonly IServerService _serverService;
 	private readonly IRealtimeService _realtimeService;
 	private readonly IRedisCacheService _cacheService;
 
 	public ChannelService(HitsContext hitsContext, ITokenService tokenService, IAuthorizationService authService, IServerService serverService, IRealtimeService realtimeService, IRedisCacheService cacheService)
-    {
-        _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
-        _authService = authService ?? throw new ArgumentNullException(nameof(authService));
-        _serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
+	{
+		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
+		_authService = authService ?? throw new ArgumentNullException(nameof(authService));
+		_serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
 		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 	}
@@ -175,7 +176,7 @@ public class ChannelService : IChannelService
 			"Sub" => ChannelTypeEnum.Sub,
 			"Voice" => ChannelTypeEnum.Voice,
 			"PairVoice" => ChannelTypeEnum.Pair,
-			_ => throw new CustomException( "Unknown channel type", "Get channel type", "Channel Id", 500, "Неизвестный тип канала", "Проверка типа канала" )
+			_ => throw new CustomException("Unknown channel type", "Get channel type", "Channel Id", 500, "Неизвестный тип канала", "Проверка типа канала")
 		};
 	}
 
@@ -268,6 +269,51 @@ public class ChannelService : IChannelService
 					"Проверка типа канала"
 				);
 		}
+	}
+
+	public async Task<TextLessonChannelDbModel> CheckLessonChannelExistAsync(Guid channelId)
+	{
+		var channelInfo = await _hitsContext.TextLessonChannel
+			.Where(c => c.Id == channelId && c.DeleteTime == null)
+			.Include(c => c.Server)
+			.FirstOrDefaultAsync();
+
+		if (channelInfo == null)
+		{
+			throw new CustomException(
+				"Channel not found",
+				"Check channel for existing",
+				"Channel Id",
+				404,
+				"Канал не найден",
+				"Проверка наличия канала"
+			);
+		}
+
+		return channelInfo;
+	}
+
+	public async Task<TextQueueChannelDbModel> CheckQueuehannelExistAsync(Guid channelId)
+	{
+		var channelInfo = await _hitsContext.TextQueueChannel
+			.Where(c => c.Id == channelId && c.DeleteTime == null)
+			.Include(c => c.Server)
+			.Include(c => c.Queue)
+			.FirstOrDefaultAsync();
+
+		if (channelInfo == null)
+		{
+			throw new CustomException(
+				"Channel not found",
+				"Check channel for existing",
+				"Channel Id",
+				404,
+				"Канал не найден",
+				"Проверка наличия канала"
+			);
+		}
+
+		return channelInfo;
 	}
 
 
@@ -543,7 +589,7 @@ public class ChannelService : IChannelService
 
 
 
-	public async Task CreateChannelAsync(Guid serverId, Guid OwnerId, string name, ChannelTypeEnum channelType, int? maxCount)
+	public async Task CreateChannelAsync(Guid serverId, Guid OwnerId, string name, ChannelTypeEnum channelType, int? maxCount, Guid? groupId)
 	{
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
 
@@ -570,6 +616,25 @@ public class ChannelService : IChannelService
 		Guid channelId = Guid.NewGuid();
 		string channelName = "";
 
+		int lowestPosition = 0;
+
+		if (groupId == null)
+		{
+			lowestPosition = await _hitsContext.Channel
+				.Where(c => c.ServerId == serverId && c.GroupId == null)
+				.MaxAsync(c => (int?)c.Position) + 1 ?? 0;
+		}
+		else
+		{
+			if ((await _hitsContext.ChannelGroup.FirstOrDefaultAsync(g => g.Id == groupId && g.ServerId == serverId)) == null)
+			{
+				throw new CustomException("Group does not exist", "Create channel", "Group", 404, "Группа не найдена", "Создание канала");
+			}
+			lowestPosition = await _hitsContext.Channel
+				.Where(c => c.ServerId == serverId && c.GroupId == groupId)
+				.MaxAsync(c => (int?)c.Position) + 1 ?? 0;
+		}
+
 		switch (channelType)
 		{
 			case ChannelTypeEnum.Text:
@@ -580,7 +645,9 @@ public class ChannelService : IChannelService
 					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 					Messages = new List<ChannelMessageDbModel>(),
 					ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
-					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>()
+					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
+					GroupId = groupId,
+					Position = lowestPosition
 				};
 
 				channelId = newTextChannel.Id;
@@ -612,7 +679,7 @@ public class ChannelService : IChannelService
 				var lastReadedList = new List<LastReadChannelMessageDbModel>();
 				foreach (var userId in usersIdText)
 				{
-					lastReadedList.Add( new LastReadChannelMessageDbModel
+					lastReadedList.Add(new LastReadChannelMessageDbModel
 					{
 						UserId = userId,
 						TextChannelId = newTextChannel.Id,
@@ -635,7 +702,9 @@ public class ChannelService : IChannelService
 					ServerId = serverId,
 					MaxCount = (int)(maxCount == null ? 999 : maxCount),
 					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
-					ChannelCanJoin = new List<ChannelCanJoinDbModel>()
+					ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
+					GroupId = groupId,
+					Position = lowestPosition
 				};
 
 				channelId = newVoiceChannel.Id;
@@ -669,7 +738,9 @@ public class ChannelService : IChannelService
 					MaxCount = (int)(maxCount == null ? 999 : maxCount),
 					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 					ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
-					Pairs = new List<PairDbModel>()
+					Pairs = new List<PairDbModel>(),
+					GroupId = groupId,
+					Position = lowestPosition
 				};
 
 				channelId = newPairChannel.Id;
@@ -700,8 +771,9 @@ public class ChannelService : IChannelService
 					Messages = new List<ChannelMessageDbModel>(),
 					ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 					ChannelNotificated = new List<ChannelNotificatedDbModel>(),
-
-					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>()
+					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
+					GroupId = groupId,
+					Position = lowestPosition
 				};
 
 				channelId = newNotificationChannel.Id;
@@ -757,16 +829,18 @@ public class ChannelService : IChannelService
 		{
 			Create = true,
 			ServerId = serverId,
+			GroupId = groupId,
 			ChannelId = channelId,
 			ChannelName = channelName,
-			ChannelType = channelType
+			ChannelType = channelType,
+			Position = lowestPosition
 		};
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
 				server.Id,
-				newChannelResponse, 
+				newChannelResponse,
 				"New channel"
 			);
 		}
@@ -844,8 +918,8 @@ public class ChannelService : IChannelService
 					MuteStatus = userVoiceChannel.MutedOther == true ? MuteStatusEnum.Muted : (userVoiceChannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 				};
 				await _realtimeService.SendToServer(
-					userVoiceChannel.VoiceChannel.ServerId, 
-					userRemovedResponse, 
+					userVoiceChannel.VoiceChannel.ServerId,
+					userRemovedResponse,
 					"User remove from voice channel"
 				);
 			}
@@ -892,8 +966,8 @@ public class ChannelService : IChannelService
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
-				channel.ServerId, 
-				newUserInVoiceChannel, 
+				channel.ServerId,
+				newUserInVoiceChannel,
 				"New user in voice channel"
 			);
 		}
@@ -902,9 +976,9 @@ public class ChannelService : IChannelService
 	}
 
 	public async Task<bool> RemoveFromVoiceChannelAsync(Guid chnnelId, Guid UserId)
-    {
-        var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
-        var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
+	{
+		var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
+		var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
 		var userSub = await _hitsContext.UserServer
 			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
@@ -914,21 +988,21 @@ public class ChannelService : IChannelService
 		}
 
 		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == UserId && uvc.VoiceChannelId == chnnelId && uvc.Inside == true);
-        if (userthischannel == null)
-        {
-            throw new CustomException("User not on this channel", "Remove from voice channel", "Voice channel - User", 400, "Пользователь не находится в этом канале", "Выход с голосового канала");
-        }
+		if (userthischannel == null)
+		{
+			throw new CustomException("User not on this channel", "Remove from voice channel", "Voice channel - User", 400, "Пользователь не находится в этом канале", "Выход с голосового канала");
+		}
 		userthischannel.Inside = false;
 
 		_hitsContext.UserVoiceChannel.Update(userthischannel);
-        await _hitsContext.SaveChangesAsync();
+		await _hitsContext.SaveChangesAsync();
 
 		var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
-        {
-            ServerId = channel.ServerId,
-            isEnter = false,
-            UserId = UserId,
-            ChannelId = channel.Id,
+		{
+			ServerId = channel.ServerId,
+			isEnter = false,
+			UserId = UserId,
+			ChannelId = channel.Id,
 			MuteStatus = userthischannel.MutedOther == true ? MuteStatusEnum.Muted : (userthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
@@ -939,22 +1013,22 @@ public class ChannelService : IChannelService
 			.ToListAsync();
 		*/
 		if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
+		{
 			await _realtimeService.SendToServer(
-				server.Id, 
-				newUserInVoiceChannel, 
+				server.Id,
+				newUserInVoiceChannel,
 				"User remove from voice channel"
 			);
-        }
+		}
 
-        return (true);
-    }
+		return (true);
+	}
 
-    public async Task<bool> RemoveUserFromVoiceChannelAsync(Guid chnnelId, Guid RemovedUserId, Guid OwnerId)
-    {
-        await _authService.GetUserAsync(RemovedUserId);
-        var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
-        var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
+	public async Task<bool> RemoveUserFromVoiceChannelAsync(Guid chnnelId, Guid RemovedUserId, Guid OwnerId)
+	{
+		await _authService.GetUserAsync(RemovedUserId);
+		var channel = await CheckVoiceChannelExistAsync(chnnelId, true);
+		var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
@@ -978,16 +1052,16 @@ public class ChannelService : IChannelService
 			throw new CustomException("Removed user is not subscriber of this server", "Remove user from voice channel", "Owner", 404, "Удаляемый пользователь не найден", "Удаление пользователя из голосового канала");
 		}
 
-        if (OwnerId == RemovedUserId)
-        {
-            throw new CustomException("User cant remove himself", "Remove user from voice channel", "Removed user id", 400, "Пользователь не может удалить сам себя", "Удаление пользователя из голосового канала");
-        }
+		if (OwnerId == RemovedUserId)
+		{
+			throw new CustomException("User cant remove himself", "Remove user from voice channel", "Removed user id", 400, "Пользователь не может удалить сам себя", "Удаление пользователя из голосового канала");
+		}
 
-        var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == RemovedUserId && uvc.VoiceChannelId == chnnelId && uvc.Inside == true);
-        if (userthischannel == null)
-        {
-            throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400, "Пользователь не находится на этом канале", "Удаление пользователя из голосового канала");
-        }
+		var userthischannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == RemovedUserId && uvc.VoiceChannelId == chnnelId && uvc.Inside == true);
+		if (userthischannel == null)
+		{
+			throw new CustomException("User not on this channel", "Remove user from voice channel", "Voice channel - User", 400, "Пользователь не находится на этом канале", "Удаление пользователя из голосового канала");
+		}
 
 		if (userSub.SubscribeRoles.Min(sr => sr.Role.Position) > removedUserSub.SubscribeRoles.Min(sr => sr.Role.Position))
 		{
@@ -995,43 +1069,43 @@ public class ChannelService : IChannelService
 		}
 		userthischannel.Inside = false;
 		_hitsContext.UserVoiceChannel.Update(userthischannel);
-        await _hitsContext.SaveChangesAsync();
+		await _hitsContext.SaveChangesAsync();
 
-        var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
-        {
-            ServerId = channel.ServerId,
-            isEnter = false,
-            UserId = OwnerId,
-            ChannelId = channel.Id,
+		var newUserInVoiceChannel = new UserVoiceChannelResponseDTO
+		{
+			ServerId = channel.ServerId,
+			isEnter = false,
+			UserId = OwnerId,
+			ChannelId = channel.Id,
 			MuteStatus = userthischannel.MutedOther == true ? MuteStatusEnum.Muted : (userthischannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
-				server.Id, 
-				newUserInVoiceChannel, 
+				server.Id,
+				newUserInVoiceChannel,
 				"User removed from voice channel"
 			);
 			await _realtimeService.SendToUser(
 				RemovedUserId,
-				newUserInVoiceChannel,	
+				newUserInVoiceChannel,
 				"You removed from voice channel"
 			);
-        }
+		}
 
-        return (true);
-    }
+		return (true);
+	}
 
-    public async Task<bool> ChangeSelfMuteStatusAsync(Guid UserId)
-    {
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == UserId && uvc.Inside == true);
-        if (userVoiceChannel == null)
-        {
-            throw new CustomException("User not in voice channel", "Change self mute status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса в голосовом канале");
-        }
-        var channel = await CheckVoiceChannelExistAsync(userVoiceChannel.VoiceChannelId, true);
-        var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
+	public async Task<bool> ChangeSelfMuteStatusAsync(Guid UserId)
+	{
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == UserId && uvc.Inside == true);
+		if (userVoiceChannel == null)
+		{
+			throw new CustomException("User not in voice channel", "Change self mute status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса в голосовом канале");
+		}
+		var channel = await CheckVoiceChannelExistAsync(userVoiceChannel.VoiceChannelId, true);
+		var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
@@ -1041,33 +1115,33 @@ public class ChannelService : IChannelService
 			throw new CustomException("User is not subscriber of this server", "Change self mute status", "Owner", 404, "Пользователь не найден", "Изменение статуса в голосовом канале");
 		}
 		if (userVoiceChannel.MutedOther == true)
-        {
-            throw new CustomException("User cant unmute", "Change self mute status", "Voice channel - User", 401, "Пользователь не может размьютится", "Изменение статуса в голосовом канале");
-        }
+		{
+			throw new CustomException("User cant unmute", "Change self mute status", "Voice channel - User", 401, "Пользователь не может размьютится", "Изменение статуса в голосовом канале");
+		}
 		userVoiceChannel.MutedHimself = !userVoiceChannel.MutedHimself;
 
-        _hitsContext.UserVoiceChannel.Update(userVoiceChannel);
-        await _hitsContext.SaveChangesAsync();
+		_hitsContext.UserVoiceChannel.Update(userVoiceChannel);
+		await _hitsContext.SaveChangesAsync();
 
-        var muteStatusResponse = new ChangeSelfMutedStatus
-        {
-            ServerId = channel.ServerId,
-            UserId = UserId,
-            ChannelId = channel.Id,
+		var muteStatusResponse = new ChangeSelfMutedStatus
+		{
+			ServerId = channel.ServerId,
+			UserId = UserId,
+			ChannelId = channel.Id,
 			MuteStatus = userVoiceChannel.MutedOther == true ? MuteStatusEnum.Muted : (userVoiceChannel.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted)
 		};
 		var alertedUsers = await _cacheService.GetUsersInServerAsync(channel.ServerId);
 		if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
+		{
 			await _realtimeService.SendToServer(
-				channel.ServerId, 
-				muteStatusResponse, 
+				channel.ServerId,
+				muteStatusResponse,
 				"User change his mute status"
 			);
-        }
+		}
 
-        return (true);
-    }
+		return (true);
+	}
 
 	public async Task<bool> ChangeUserMuteStatusAsync(Guid MutedUserId, Guid OwnerId)
 	{
@@ -1132,8 +1206,8 @@ public class ChannelService : IChannelService
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
-				channel.ServerId, 
-				muteStatusResponse, 
+				channel.ServerId,
+				muteStatusResponse,
 				"User mute status is changed"
 			);
 		}
@@ -1142,14 +1216,14 @@ public class ChannelService : IChannelService
 	}
 
 	public async Task<bool> ChangeStreamStatusAsync(Guid UserId)
-    {
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == UserId);
-        if (userVoiceChannel == null)
-        {
-            throw new CustomException("User not in voice channel", "Change stream status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса стрима");
-        }
-        var channel = await CheckVoiceChannelExistAsync(userVoiceChannel.VoiceChannelId, true);
-        var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
+	{
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel.FirstOrDefaultAsync(uvc => uvc.UserId == UserId);
+		if (userVoiceChannel == null)
+		{
+			throw new CustomException("User not in voice channel", "Change stream status", "Voice channel - User", 400, "Пользователь не находится в голосовом канале канале", "Изменение статуса стрима");
+		}
+		var channel = await CheckVoiceChannelExistAsync(userVoiceChannel.VoiceChannelId, true);
+		var server = await _serverService.CheckServerExistAsync(channel.ServerId, true);
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
@@ -1161,28 +1235,28 @@ public class ChannelService : IChannelService
 
 		userVoiceChannel.IsStream = !userVoiceChannel.IsStream;
 
-        _hitsContext.UserVoiceChannel.Update(userVoiceChannel);
-        await _hitsContext.SaveChangesAsync();
+		_hitsContext.UserVoiceChannel.Update(userVoiceChannel);
+		await _hitsContext.SaveChangesAsync();
 
-        var streamStatusResponse = new ChangeStreamStatus
-        {
-            ServerId = channel.ServerId,
-            UserId = UserId,
-            ChannelId = channel.Id,
-            IsStream = userVoiceChannel.IsStream
-        };
-        var alertedUsers = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
-        if (alertedUsers != null && alertedUsers.Count() > 0)
-        {
+		var streamStatusResponse = new ChangeStreamStatus
+		{
+			ServerId = channel.ServerId,
+			UserId = UserId,
+			ChannelId = channel.Id,
+			IsStream = userVoiceChannel.IsStream
+		};
+		var alertedUsers = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
 			await _realtimeService.SendToUsers(
 				alertedUsers,
-				streamStatusResponse, 
+				streamStatusResponse,
 				"User change his stream status"
 			);
-        }
+		}
 
-        return (true);
-    }
+		return (true);
+	}
 
 	public async Task<bool> DeleteChannelAsync(Guid channelId, Guid UserId)
 	{
@@ -1222,13 +1296,13 @@ public class ChannelService : IChannelService
 					};
 
 					await _realtimeService.SendToServer(
-						channel.ServerId, 
-						removedUser, 
+						channel.ServerId,
+						removedUser,
 						"User removed from voice channel"
 					);
 					await _realtimeService.SendToUser(
 						userId,
-						removedUser, 
+						removedUser,
 						"You removed from voice channel"
 					);
 				}
@@ -1251,15 +1325,17 @@ public class ChannelService : IChannelService
 		{
 			Create = false,
 			ServerId = channel.ServerId,
+			GroupId = channel.GroupId,
 			ChannelId = channel.Id,
 			ChannelName = channel.Name,
-			ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Notification)
+			ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Notification),
+			Position = channel.Position
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
-				channel.ServerId, 
-				deletedChannelResponse, 
+				channel.ServerId,
+				deletedChannelResponse,
 				"Channel deleted"
 			);
 		}
@@ -1513,8 +1589,8 @@ public class ChannelService : IChannelService
 	}
 
 	public async Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, Guid UserId, int number, long fromMessageId, bool down)
-    {
-        var channel = await CheckTextOrNotificationOrSubChannelExistAsync(channelId);
+	{
+		var channel = await CheckTextOrNotificationOrSubChannelExistAsync(channelId);
 
 		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
 		if (userSub == null)
@@ -1809,8 +1885,8 @@ public class ChannelService : IChannelService
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
-				channel.ServerId, 
-				changedSettingsresponse, 
+				channel.ServerId,
+				changedSettingsresponse,
 				"Voice channel settings edited"
 			);
 		}
@@ -2057,8 +2133,8 @@ public class ChannelService : IChannelService
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
-				channel.ServerId, 
-				changedSettingsresponse, 
+				channel.ServerId,
+				changedSettingsresponse,
 				"Text channel settings edited"
 			);
 		}
@@ -2283,8 +2359,8 @@ public class ChannelService : IChannelService
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
-				channel.ServerId, 
-				changedSettingsresponse, 
+				channel.ServerId,
+				changedSettingsresponse,
 				"Notification channel settings edited"
 			);
 		}
@@ -2416,8 +2492,8 @@ public class ChannelService : IChannelService
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
-				channel.ServerId, 
-				changedSettingsresponse, 
+				channel.ServerId,
+				changedSettingsresponse,
 				"Sub channel settings edited"
 			);
 		}
@@ -2425,8 +2501,8 @@ public class ChannelService : IChannelService
 		return true;
 	}
 
-    public async Task ChangeChannnelNameAsync(Guid UserId, Guid channelId, string name)
-    {
+	public async Task UpdateChannnelAsync(Guid UserId, Guid channelId, string name, Guid? groupId, int? position)
+	{
 		var channel = await CheckChannelExistAsync(channelId);
 
 		var userSub = await _hitsContext.UserServer
@@ -2435,22 +2511,95 @@ public class ChannelService : IChannelService
 			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
 		if (userSub == null)
 		{
-			throw new CustomException("User is not subscriber of this server", "Change notification channel sttings", "User", 404, "Владелец не найден", "Изменение имени канала");
+			throw new CustomException("User is not subscriber of this server", "Change notification channel sttings", "User", 404, "Владелец не найден", "Изменение канала");
 		}
 		if (userSub.SubscribeRoles.Any(sr => sr.Role.ServerCanWorkChannels) == false)
 		{
-			throw new CustomException("User does not have rights to work with channels", "Change notification channel sttings", "User rights", 403, "Владелец не имеет права работать с каналами", "Изменение имени канала");
+			throw new CustomException("User does not have rights to work with channels", "Change notification channel sttings", "User rights", 403, "Владелец не имеет права работать с каналами", "Изменение канала");
 		}
 
-        channel.Name = name;
-        _hitsContext.Channel.Update(channel);
-        await _hitsContext.SaveChangesAsync();
+		channel.Name = name;
+
+		if (groupId != null)
+		{
+			var group = await _hitsContext.ChannelGroup
+				.FirstOrDefaultAsync(g => g.Id == groupId && g.Id != channel.GroupId && g.ServerId == channel.ServerId);
+			if (group == null)
+			{
+				throw new CustomException("Group not found", "Update channel", "Channel", 404, "Группа не найдена", "Изменение канала");
+			}
+			var maxPosition = await _hitsContext.Channel
+				.Where(r => r.ServerId == channel.ServerId)
+				.MaxAsync(r => (int?)r.Position) ?? 0;
+			if (position != null)
+			{
+				if (position < 0 || position > maxPosition + 1)
+				{
+					throw new CustomException("Position not work", "Update channel", "Position", 404, "Позиция вне отрезка", "Изменение канала");
+				}
+
+				await _hitsContext.Channel
+					.Where(c => c.ServerId == channel.ServerId &&
+						c.GroupId == channel.GroupId &&
+						c.Position > channel.Position)
+					.ExecuteUpdateAsync(s => s
+						.SetProperty(c => c.Position, c => c.Position - 1));
+
+				await _hitsContext.Channel
+					.Where(c => c.ServerId == channel.ServerId &&
+						c.GroupId == groupId &&
+						c.Position >= position)
+					.ExecuteUpdateAsync(s => s
+						.SetProperty(c => c.Position, c => c.Position + 1));
+
+				channel.Position = (int)position;
+			}
+			else
+			{
+				channel.Position = maxPosition + 1;
+			}
+			channel.GroupId = groupId;
+		}
+		else
+		{
+			if (position != null)
+			{
+				var maxPosition = await _hitsContext.Channel
+					.Where(r => r.ServerId == channel.ServerId)
+					.MaxAsync(r => (int?)r.Position) ?? 0;
+
+				if (position < 0 || position > maxPosition + 1)
+				{
+					throw new CustomException("Position not work", "Update channel", "Position", 404, "Позиция вне отрезка", "Изменение канала");
+				}
+
+				await _hitsContext.Channel
+					.Where(c => c.ServerId == channel.ServerId &&
+						c.GroupId == channel.GroupId &&
+						c.Position > channel.Position)
+					.ExecuteUpdateAsync(s => s
+						.SetProperty(c => c.Position, c => c.Position - 1));
+
+				await _hitsContext.Channel
+					.Where(c => c.ServerId == channel.ServerId &&
+						c.GroupId == channel.GroupId &&
+						c.Position >= channel.Position)
+					.ExecuteUpdateAsync(s => s
+						.SetProperty(c => c.Position, c => c.Position + 1));
+
+				channel.Position = (int)position;
+			}
+		}
+
+		await _hitsContext.SaveChangesAsync();
 
 		var changeChannelName = new ChangeChannelNameDTO
 		{
 			ServerId = channel.ServerId,
 			ChannelId = channel.Id,
-			Name = name
+			Name = name,
+			GroupId = channel.GroupId,
+			Position = channel.Position
 		};
 		var alertedUsers = await _hitsContext.UserServer
 			.Where(us => us.ServerId == channel.ServerId)
@@ -2459,8 +2608,8 @@ public class ChannelService : IChannelService
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
 			await _realtimeService.SendToServer(
-				channel.ServerId, 
-				changeChannelName, 
+				channel.ServerId,
+				changeChannelName,
 				"Change channel name"
 			);
 		}
@@ -2468,17 +2617,17 @@ public class ChannelService : IChannelService
 
 	public async Task<UserVoiceChannelCheck?> CheckVoiceChannelAsync(Guid UserId)
 	{
-        var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == UserId);
-        if (userVoiceChannel == null)
-        {
-            return null;
-        }
-        var uvcCheck = new UserVoiceChannelCheck
-        {
-            ServerId = userVoiceChannel.VoiceChannel.ServerId,
-            VoiceChannelId = userVoiceChannel.VoiceChannel.Id,
-        };
-        return uvcCheck;
+		var userVoiceChannel = await _hitsContext.UserVoiceChannel.Include(uvc => uvc.VoiceChannel).FirstOrDefaultAsync(uvc => uvc.UserId == UserId);
+		if (userVoiceChannel == null)
+		{
+			return null;
+		}
+		var uvcCheck = new UserVoiceChannelCheck
+		{
+			ServerId = userVoiceChannel.VoiceChannel.ServerId,
+			VoiceChannelId = userVoiceChannel.VoiceChannel.Id,
+		};
+		return uvcCheck;
 	}
 
 	public async Task ChangeNonNotifiableChannelAsync(Guid UserId, Guid channelId)
@@ -2553,7 +2702,7 @@ public class ChannelService : IChannelService
 		{
 			await _realtimeService.SendToServer(
 				channel.ServerId,
-				changeMaxCount, 
+				changeMaxCount,
 				"Change max count"
 			);
 		}
@@ -2638,7 +2787,7 @@ public class ChannelService : IChannelService
 			return null;
 		}
 		var rights = await _cacheService.GetUserToChannelAsync(UserId, message.NestedChannel.Id);
-		if(rights == null || !(((ChannelRights)rights.ChannelRights).HasFlag(ChannelRights.Use)))
+		if (rights == null || !(((ChannelRights)rights.ChannelRights).HasFlag(ChannelRights.Use)))
 		{
 			return null;
 		}
@@ -2659,6 +2808,209 @@ public class ChannelService : IChannelService
 	}
 
 
+	public async Task CreateGroupAsync(Guid UserId, Guid ServerId, string Name)
+	{
+		var server = await _serverService.CheckServerExistAsync(ServerId, false);
+
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner is not subscriber of this server", "Create group", "Owner", 404, "Владелец не найден", "Создание группы");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanWorkChannels) == false)
+		{
+			throw new CustomException("Owner does not have rights to work with channels", "Create group", "Owner", 403, "Владелец не имеет права работать с каналами", "Создание группы");
+		}
+
+		int lowestPosition = await _hitsContext.ChannelGroup
+			.Where(c => c.ServerId == ServerId)
+			.MaxAsync(c => (int?)c.Position) + 1 ?? 0;
+
+		var newGroup = new ChannelGroupDbModel
+		{
+			Name = Name,
+			ServerId = server.Id,
+			Position = lowestPosition,
+			Channels = new List<ChannelDbModel>()
+		};
+
+		var newGroupResponse = new GroupResponseSocket
+		{
+			ServerId = server.Id,
+			GroupId = newGroup.Id,
+			GroupName = newGroup.Name,
+			Position = lowestPosition
+		};
+		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
+		if (alertedUsers != null && alertedUsers.Count() > 0)
+		{
+			await _realtimeService.SendToServer(
+				server.Id,
+				newGroupResponse,
+				"New group"
+			);
+		}
+	}
+
+	public async Task UpdateGroupAsync(Guid UserId, Guid GroupId, string? Name, int? Position)
+	{
+		var group = await _hitsContext.ChannelGroup.FirstOrDefaultAsync(g => g.Id == GroupId);
+		if (group == null)
+		{
+			throw new CustomException("Group not found", "Update group", "Owner", 404, "Группа не найдена", "Обновление группы");
+		}
+
+		var server = await _serverService.CheckServerExistAsync(group.ServerId, false);
+
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner is not subscriber of this server", "Update group", "Owner", 404, "Владелец не найден", "Обновление группы");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanWorkChannels) == false)
+		{
+			throw new CustomException("Owner does not have rights to work with channels", "Update group", "Owner", 403, "Владелец не имеет права работать с каналами", "Обновление группы");
+		}
+
+		if (!string.IsNullOrWhiteSpace(Name))
+		{
+			group.Name = Name;
+		}
+
+		if (Position != null && Position != group.Position)
+		{
+			var maxPosition = await _hitsContext.ChannelGroup
+				.Where(g => g.ServerId == server.Id)
+				.MaxAsync(g => (int?)g.Position) ?? 0;
+
+			if (Position < 0 || Position > maxPosition)
+			{
+				throw new CustomException("Invalid position", "Update group", "Position", 400, "Позиция вне диапазона", "Обновление группы");
+			}
+
+			var oldPosition = group.Position;
+
+			if (Position < oldPosition)
+			{
+				await _hitsContext.ChannelGroup
+					.Where(g => g.ServerId == server.Id &&
+						g.Position >= Position &&
+						g.Position < oldPosition)
+					.ExecuteUpdateAsync(s => s.SetProperty(g => g.Position, g => g.Position + 1));
+			}
+			else
+			{
+				await _hitsContext.ChannelGroup
+					.Where(g => g.ServerId == server.Id &&
+						g.Position <= Position &&
+						g.Position > oldPosition)
+					.ExecuteUpdateAsync(s => s.SetProperty(g => g.Position, g => g.Position - 1));
+			}
+
+			group.Position = Position.Value;
+		}
+
+		await _hitsContext.SaveChangesAsync();
+
+		var response = new GroupResponseSocket
+		{
+			ServerId = server.Id,
+			GroupId = group.Id,
+			GroupName = group.Name,
+			Position = group.Position
+		};
+
+		await _realtimeService.SendToServer(server.Id, response, "Update group");
+	}
+
+	public async Task RemoveGroupAsync(Guid UserId, Guid GroupId)
+	{
+		var group = await _hitsContext.ChannelGroup.FirstOrDefaultAsync(g => g.Id == GroupId);
+		if (group == null)
+		{
+			throw new CustomException("Group not found", "Delete group", "Owner", 404, "Группа не найдена", "Удаление группы");
+		}
+
+		var server = await _serverService.CheckServerExistAsync(group.ServerId, false);
+
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner is not subscriber of this server", "Delete group", "Owner", 404, "Владелец не найден", "Удаление группы");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanWorkChannels) == false)
+		{
+			throw new CustomException("Owner does not have rights to work with channels", "Delete group", "Owner", 403, "Владелец не имеет права работать с каналами", "Удаление группы");
+		}
+
+		var channels = await _hitsContext.Channel
+			.Where(c => c.GroupId == GroupId)
+			.ToListAsync();
+
+		var maxPosition = await _hitsContext.Channel
+			.Where(c => c.ServerId == server.Id && c.GroupId == null)
+			.MaxAsync(c => (int?)c.Position) ?? 0;
+
+		int newPosition = maxPosition;
+
+		var users = await _cacheService.GetUsersInServerAsync(server.Id);
+
+		foreach (var channel in channels)
+		{
+			newPosition++;
+
+			channel.GroupId = null;
+			channel.Position = newPosition;
+
+			var dto = new ChangeChannelNameDTO
+			{
+				ServerId = channel.ServerId,
+				ChannelId = channel.Id,
+				Name = channel.Name,
+				GroupId = channel.GroupId,
+				Position = channel.Position
+			};
+
+			if (users?.Count > 0)
+			{
+				await _realtimeService.SendToServer(
+					channel.ServerId,
+					dto,
+					"Channel moved from group"
+				);
+			}
+		}
+
+		await _hitsContext.ChannelGroup
+			.Where(g => g.ServerId == server.Id && g.Position > group.Position)
+			.ExecuteUpdateAsync(s => s.SetProperty(g => g.Position, g => g.Position - 1));
+
+		_hitsContext.ChannelGroup.Remove(group);
+
+		await _hitsContext.SaveChangesAsync();
+
+		var response = new GroupResponseSocket
+		{
+			ServerId = server.Id,
+			GroupId = group.Id,
+			GroupName = group.Name,
+			Position = group.Position
+		};
+
+		if (users?.Count > 0)
+		{
+			await _realtimeService.SendToServer(server.Id, response, "Delete group");
+		}
+	}
 
 	public async Task RemoveChannels()
 	{
@@ -2690,5 +3042,108 @@ public class ChannelService : IChannelService
 
 			await ClearUserChannelFull(channel.Id, channel.ServerId);
 		}
+	}
+
+
+	public async Task<List<TaskGradeItemDTO>> GetTaskGradesAsync(Guid UserId, Guid ChannelId, long TaskId)
+	{
+		var channel = await CheckLessonChannelExistAsync(ChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException(
+				"User not subscriber of channel",
+				"Get task grades",
+				"User",
+				404,
+				"Пользователь не состоит в канале",
+				"Получение оценок"
+			);
+		}
+
+		var hasCheckGradesRole = await _hitsContext.UserServer
+			.Where(us => us.UserId == UserId && us.ServerId == channel.ServerId && !us.IsBanned)
+			.SelectMany(us => us.SubscribeRoles)
+			.AnyAsync(sr => sr.Role.ServerCanCheckGrades);
+
+		if (!((ChannelRights)userSub.ChannelRights).HasFlag(ChannelRights.Task) || !hasCheckGradesRole)
+		{
+			throw new CustomException(
+				"No permission",
+				"Get task grades",
+				"Permissions",
+				403,
+				"Нет прав на просмотр оценок",
+				"Получение оценок"
+			);
+		}
+
+		var task = await _hitsContext.LessonChannelMessageTask
+			.Include(t => t.AssignedRoles)
+			.FirstOrDefaultAsync(t =>
+				t.TextLessonChannelId == ChannelId &&
+				t.Id == TaskId);
+
+		if (task == null)
+		{
+			throw new CustomException(
+				"Task not found",
+				"Get task grades",
+				"Task",
+				404,
+				"Задание не найдено",
+				"Получение оценок"
+			);
+		}
+
+		var roleIds = task.AssignedRoles.Select(r => r.Id).ToList();
+
+		var users = await _hitsContext.UserServer
+			.Where(us =>
+				us.ServerId == channel.ServerId &&
+				!us.IsBanned)
+			.Where(us =>
+				us.SubscribeRoles.Any(sr => roleIds.Contains(sr.RoleId)))
+			.Select(us => new
+			{
+				us.UserId
+			})
+			.ToListAsync();
+
+		var solutions = await _hitsContext.LessonChannelMessageSolution
+			.Where(s =>
+				s.TextLessonChannelId == ChannelId &&
+				s.ReplyToMessageId == TaskId)
+			.ToListAsync();
+
+		var solutionDict = solutions
+			.Where(s => s.AuthorId.HasValue)
+			.GroupBy(s => s.AuthorId!.Value)
+			.ToDictionary(
+				g => g.Key,
+				g => g.OrderByDescending(x => x.CreatedAt).First()
+			);
+
+		var result = new List<TaskGradeItemDTO>();
+
+		foreach (var user in users)
+		{
+			solutionDict.TryGetValue(user.UserId, out var solution);
+
+			result.Add(new TaskGradeItemDTO
+			{
+				ServerId = channel.ServerId,
+				ChannelId = channel.Id,
+				TaskId = task.Id,
+				SolutionId = solution?.Id ?? null,
+				UserId = user.UserId,
+				GraderId = solution?.GradeAuthorId ?? Guid.Empty,
+				Grade = solution?.Grade ?? 0,
+				GradeDate = solution?.GradeDate ?? DateTime.MinValue
+			});
+		}
+
+		return result;
 	}
 }

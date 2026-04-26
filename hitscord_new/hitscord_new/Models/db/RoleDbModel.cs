@@ -54,10 +54,15 @@ public class RoleDbModel
 
 	public required bool ServerCanUseInvitations { get; set; }
 
+	public required bool ServerCanCheckGrades { get; set; }
+
 	public ICollection<ChannelCanSeeDbModel> ChannelCanSee { get; set; }
     public ICollection<ChannelCanWriteDbModel> ChannelCanWrite { get; set; }
     public ICollection<ChannelCanWriteSubDbModel> ChannelCanWriteSub { get; set; }
     public ICollection<ChannelNotificatedDbModel> ChannelNotificated { get; set; }
     public ICollection<ChannelCanUseDbModel> ChannelCanUse { get; set; }
     public ICollection<ChannelCanJoinDbModel> ChannelCanJoin { get; set; }
+	public ICollection<ChannelCanMakeTasksDbModel> ChannelCanMakeTasks { get; set; }
+	public ICollection<ChannelCanJoinQueueDbModel> ChannelCanJoinQueue { get; set; }
+	public ICollection<ChannelCanTakeFromQueueDbModel> ChannelCanTakeFromQueue { get; set; }
 }

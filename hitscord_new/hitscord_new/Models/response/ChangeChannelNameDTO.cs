@@ -5,4 +5,6 @@ public class ChangeChannelNameDTO
 	public required Guid ServerId { get; set; }
 	public required Guid ChannelId { get; set; }
 	public required string Name { get; set; }
+	public Guid? GroupId { get; set; }
+	public int? Position { get; set; }
 }

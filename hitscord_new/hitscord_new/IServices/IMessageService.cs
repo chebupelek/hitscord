@@ -13,6 +13,20 @@ public interface IMessageService
     Task UpdateMessageInChatWebsocketAsync(long messageId, Guid chatId, Guid UserId, string text);
     Task<object> DeleteMessageInChatWebsocketAsync(long messageId, Guid chatId, Guid UserId);
 
+
+	Task CreateTaskWebsocketAsync(Guid UserId, Guid ChannelId, string Description, DateTime? Deadline, List<Guid>? Files, List<Guid> Roles);
+	Task UpdateTaskWebsocketAsync(Guid UserId, Guid ChannelId, long TaskId, string Description);
+	Task DeleteTaskWebsocketAsync(Guid UserId, Guid ChannelId, long TaskId);
+	Task CreateSolutionWebsocketAsync(Guid UserId, Guid ChannelId, string Description, long TaskId, List<Guid>? Files);
+	Task UpdateSolutionWebsocketAsync(Guid UserId, Guid ChannelId, string Description, long SolutionId);
+	Task RemoceSolutionWebsocketAsync(Guid UserId, Guid ChannelId, long SolutionId);
+	Task CreateGradeWebsocketAsync(Guid UserId, Guid ChannelId, long SolutionId, int Grade);
+	Task InQueueWebsocketAsync(Guid ChannelId, Guid UserId);
+	Task OutQueueWebsocketAsync(Guid ChannelId, Guid UserId);
+	Task TakeQueueWebsocketAsync(Guid ChannelId, Guid UserId);
+	Task LetGoQueueWebsocketAsync(Guid ChannelId, Guid UserId);
+
+
 	Task VoteAsync(Guid UserId, bool channel, Guid variantId);
 	Task UnVoteAsync(Guid UserId, Guid variantId);
 	Task<VoteResponceDTO> GetVotingAsync(Guid UserId, bool channel, Guid channelId, long voteId);

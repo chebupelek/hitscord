@@ -388,6 +388,7 @@ public class ServerService : IServerService
 			Messages = new List<ChannelMessageDbModel>(),
 			ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 			ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
+			Position = 0
 		};
 		foreach (var item in new[]
 		{
@@ -423,7 +424,8 @@ public class ServerService : IServerService
 			ServerId = newServer.Id,
 			ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 			MaxCount = 999,
-			ChannelCanJoin = new List<ChannelCanJoinDbModel>()
+			ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
+			Position = 1
 		};
 		foreach (var item in new[]
 		{
@@ -1419,135 +1421,155 @@ public class ServerService : IServerService
 			.Select(f => f.UserIdFrom == UserId ? f.UserIdTo : f.UserIdFrom)
 			.Distinct()
 			.ToListAsync();
-		var nonNotifiableChannelsList = await _hitsContext.NonNotifiableChannel
-			.Include(nnc => nnc.TextChannel)
-			.Where(nnc =>
-				nnc.UserServerId == sub.Id
-				&& nnc.TextChannel.ServerId == server.Id
-			)
-			.Select(nnc => nnc.TextChannelId)
-			.ToListAsync();
-		var lastReads = await _hitsContext.LastReadChannelMessage
-			.Include(lr => lr.TextChannel)
-			.Where(lr => lr.UserId == UserId && lr.TextChannel.ServerId == server.Id)
-			.ToListAsync();
-		var lastReadsDict = lastReads.ToDictionary(lr => lr.TextChannelId, lr => lr.LastReadedMessageId);
 
-		var voiceChannelResponses = await _hitsContext.VoiceChannel
-			.Include(vc => vc.Users)
-			.Include(vc => vc.ChannelCanSee)
-			.Include(vc => vc.ChannelCanJoin)
-			.Where(vc => vc.ServerId == server.Id
-				&& vc.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)) && EF.Property<string>(vc, "ChannelType") == "Voice")
-			.Select(vc => new VoiceChannelResponseDTO
+
+		var nonNotifiableSet = (await _hitsContext.NonNotifiableChannel
+	   .Where(n => n.UserServerId == sub.Id)
+	   .Select(n => n.TextChannelId)
+	   .ToListAsync()).ToHashSet();
+
+		var lastReadsDict = await _hitsContext.LastReadChannelMessage
+			.Where(lr => lr.UserId == UserId)
+			.ToDictionaryAsync(lr => lr.TextChannelId, lr => lr.LastReadedMessageId);
+
+		var groups = await _hitsContext.ChannelGroup
+			.Where(g => g.ServerId == server.Id)
+			.OrderBy(g => g.Position)
+			.Select(g => new
 			{
-				ChannelName = vc.Name,
-				ChannelId = vc.Id,
-				CanJoin = vc.ChannelCanJoin.Any(ccj => userRoleIds.Contains(ccj.RoleId)),
-				MaxCount = vc.MaxCount,
-				Users = vc.Users.Select(u => new VoiceChannelUserDTO
-				{
-					UserId = u.UserId,
-					MuteStatus = u.MutedOther == true ? MuteStatusEnum.Muted : (u.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted),
-					IsStream = u.IsStream
-				})
-				.ToList()
+				g.Id,
+				g.Name,
+				g.Position
 			})
 			.ToListAsync();
 
-		var pairVoiceChannelResponses = server.ServerType == ServerTypeEnum.Teacher ? await _hitsContext.PairVoiceChannel
-			.Include(vc => vc.Users)
-			.Include(vc => vc.ChannelCanSee)
-			.Include(vc => vc.ChannelCanJoin)
-			.Where(vc => vc.ServerId == server.Id
-				&& vc.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)))
-			.Select(vc => new VoiceChannelResponseDTO
+		var channelsRaw = await _hitsContext.Channel
+			.Where(c => c.ServerId == server.Id &&
+						c.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)))
+			.Select(c => new
 			{
-				ChannelName = vc.Name,
-				ChannelId = vc.Id,
-				CanJoin = vc.ChannelCanJoin.Any(ccj => userRoleIds.Contains(ccj.RoleId)),
-				MaxCount = vc.MaxCount,
-				Users = vc.Users.Select(u => new VoiceChannelUserDTO
-				{
-					UserId = u.UserId,
-					MuteStatus = u.MutedOther == true ? MuteStatusEnum.Muted : (u.MutedHimself == true ? MuteStatusEnum.SelfMuted : MuteStatusEnum.NotMuted),
-					IsStream = u.IsStream
-				})
-				.ToList()
+				c.Id,
+				c.Name,
+				c.Position,
+				c.GroupId,
+				Type = EF.Property<string>(c, "ChannelType")
 			})
-			.ToListAsync()
-			: new List<VoiceChannelResponseDTO>();
-
-		var textChannels = await _hitsContext.TextChannel
-			.Include(t => t.ChannelCanSee)
-			.Include(t => t.ChannelCanWrite)
-				.ThenInclude(ccw => ccw.Role)
-			.Include(t => t.ChannelCanWriteSub)
-			.Include(t => t.Messages)
-			.Where(t => t.ServerId == server.Id && t.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)) && EF.Property<string>(t, "ChannelType") == "Text" && t.DeleteTime == null)
 			.ToListAsync();
-
-		var textChannelResponses = textChannels
-			.Select(t =>
+		var textDict = await _hitsContext.TextChannel
+			.Where(t => channelsRaw.Select(c => c.Id).Contains(t.Id))
+			.Select(t => new
 			{
-				var lastReadId = lastReadsDict.TryGetValue(t.Id, out var lr) ? lr : 0;
-				var messages = t.Messages.Where(m => m.Id > lastReadId && m.DeleteTime == null);
-
-				return new TextChannelResponseDTO
+				t.Id,
+				DTO = new TextChannelResponseDTO
 				{
-					ChannelName = t.Name,
 					ChannelId = t.Id,
+					ChannelName = t.Name,
 					CanWrite = t.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
 					CanWriteSub = t.ChannelCanWriteSub.Any(ccws => userRoleIds.Contains(ccws.RoleId)),
-					IsNotifiable = nonNotifiableChannelsList.Contains(t.Id),
-					NonReadedCount = messages.Count(),
-					NonReadedTaggedCount = messages.Count(m =>
+					IsNotifiable = nonNotifiableSet.Contains(t.Id),
+					NonReadedCount = t.Messages.Count(m => m.DeleteTime == null),
+					NonReadedTaggedCount = t.Messages.Count(m =>
 						m.TaggedUsers.Contains(UserId) ||
-						m.TaggedRoles.Any(rid => userRoleIds.Contains(rid))
-					),
-					LastReadedMessageId = lastReadId,
+						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
+					LastReadedMessageId = lastReadsDict.ContainsKey(t.Id) ? lastReadsDict[t.Id] : 0,
 					RolesCanWrite = t.ChannelCanWrite.Select(ccw => new UserServerRoles
-						{
-							RoleId = ccw.RoleId,
-							RoleName = ccw.Role.Name,
-							RoleType = ccw.Role.Role
-						})
-						.ToList()
-				};
+					{
+						RoleId = ccw.RoleId,
+						RoleName = ccw.Role.Name,
+						RoleType = ccw.Role.Role
+					}).ToList()
+				}
 			})
-			.ToList();
+			.ToDictionaryAsync(x => x.Id, x => x.DTO);
 
-
-		var notificationChannels = await _hitsContext.NotificationChannel
-			.Include(n => n.ChannelCanSee)
-			.Include(n => n.ChannelCanWrite)
-			.Include(n => n.ChannelNotificated)
-			.Include(n => n.Messages)
-			.Where(n => n.ServerId == server.Id && n.ChannelCanSee.Any(ccs => userRoleIds.Contains(ccs.RoleId)) && n.DeleteTime == null)
-			.ToListAsync();
-
-		var notificationChannelResponses = notificationChannels
-			.Select(n =>
+		var voiceDict = await _hitsContext.VoiceChannel
+			.Where(v => channelsRaw.Select(c => c.Id).Contains(v.Id))
+			.Select(v => new
 			{
-				var lastReadId = lastReadsDict.TryGetValue(n.Id, out var lr) ? lr : 0;
-				var messages = n.Messages.Where(m => m.Id > lastReadId && m.DeleteTime == null);
-
-				return new NotificationChannelResponseDTO
+				v.Id,
+				DTO = new VoiceChannelResponseDTO
 				{
-					ChannelName = n.Name,
+					ChannelId = v.Id,
+					ChannelName = v.Name,
+					CanJoin = v.ChannelCanJoin.Any(ccj => userRoleIds.Contains(ccj.RoleId)),
+					MaxCount = v.MaxCount,
+					Users = v.Users.Select(u => new VoiceChannelUserDTO
+					{
+						UserId = u.UserId,
+						MuteStatus = u.MutedOther ? MuteStatusEnum.Muted :
+									 u.MutedHimself ? MuteStatusEnum.SelfMuted :
+									 MuteStatusEnum.NotMuted,
+						IsStream = u.IsStream
+					}).ToList()
+				}
+			})
+			.ToDictionaryAsync(x => x.Id, x => x.DTO);
+
+		var notificationDict = await _hitsContext.NotificationChannel
+			.Where(n => channelsRaw.Select(c => c.Id).Contains(n.Id))
+			.Select(n => new
+			{
+				n.Id,
+				DTO = new NotificationChannelResponseDTO
+				{
 					ChannelId = n.Id,
+					ChannelName = n.Name,
 					CanWrite = n.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
 					IsNotificated = n.ChannelNotificated.Any(cn => userRoleIds.Contains(cn.RoleId)),
-					IsNotifiable = nonNotifiableChannelsList.Contains(n.Id),
-					NonReadedCount = messages.Count(),
-					NonReadedTaggedCount = messages.Count(m =>
+					IsNotifiable = nonNotifiableSet.Contains(n.Id),
+					NonReadedCount = n.Messages.Count(m => m.DeleteTime == null),
+					NonReadedTaggedCount = n.Messages.Count(m =>
 						m.TaggedUsers.Contains(UserId) ||
-						m.TaggedRoles.Any(rid => userRoleIds.Contains(rid))
-					),
-					LastReadedMessageId = lastReadId
-				};
+						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
+					LastReadedMessageId = lastReadsDict.ContainsKey(n.Id) ? lastReadsDict[n.Id] : 0
+				}
+			})
+			.ToDictionaryAsync(x => x.Id, x => x.DTO);
+
+		var channelGroups = groups.Select(g => new ChannelGroupResponseDTO
+		{
+			GroupId = g.Id,
+			GroupName = g.Name,
+			Position = g.Position,
+			Channels = channelsRaw
+				.Where(c => c.GroupId == g.Id)
+				.OrderBy(c => c.Position)
+				.Select(c => new ChannelWrapperDTO
+				{
+					Position = c.Position,
+					Type = c.Type,
+					TextChannel = c.Type == "Text" && textDict.ContainsKey(c.Id) ? textDict[c.Id] : null,
+					VoiceChannel = c.Type == "Voice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null,
+					NotificationChannel = c.Type == "Notification" && notificationDict.ContainsKey(c.Id) ? notificationDict[c.Id] : null,
+					PairVoiceChannel = c.Type == "PairVoice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null
+				})
+				.ToList()
+		}).ToList();
+
+		var noGroupChannels = channelsRaw
+			.Where(c => c.GroupId == null)
+			.OrderBy(c => c.Position)
+			.Select(c => new ChannelWrapperDTO
+			{
+				Position = c.Position,
+				Type = c.Type,
+				TextChannel = c.Type == "Text" && textDict.ContainsKey(c.Id) ? textDict[c.Id] : null,
+				VoiceChannel = c.Type == "Voice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null,
+				NotificationChannel = c.Type == "Notification" && notificationDict.ContainsKey(c.Id) ? notificationDict[c.Id] : null,
+				PairVoiceChannel = c.Type == "PairVoice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null
 			})
 			.ToList();
+
+		if (noGroupChannels.Any())
+		{
+			channelGroups.Insert(0, new ChannelGroupResponseDTO
+			{
+				GroupId = null,
+				GroupName = null,
+				Position = 0,
+				Channels = noGroupChannels
+			});
+		}
 
 		var serverUsers = await _hitsContext.UserServer
 			.Include(us => us.User)
@@ -1638,13 +1660,7 @@ public class ServerService : IServerService
 			},
 			IsNotifiable = sub.NonNotifiable,
 			Users = serverUsers,
-			Channels = new ChannelListDTO
-			{
-				TextChannels = textChannelResponses,
-				NotificationChannels = notificationChannelResponses,
-				VoiceChannels = voiceChannelResponses,
-				PairVoiceChannels = pairVoiceChannelResponses
-			}
+			ChannelGroups = channelGroups
 		};
 
 		if (server.IconFileId != null)

@@ -9,5 +9,8 @@ public enum ChannelRights
 	WriteSub = 1 << 2,
 	Notificate = 1 << 3,
 	Use = 1 << 4,
-	Join = 1 << 5
+	Join = 1 << 5,
+	Task = 1 << 6,
+	JoinQueue = 1 << 7,
+	TakeQueue = 1 << 8,
 }

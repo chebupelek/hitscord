@@ -17,6 +17,8 @@ using hitscord.Redis.Sessions;
 using hitscord.Redis.CashedDB;
 using Microsoft.AspNetCore.SignalR;
 using hitscord.SignalR;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -223,6 +225,19 @@ builder.Services.AddQuartz(q =>
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+
+builder.Services.AddSingleton(_ =>
+{
+	FirebaseApp.Create(new AppOptions
+	{
+		Credential = GoogleCredential.FromFile(
+			"Secrets/firebase-adminsdk.json"
+		)
+	});
+
+	return FirebaseApp.DefaultInstance;
+});
+builder.Services.AddScoped<IFirebaseService, FirebaseService>();
 
 var app = builder.Build();
 
