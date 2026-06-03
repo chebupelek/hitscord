@@ -56,6 +56,16 @@ public class AuthorizationController : ControllerBase
 		});
 	}
 
+	[HttpGet("debug-cookie")]
+	public IActionResult DebugCookie()
+	{
+		return Ok(new
+		{
+			Cookie = Request.Cookies["access_token"],
+			Headers = Request.Headers["Cookie"].ToString()
+		});
+	}
+
 	[HttpPost]
 	[Route("registration")]
 	public async Task<IActionResult> Registration([FromBody] UserRegistrationDTO registrationData)
