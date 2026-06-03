@@ -319,7 +319,7 @@ app.MapHub<ChatHub>("/ws");
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-	c.SwaggerEndpoint("/swagger/v1/swagger.json", "API v1");
+	c.ConfigObject.AdditionalItems["withCredentials"] = true;
 });
 
 app.UseCors("AllowAll");
