@@ -35,7 +35,7 @@ public class AuthorizationController : ControllerBase
 		{
 			HttpOnly = true,
 			Secure = false,
-			SameSite = SameSiteMode.None,
+			SameSite = SameSiteMode.Lax,
 			Expires = DateTime.UtcNow.AddMinutes(15)
 		});
 
@@ -43,7 +43,7 @@ public class AuthorizationController : ControllerBase
 		{
 			HttpOnly = true,
 			Secure = false,
-			SameSite = SameSiteMode.None,
+			SameSite = SameSiteMode.Lax,
 			Expires = DateTime.UtcNow.AddDays(10)
 		});
 
@@ -51,7 +51,7 @@ public class AuthorizationController : ControllerBase
 		{
 			HttpOnly = true,
 			Secure = false,
-			SameSite = SameSiteMode.None,
+			SameSite = SameSiteMode.Lax,
 			Expires = DateTime.UtcNow.AddDays(10)
 		});
 	}

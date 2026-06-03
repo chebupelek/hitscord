@@ -235,6 +235,17 @@ builder.Services.AddQuartz(q =>
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("AllowAll", p =>
+	{
+		p.AllowAnyHeader()
+		 .AllowAnyMethod()
+		 .AllowCredentials()
+		 .SetIsOriginAllowed(_ => true);
+	});
+});
 /*
 builder.Services.AddSingleton(_ =>
 {
@@ -306,8 +317,12 @@ app.MapGet("/", () => "WebSocket server is running!");
 app.MapHub<ChatHub>("/ws");
 
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+	c.ConfigObject.AdditionalItems["withCredentials"] = true;
+});
 
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 
