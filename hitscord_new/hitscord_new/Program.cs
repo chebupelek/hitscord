@@ -240,10 +240,10 @@ builder.Services.AddCors(options =>
 {
 	options.AddPolicy("AllowAll", p =>
 	{
-		p.AllowAnyHeader()
+		p.WithOrigins("http://45.150.10.98") // важно НЕ "*"
+		 .AllowAnyHeader()
 		 .AllowAnyMethod()
-		 .AllowCredentials()
-		 .SetIsOriginAllowed(_ => true);
+		 .AllowCredentials();
 	});
 });
 /*
@@ -319,7 +319,9 @@ app.MapHub<ChatHub>("/ws");
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-	c.ConfigObject.AdditionalItems["withCredentials"] = true;
+	c.SwaggerEndpoint("/swagger/v1/swagger.json", "API v1");
+
+	c.ConfigObject.AdditionalItems["requestInterceptor"] = "function (req) { req.credentials = 'include'; return req; }";
 });
 
 app.UseCors("AllowAll");
