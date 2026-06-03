@@ -90,7 +90,17 @@ builder.Services.Configure<ApiSettings>(options =>
 	options.BaseUrl = Environment.GetEnvironmentVariable("API_BASE_URL") ?? "https://default.url";
 });
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnString));
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+	try
+	{
+		return ConnectionMultiplexer.Connect(redisConnString);
+	}
+	catch
+	{
+		return null!;
+	}
+});
 builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
 builder.Services.AddScoped<IRedisSessionService, RedisSessionService>();
 
@@ -225,7 +235,7 @@ builder.Services.AddQuartz(q =>
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
-
+/*
 builder.Services.AddSingleton(_ =>
 {
 	FirebaseApp.Create(new AppOptions
@@ -238,7 +248,7 @@ builder.Services.AddSingleton(_ =>
 	return FirebaseApp.DefaultInstance;
 });
 builder.Services.AddScoped<IFirebaseService, FirebaseService>();
-
+*/
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
