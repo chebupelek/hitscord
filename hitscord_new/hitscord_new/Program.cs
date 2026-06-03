@@ -320,16 +320,6 @@ app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
 	c.SwaggerEndpoint("/swagger/v1/swagger.json", "API v1");
-
-	c.HeadContent = @"
-		<script>
-		window.onload = function() {
-			window.ui.getConfigs().requestInterceptor = function(req) {
-				req.credentials = 'include';
-				return req;
-			};
-		};
-		</script>";
 });
 
 app.UseCors("AllowAll");
