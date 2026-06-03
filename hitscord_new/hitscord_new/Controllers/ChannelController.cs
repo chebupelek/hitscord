@@ -107,6 +107,46 @@ public class ChannelController : ControllerBase
     }
 
 	[Authorize]
+	[HttpGet]
+	[Route("tasks")]
+	public async Task<IActionResult> GetTextLessonChannelTasks([FromQuery] Guid lessonChannelId, [FromQuery] int number, [FromQuery] long fromMessageId, [FromQuery] bool down)
+	{
+		try
+		{
+			var messages = await _channelService.TasksListAsync(lessonChannelId, _currentUser.UserId, number, fromMessageId, down);
+			return Ok(messages);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpGet]
+	[Route("solutions")]
+	public async Task<IActionResult> GetTextLessonChannelSolutions([FromQuery] Guid lessonChannelId, [FromQuery] long taskId)
+	{
+		try
+		{
+			var messages = await _channelService.SolutionsListAsync(lessonChannelId, taskId, _currentUser.UserId);
+			return Ok(messages);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
 	[HttpPost]
 	[Route("settings/change/voice")]
 	public async Task<IActionResult> ChangeVoiceChannelSettings([FromBody] ChannelRoleDTO channelRoleData)
@@ -174,6 +214,46 @@ public class ChannelController : ControllerBase
 		try
 		{
 			await _channelService.ChangeNotificationChannelSettingsAsync(_currentUser.UserId, channelRoleData);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("settings/change/queue")]
+	public async Task<IActionResult> ChangeQueueChannelSettings([FromBody] ChannelRoleDTO channelRoleData)
+	{
+		try
+		{
+			await _channelService.ChangeQueueChannelSettingsAsync(_currentUser.UserId, channelRoleData);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("settings/change/lesson")]
+	public async Task<IActionResult> ChangeLessonChannelSettings([FromBody] ChannelRoleDTO channelRoleData)
+	{
+		try
+		{
+			await _channelService.ChangeLessonChannelSettingsAsync(_currentUser.UserId, channelRoleData);
 			return Ok();
 		}
 		catch (CustomException ex)

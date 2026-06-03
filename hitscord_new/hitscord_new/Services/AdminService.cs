@@ -687,7 +687,8 @@ public class AdminService : IAdminService
 				UserServerName = user.AccountName,
 				IsBanned = false,
 				NonNotifiable = false,
-				SubscribeRoles = new List<SubscribeRoleDbModel>()
+				SubscribeRoles = new List<SubscribeRoleDbModel>(),
+				JoinTime = DateTime.UtcNow
 			};
 			newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
 			{
@@ -1253,7 +1254,8 @@ public class AdminService : IAdminService
 					CanCreateRoles = r.ServerCanCreateRoles,
 					CanCreateLessons = r.ServerCanCreateLessons,
 					CanCheckAttendance = r.ServerCanCheckAttendance,
-					CanUseInvitations = r.ServerCanUseInvitations
+					CanUseInvitations = r.ServerCanUseInvitations,
+					CanCheckGrades = r.ServerCanCheckGrades
 				},
 				ChannelCanSee = r.ChannelCanSee
 					.Where(c => !(c.Channel is TextChannelDbModel) || ((TextChannelDbModel)c.Channel).DeleteTime == null)
@@ -2104,6 +2106,7 @@ public class AdminService : IAdminService
 			ServerCanCreateLessons = false,
 			ServerCanCheckAttendance = false,
 			ServerCanUseInvitations = false,
+			ServerCanCheckGrades = false,
 			ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 			ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 			ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
@@ -2619,7 +2622,8 @@ public class AdminService : IAdminService
 				CanCreateRoles = role.ServerCanCreateRoles,
 				CanCreateLessons = role.ServerCanCreateLessons,
 				CanCheckAttendance = role.ServerCanCheckAttendance,
-				CanUseInvitations = role.ServerCanUseInvitations
+				CanUseInvitations = role.ServerCanUseInvitations,
+				CanCheckGrades = role.ServerCanCheckGrades
 			}
 		};
 
@@ -3066,7 +3070,8 @@ public class AdminService : IAdminService
 					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 					Messages = new List<ChannelMessageDbModel>(),
 					ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
-					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>()
+					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
+					Position = 0
 				};
 
 				channelId = newTextChannel.Id;
@@ -3118,7 +3123,8 @@ public class AdminService : IAdminService
 					ServerId = serverId,
 					MaxCount = (int)(maxCount == null ? 999 : maxCount),
 					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
-					ChannelCanJoin = new List<ChannelCanJoinDbModel>()
+					ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
+					Position = 0
 				};
 
 				channelId = newVoiceChannel.Id;
@@ -3150,7 +3156,8 @@ public class AdminService : IAdminService
 					MaxCount = (int)(maxCount == null ? 999 : maxCount),
 					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 					ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
-					Pairs = new List<PairDbModel>()
+					Pairs = new List<PairDbModel>(),
+					Position = 0
 				};
 
 				channelId = newPairChannel.Id;
@@ -3179,8 +3186,8 @@ public class AdminService : IAdminService
 					Messages = new List<ChannelMessageDbModel>(),
 					ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 					ChannelNotificated = new List<ChannelNotificatedDbModel>(),
-
-					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>()
+					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
+					Position = 0
 				};
 
 				channelId = newNotificationChannel.Id;
@@ -3234,7 +3241,8 @@ public class AdminService : IAdminService
 			ServerId = serverId,
 			ChannelId = channelId,
 			ChannelName = channelName,
-			ChannelType = channelType
+			ChannelType = channelType,
+			Position = 0
 		};
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
@@ -3309,7 +3317,8 @@ public class AdminService : IAdminService
 			ServerId = channel.ServerId,
 			ChannelId = channel.Id,
 			ChannelName = channel.Name,
-			ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Notification)
+			ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Notification),
+			Position = 0
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
@@ -3993,7 +4002,8 @@ public class AdminService : IAdminService
 						UserServerName = user.AccountName,
 						IsBanned = false,
 						NonNotifiable = false,
-						SubscribeRoles = new List<SubscribeRoleDbModel>()
+						SubscribeRoles = new List<SubscribeRoleDbModel>(),
+						JoinTime = DateTime.UtcNow,
 					};
 					newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
 					{

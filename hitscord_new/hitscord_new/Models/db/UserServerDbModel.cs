@@ -22,6 +22,8 @@ public class UserServerDbModel
 	[ForeignKey(nameof(InvitationId))]
 	public ServerInvitationDbModel? Invitation { get; set; }
 
+	public required DateTime JoinTime { get; set; }
+
 
 	public required bool IsBanned { get; set; }
 

@@ -613,7 +613,7 @@ public class MessageService : IMessageService
 				.Where(t => notificatedUsers.Contains(t.UserId))
 				.Select(t => t.Token)
 				.ToListAsync();
-
+			/*
 			foreach (var token in tokens)
 			{
 				await _firebaseService.SendToUserAsync(
@@ -622,7 +622,7 @@ public class MessageService : IMessageService
 					"В канале пришло сообщение с вашим тегом",
 					response
 				);
-			}
+			}*/
 		}
 
 		var lastRead = await _hitsContext.LastReadChannelMessage.FirstOrDefaultAsync(lr => lr.TextChannelId == channel.Channel.Id && lr.UserId == UserId);

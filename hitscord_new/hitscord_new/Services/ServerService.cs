@@ -60,7 +60,7 @@ public class ServerService : IServerService
 
     public async Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels)
     {
-        var server = includeChannels ? await _hitsContext.Server.Include(s => s.Roles).Include(s => s.Channels).FirstOrDefaultAsync(s => s.Id == serverId) :
+        var server = includeChannels ? await _hitsContext.Server.Include(s => s.Roles).Include(s => s.Groups).Include(s => s.Channels).FirstOrDefaultAsync(s => s.Id == serverId) :
             await _hitsContext.Server.Include(s => s.Roles).FirstOrDefaultAsync(s => s.Id == serverId);
         if (server == null)
         {
@@ -103,6 +103,7 @@ public class ServerService : IServerService
 			ServerCanCreateLessons = ServerCanCreateLessons,
 			ServerCanCheckAttendance = ServerCanCheckAttendance,
 			ServerCanUseInvitations = ServerCanUseInvitations,
+			ServerCanCheckGrades = false,
 			ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 			ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 			ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
@@ -369,7 +370,8 @@ public class ServerService : IServerService
 			UserServerName = user.AccountName,
 			IsBanned = false,
 			NonNotifiable = false,
-			SubscribeRoles = new List<SubscribeRoleDbModel>()
+			SubscribeRoles = new List<SubscribeRoleDbModel>(),
+			JoinTime = DateTime.UtcNow
 		};
 
 		newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
@@ -544,7 +546,8 @@ public class ServerService : IServerService
 				UserServerName = user.AccountName,
 				IsBanned = false,
 				NonNotifiable = false,
-				SubscribeRoles = new List<SubscribeRoleDbModel>()
+				SubscribeRoles = new List<SubscribeRoleDbModel>(),
+				JoinTime = DateTime.UtcNow
 			};
 			newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
 			{
@@ -973,13 +976,17 @@ public class ServerService : IServerService
 		}
 
 		var textChannelIds = await _hitsContext.ChannelCanSee
-			.Where(ccs => (ccs.Channel is TextChannelDbModel || ccs.Channel is NotificationChannelDbModel) && ccs.Channel.ServerId == server.Id)
+			.Where(ccs => (ccs.Channel is TextChannelDbModel || ccs.Channel is NotificationChannelDbModel || ccs.Channel is TextQueueChannelDbModel) && ccs.Channel.ServerId == server.Id)
 			.Select(ccs => ccs.ChannelId)
 			.Union(
 				_hitsContext.ChannelCanUse
 					.Where(ccs => ccs.SubChannel.ServerId == server.Id)
 					.Select(ccs => ccs.SubChannelId)
 			)
+			.ToListAsync();
+		var lessonsChannelsIds = await _hitsContext.ChannelCanSee
+			.Where(ccs => (ccs.Channel is TextLessonChannelDbModel))
+			.Select(ccs => ccs.ChannelId)
 			.ToListAsync();
 		var allChannelsIds = await _hitsContext.ChannelCanSee
 			.Where(ccs => ccs.Channel.ServerId == server.Id)
@@ -1027,6 +1034,10 @@ public class ServerService : IServerService
 			foreach (var textChannelId in textChannelIds)
 			{
 				await _cacheService.RemoveChannelToUserAsync(textChannelId, deleteUserId);
+			}
+			foreach (var textLessonChannelId in lessonsChannelsIds)
+			{
+				await _cacheService.RemoveChannelToUserAsync(textLessonChannelId, deleteUserId);
 			}
 		}
 
@@ -1424,9 +1435,9 @@ public class ServerService : IServerService
 
 
 		var nonNotifiableSet = (await _hitsContext.NonNotifiableChannel
-	   .Where(n => n.UserServerId == sub.Id)
-	   .Select(n => n.TextChannelId)
-	   .ToListAsync()).ToHashSet();
+			.Where(n => n.UserServerId == sub.Id)
+			.Select(n => n.TextChannelId)
+			.ToListAsync()).ToHashSet();
 
 		var lastReadsDict = await _hitsContext.LastReadChannelMessage
 			.Where(lr => lr.UserId == UserId)
@@ -1526,6 +1537,41 @@ public class ServerService : IServerService
 			})
 			.ToDictionaryAsync(x => x.Id, x => x.DTO);
 
+		var queueDict = await _hitsContext.TextQueueChannel
+			.Where(n => channelsRaw.Select(c => c.Id).Contains(n.Id))
+			.Select(n => new
+			{
+				n.Id,
+				DTO = new TextQueueChannelResponseDTO
+				{
+					ChannelId = n.Id,
+					ChannelName = n.Name,
+					ChannelCanJoinQueue = n.ChannelCanJoinQueue.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
+					ChannelCanTakeFromQueue = n.ChannelCanTakeFromQueue.Any(cn => userRoleIds.Contains(cn.RoleId)),
+					IsNotifiable = nonNotifiableSet.Contains(n.Id),
+					NonReadedCount = n.Messages.Count(m => m.DeleteTime == null),
+					NonReadedTaggedCount = n.Messages.Count(m =>
+						m.TaggedUsers.Contains(UserId) ||
+						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
+					LastReadedMessageId = lastReadsDict.ContainsKey(n.Id) ? lastReadsDict[n.Id] : 0
+				}
+			})
+			.ToDictionaryAsync(x => x.Id, x => x.DTO);
+
+		var textLessonDict = await _hitsContext.TextLessonChannel
+			.Where(n => channelsRaw.Select(c => c.Id).Contains(n.Id))
+			.Select(n => new
+			{
+				n.Id,
+				DTO = new TextLessonChannelResponseDTO
+				{
+					ChannelId = n.Id,
+					ChannelName = n.Name,
+					CanCreateTasks = n.ChannelCanMakeTasks.Any(ccw => userRoleIds.Contains(ccw.RoleId))
+				}
+			})
+			.ToDictionaryAsync(x => x.Id, x => x.DTO);
+
 		var channelGroups = groups.Select(g => new ChannelGroupResponseDTO
 		{
 			GroupId = g.Id,
@@ -1541,7 +1587,9 @@ public class ServerService : IServerService
 					TextChannel = c.Type == "Text" && textDict.ContainsKey(c.Id) ? textDict[c.Id] : null,
 					VoiceChannel = c.Type == "Voice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null,
 					NotificationChannel = c.Type == "Notification" && notificationDict.ContainsKey(c.Id) ? notificationDict[c.Id] : null,
-					PairVoiceChannel = c.Type == "PairVoice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null
+					PairVoiceChannel = c.Type == "PairVoice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null,
+					QueueChannel = c.Type == "Queue" && queueDict.ContainsKey(c.Id) ? queueDict[c.Id] : null,
+					LessonChannel = c.Type == "LessonText" && textLessonDict.ContainsKey(c.Id) ? textLessonDict[c.Id] : null
 				})
 				.ToList()
 		}).ToList();
@@ -1556,7 +1604,9 @@ public class ServerService : IServerService
 				TextChannel = c.Type == "Text" && textDict.ContainsKey(c.Id) ? textDict[c.Id] : null,
 				VoiceChannel = c.Type == "Voice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null,
 				NotificationChannel = c.Type == "Notification" && notificationDict.ContainsKey(c.Id) ? notificationDict[c.Id] : null,
-				PairVoiceChannel = c.Type == "PairVoice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null
+				PairVoiceChannel = c.Type == "PairVoice" && voiceDict.ContainsKey(c.Id) ? voiceDict[c.Id] : null,
+				QueueChannel = c.Type == "Queue" && queueDict.ContainsKey(c.Id) ? queueDict[c.Id] : null,
+				LessonChannel = c.Type == "LessonText" && textLessonDict.ContainsKey(c.Id) ? textLessonDict[c.Id] : null
 			})
 			.ToList();
 
@@ -1656,7 +1706,8 @@ public class ServerService : IServerService
 				CanCreateRoles = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateRoles),
 				CanCreateLessons = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateLessons),
 				CanCheckAttendance = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanCheckAttendance),
-				CanUseInvitations = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanUseInvitations)
+				CanUseInvitations = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanUseInvitations),
+				CanCheckGrades = sub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateLessons)
 			},
 			IsNotifiable = sub.NonNotifiable,
 			Users = serverUsers,
@@ -2202,7 +2253,8 @@ public class ServerService : IServerService
 							UserServerName = user.AccountName,
 							IsBanned = false,
 							NonNotifiable = false,
-							SubscribeRoles = new List<SubscribeRoleDbModel>()
+							SubscribeRoles = new List<SubscribeRoleDbModel>(),
+							JoinTime = DateTime.UtcNow
 						};
 						newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
 						{
@@ -2337,7 +2389,8 @@ public class ServerService : IServerService
 			UserServerName = user.AccountName,
 			IsBanned = false,
 			NonNotifiable = false,
-			SubscribeRoles = new List<SubscribeRoleDbModel>()
+			SubscribeRoles = new List<SubscribeRoleDbModel>(),
+			JoinTime = DateTime.UtcNow
 		};
 		newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
 		{
@@ -2725,7 +2778,8 @@ public class ServerService : IServerService
 						UserServerName = user.AccountName,
 						IsBanned = false,
 						NonNotifiable = false,
-						SubscribeRoles = new List<SubscribeRoleDbModel>()
+						SubscribeRoles = new List<SubscribeRoleDbModel>(),
+						JoinTime = DateTime.UtcNow
 					};
 					newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
 					{
@@ -3035,6 +3089,78 @@ public class ServerService : IServerService
 		};
 
 		return response;
+	}
+
+	public async Task<InvitationDataResponseDTO> GetInvitationTokensDataAsync(Guid UserId, Guid serverId)
+	{
+		var server = await CheckServerExistAsync(serverId, false);
+
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner is not subscriber of this server", "Check owner", "Owner", 404, "Пользователь не найден", "Информация о приглашениях");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Admin) == false)
+		{
+			throw new CustomException("Owner does not have rights to get invitations data", "Check user rights to use invitations", "Owner", 403, "Пользователь не имеет права проверять приглашения", "Информация о приглашениях");
+		}
+
+		var response = new InvitationDataResponseDTO
+		{
+			InvitationList = await _hitsContext.Invitation
+				.Where(i => i.ServerId == server.Id)
+				.Select(i => new InvitationResponseDTO
+				{
+					ServerId = i.ServerId,
+					InvitationId = i.Id,
+					CreatorId = i.UserId,
+					Token = i.Token,
+					ExpiresAt = i.ExpiresAt,
+					IsRevoked = i.IsRevoked,
+				})
+				.ToListAsync(),
+			UserInvitationList = await _hitsContext.UserServer
+				.Where(i => i.ServerId == server.Id)
+				.Select(i => new UserInvitationDTO
+				{
+					UserId = i.UserId,
+					InvitationId = i.InvitationId,
+					JoinDate = i.JoinTime
+				})
+				.ToListAsync()
+		};
+
+		return response;
+	}
+
+	public async Task RevokeTokenAsync(Guid UserId, Guid serverId, Guid invitationId)
+	{
+		var server = await CheckServerExistAsync(serverId, false);
+
+		var ownerSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
+		if (ownerSub == null)
+		{
+			throw new CustomException("Owner is not subscriber of this server", "Check owner", "Owner", 404, "Пользователь не найден", "Отозвать приглашение");
+		}
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Admin) == false)
+		{
+			throw new CustomException("Owner does not have rights to revoke invitation data", "Check user rights to use invitations", "Owner", 403, "Пользователь не имеет права проверять приглашения", "Отозвать приглашение");
+		}
+
+		var invitation = await _hitsContext.Invitation.FirstOrDefaultAsync(i => i.Id == invitationId && i.ServerId == serverId);
+		if (invitation == null)
+		{
+			throw new CustomException("Invitation not found", "Revoke invitation", "Invitation", 400, "Приглашение не найдено", "Отозвать приглашение");
+		}
+		invitation.IsRevoked = true;
+		_hitsContext.Invitation.Update(invitation);
+		await _hitsContext.SaveChangesAsync();
 	}
 
 	private static string GenerateSecureToken()

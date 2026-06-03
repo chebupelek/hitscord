@@ -9,7 +9,7 @@ public interface IChannelService
 {
     Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId);
     Task<ChannelDbModel> CheckTextChannelExistAsync(Guid channelId);
-    Task<ChannelDbModel> CheckTextOrNotificationChannelExistAsync(Guid channelId);
+    Task<ChannelDbModel> CheckTextOrNotificationOrSubOrQueueChannelExistAsync(Guid channelId);
     Task<ChannelDbModel> CheckTextOrNotificationOrSubChannelExistAsync(Guid channelId);
     Task<VoiceChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers);
 	Task<PairVoiceChannelDbModel> CheckPairVoiceChannelExistAsync(Guid channelId, bool joinedUsers);
@@ -36,9 +36,13 @@ public interface IChannelService
 	Task<bool> ChangeTextChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData);
 	Task<bool> ChangeNotificationChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData);
 	Task<bool> ChangeSubChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData);
+    Task<bool> ChangeQueueChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData);
+    Task<bool> ChangeLessonChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData);
 	Task UpdateChannnelAsync(Guid UserId, Guid channelId, string name, Guid? groupId, int? position);
 	Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, Guid UserId, int number, long fromMessageId, bool down);
-    Task<bool> ChangeStreamStatusAsync(Guid UserId);
+    Task<MessageListResponseDTO> TasksListAsync(Guid lessonChannelId, Guid UserId, int number, long fromMessageId, bool down);
+    Task<List<SolutionMessageResponseDTO>> SolutionsListAsync(Guid lessonChannelId, long taskId, Guid userId);
+	Task<bool> ChangeStreamStatusAsync(Guid UserId);
     Task<UserVoiceChannelCheck?> CheckVoiceChannelAsync(Guid UserId);
     Task ChangeNonNotifiableChannelAsync(Guid UserId, Guid channelId);
     Task ChangeVoiceChannelMaxCount(Guid UserId, Guid voiceChannelId, int maxCount);
@@ -55,4 +59,4 @@ public interface IChannelService
     Task<List<TaskGradeItemDTO>> GetTaskGradesAsync(Guid UserId, Guid ChannelId, long TaskId);
 
 	Task RemoveChannels();
-}
+    }

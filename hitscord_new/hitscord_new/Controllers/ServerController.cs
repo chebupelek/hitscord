@@ -591,4 +591,44 @@ public class ServerController : ControllerBase
 			return StatusCode(500, ex.Message);
 		}
 	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("invitation/data")]
+	public async Task<IActionResult> IvitationData([FromBody] IdRequestDTO data)
+	{
+		try
+		{
+			var result = await _serverService.GetInvitationTokensDataAsync(_currentUser.UserId, data.Id);
+			return Ok(result);
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
+
+	[Authorize]
+	[HttpPost]
+	[Route("invitation/revoke")]
+	public async Task<IActionResult> RevokeInvitation([FromBody] InvitationRevokeDTO data)
+	{
+		try
+		{
+			await _serverService.RevokeTokenAsync(_currentUser.UserId, data.ServerId, data.InvitationId);
+			return Ok();
+		}
+		catch (CustomException ex)
+		{
+			return StatusCode(ex.Code, new { Object = ex.ObjectFront, Message = ex.MessageFront });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, ex.Message);
+		}
+	}
 }

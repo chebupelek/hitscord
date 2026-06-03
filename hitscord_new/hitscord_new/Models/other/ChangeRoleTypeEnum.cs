@@ -7,5 +7,8 @@ public enum ChangeRoleTypeEnum
 	CanWrite,
 	CanWriteSub,
 	CanUse,
-	Notificated
+	Notificated,
+	CanCreateTask,
+	CanJoinQueue,
+	CanTakeQueue
 }

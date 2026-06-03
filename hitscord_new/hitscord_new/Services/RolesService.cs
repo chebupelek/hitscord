@@ -73,6 +73,21 @@ public class RolesService : IRolesService
 		{
 			rights |= ChannelRights.Use;
 		}
+		if (await _hitsContext.ChannelCanMakeTasks
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextLessonChannelId == channelId))
+		{
+			rights |= ChannelRights.Task;
+		}
+		if (await _hitsContext.ChannelCanJoinQueue
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextQueueChannelId == channelId))
+		{
+			rights |= ChannelRights.JoinQueue;
+		}
+		if (await _hitsContext.ChannelCanTakeFromQueue
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextQueueChannelId == channelId))
+		{
+			rights |= ChannelRights.TakeQueue;
+		}
 
 		return (int)rights;
 	}
@@ -217,6 +232,9 @@ public class RolesService : IRolesService
 			.Include(r => r.ChannelNotificated)
 			.Include(r => r.ChannelCanUse)
 			.Include(r => r.ChannelCanJoin)
+			.Include(r => r.ChannelCanMakeTasks)
+			.Include(r => r.ChannelCanJoinQueue)
+			.Include(r => r.ChannelCanTakeFromQueue)
 			.FirstOrDefaultAsync(r => r.Id == roleId);
 		if (dbCheck == null)
 		{
@@ -270,12 +288,16 @@ public class RolesService : IRolesService
 			ServerCanCreateLessons = false,
 			ServerCanCheckAttendance = false,
 			ServerCanUseInvitations = false,
+			ServerCanCheckGrades = false,
 			ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 			ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 			ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
 			ChannelNotificated = new List<ChannelNotificatedDbModel>(),
 			ChannelCanUse = new List<ChannelCanUseDbModel>(),
 			ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
+			ChannelCanMakeTasks = new List<ChannelCanMakeTasksDbModel>(),
+			ChannelCanJoinQueue = new List<ChannelCanJoinQueueDbModel>(),
+			ChannelCanTakeFromQueue = new List<ChannelCanTakeFromQueueDbModel>(),
 		};
 		looserRole.Position++;
 
@@ -375,6 +397,11 @@ public class RolesService : IRolesService
 			var subChannels = await _hitsContext.SubChannel
 				.Include(tc => tc.ChannelCanUse)
 				.Where(tc => tc.ChannelCanUse.Any(ccs => ccs.RoleId == uncertainRole.Id))
+				.Select(tc => tc.Id)
+				.ToListAsync();
+			var queueChannels = await _hitsContext.TextQueueChannel
+				.Include(tc => tc.ChannelCanSee)
+				.Where(tc => tc.ChannelCanSee.Any(ccs => ccs.RoleId == uncertainRole.Id))
 				.Select(tc => tc.Id)
 				.ToListAsync();
 			var allChannels = textChannels
@@ -640,7 +667,8 @@ public class RolesService : IRolesService
 					CanCreateRoles = role.ServerCanCreateRoles,
 					CanCreateLessons = role.ServerCanCreateLessons,
 					CanCheckAttendance = role.ServerCanCheckAttendance,
-					CanUseInvitations = role.ServerCanUseInvitations
+					CanUseInvitations = role.ServerCanUseInvitations,
+					CanCheckGrades = role.ServerCanCheckGrades
 				}
 			});
 		}
@@ -839,6 +867,22 @@ public class RolesService : IRolesService
 				}
 				break;
 
+			case SettingsEnum.CanCheckGrades:
+				if (settingsData)
+				{
+					role.ServerCanCheckGrades = true;
+					role.ServerCanCheckGrades = true;
+					_hitsContext.Role.Update(role);
+					await _hitsContext.SaveChangesAsync();
+				}
+				else
+				{
+					role.ServerCanCheckGrades = false;
+					_hitsContext.Role.Update(role);
+					await _hitsContext.SaveChangesAsync();
+				}
+				break;
+
 			default: throw new CustomException("Setting not found", "Change role settings", "Setting", 404, "Настройка не найдена", "Изменение настроек роли");
 		}
 
@@ -865,7 +909,8 @@ public class RolesService : IRolesService
 				CanCreateRoles = role.ServerCanCreateRoles,
 				CanCreateLessons = role.ServerCanCreateLessons,
 				CanCheckAttendance = role.ServerCanCheckAttendance,
-				CanUseInvitations = role.ServerCanUseInvitations
+				CanUseInvitations = role.ServerCanUseInvitations,
+				CanCheckGrades = role.ServerCanCheckGrades
 			}
 		};
 

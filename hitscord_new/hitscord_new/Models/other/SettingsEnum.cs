@@ -11,5 +11,6 @@ public enum SettingsEnum
 	CanCreateRole,
 	CanCreateLessons,
 	CanCheckAttendance,
-	CanUseInvitations
+	CanUseInvitations,
+	CanCheckGrades
 }

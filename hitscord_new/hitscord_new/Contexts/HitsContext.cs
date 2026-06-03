@@ -228,6 +228,14 @@ namespace hitscord.Contexts
 					.IsRequired(false);
 			});
 
+			modelBuilder.Entity<QueueItemDbModel>(entity =>
+			{
+				entity.HasOne(q => q.Channel)
+					.WithMany(c => c.Queue)
+					.HasForeignKey(q => q.ChannelId)
+					.OnDelete(DeleteBehavior.Cascade);
+			});
+
 			modelBuilder.Entity<UserVoiceChannelDbModel>(entity =>
             {
 				entity.HasKey(uvc => new { uvc.UserId, uvc.VoiceChannelId });
@@ -329,13 +337,6 @@ namespace hitscord.Contexts
 					.WithMany(e => e.Messages)
 					.HasForeignKey(m => m.TextLessonChannelId)
 					.OnDelete(DeleteBehavior.Cascade);
-			});
-
-			modelBuilder.Entity<TextQueueChannelDbModel>(entity =>
-			{
-				entity.HasMany(e => e.Queue)
-					.WithMany()
-					.UsingEntity(j => j.ToTable("TextQueueChannelUsers"));
 			});
 
 			modelBuilder.Entity<QueueTakeDbModel>(entity =>

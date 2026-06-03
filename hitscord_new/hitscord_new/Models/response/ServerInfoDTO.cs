@@ -35,4 +35,6 @@ public class ChannelWrapperDTO
 	public VoiceChannelResponseDTO? VoiceChannel { get; set; }
 	public NotificationChannelResponseDTO? NotificationChannel { get; set; }
 	public VoiceChannelResponseDTO? PairVoiceChannel { get; set; }
+	public TextQueueChannelResponseDTO? QueueChannel { get; set; }
+	public TextLessonChannelResponseDTO? LessonChannel { get; set; }
 }

@@ -41,7 +41,7 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckChannelExistAsync(Guid channelId)
 	{
-		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && ((TextChannelDbModel)c).DeleteTime == null);
+		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && ((TextChannelDbModel)c).DeleteTime == null && ((TextLessonChannelDbModel)c).DeleteTime == null && ((TextQueueChannelDbModel)c).DeleteTime == null);
 		if (channel == null)
 		{
 			throw new CustomException("Channel not found", "Check channel for existing", "Channel", 404, "Канал не найден", "Проверка наличия канала");
@@ -59,11 +59,13 @@ public class ChannelService : IChannelService
 		return channel;
 	}
 
-	public async Task<ChannelDbModel> CheckTextOrNotificationChannelExistAsync(Guid channelId)
+	public async Task<ChannelDbModel> CheckTextOrNotificationOrSubOrQueueChannelExistAsync(Guid channelId)
 	{
-		var textChannel = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text" && c.DeleteTime == null);
-		var notificationChannel = await _hitsContext.NotificationChannel.FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
-		if (textChannel != null && textChannel.GetType() == typeof(SubChannelDbModel))
+		var textChannel = await _hitsContext.TextChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "ChannelType") == "Text" && c.DeleteTime == null);
+		var notificationChannel = await _hitsContext.NotificationChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
+		var subChannel = await _hitsContext.SubChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
+		var queueChannel = await _hitsContext.TextQueueChannel.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
+		if (textChannel != null)
 		{
 			return textChannel;
 		}
@@ -75,7 +77,21 @@ public class ChannelService : IChannelService
 			}
 			else
 			{
-				throw new CustomException("Text channel not found", "Check text channel for existing", "Text channel", 404, "Текстовый канал не найден", "Проверка наличия текстового канала");
+				if (subChannel != null)
+				{
+					return subChannel;
+				}
+				else
+				{
+					if (queueChannel != null)
+					{
+						return queueChannel;
+					}
+					else
+					{
+						throw new CustomException("Text channel not found", "Check text channel for existing", "Text channel", 404, "Текстовый канал не найден", "Проверка наличия текстового канала");
+					}
+				}
 			}
 		}
 	}
@@ -107,6 +123,26 @@ public class ChannelService : IChannelService
 				}
 			}
 		}
+	}
+
+	public async Task<ChannelDbModel> CheckTextLessonChannelExistAsync(Guid channelId)
+	{
+		var channel = await _hitsContext.TextLessonChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "LessonText") == "" && c.DeleteTime == null);
+		if (channel == null || channel.GetType() == typeof(NotificationChannelDbModel) || channel.GetType() == typeof(SubChannelDbModel))
+		{
+			throw new CustomException("Text lesson channel not found", "Check text lesson channel for existing", "Text lesson channel", 404, "Текстовый канал для заданий не найден", "Проверка наличия текстового канала для заданий");
+		}
+		return channel;
+	}
+
+	public async Task<ChannelDbModel> CheckQueueChannelExistAsync(Guid channelId)
+	{
+		var channel = await _hitsContext.TextQueueChannel.FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
+		if (channel == null)
+		{
+			throw new CustomException("Queue channel not found", "Check queue channel for existing", "Queue channel", 404, "Очередиутельный канал не найден", "Проверка наличия очередного канала");
+		}
+		return channel;
 	}
 
 	public async Task<VoiceChannelDbModel> CheckVoiceChannelExistAsync(Guid channelId, bool joinedUsers)
@@ -176,6 +212,8 @@ public class ChannelService : IChannelService
 			"Sub" => ChannelTypeEnum.Sub,
 			"Voice" => ChannelTypeEnum.Voice,
 			"PairVoice" => ChannelTypeEnum.Pair,
+			"LessonText" => ChannelTypeEnum.Lesson,
+			"Queue" => ChannelTypeEnum.Queue,
 			_ => throw new CustomException("Unknown channel type", "Get channel type", "Channel Id", 500, "Неизвестный тип канала", "Проверка типа канала")
 		};
 	}
@@ -203,6 +241,28 @@ public class ChannelService : IChannelService
 			AuthorId = reply.AuthorId,
 			CreatedAt = reply.CreatedAt,
 			Text = text
+		};
+	}
+
+	private ServerUserDTO MapServerUser(UserServerDbModel user)
+	{
+		return new ServerUserDTO
+		{
+			ServerId = user.ServerId,
+			UserId = user.UserId,
+			UserName = user.UserServerName,
+
+			UserTag = "",
+			Icon = null,
+
+			Roles = new(),
+			Notifiable = !user.NonNotifiable,
+
+			FriendshipApplication = false,
+			NonFriendMessage = false,
+			isFriend = false,
+
+			SystemRoles = new()
 		};
 	}
 
@@ -357,6 +417,21 @@ public class ChannelService : IChannelService
 			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.SubChannelId == channelId))
 		{
 			rights |= ChannelRights.Use;
+		}
+		if (await _hitsContext.ChannelCanMakeTasks
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextLessonChannelId == channelId))
+		{
+			rights |= ChannelRights.Task;
+		}
+		if (await _hitsContext.ChannelCanJoinQueue
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextQueueChannelId == channelId))
+		{
+			rights |= ChannelRights.JoinQueue;
+		}
+		if (await _hitsContext.ChannelCanTakeFromQueue
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextQueueChannelId == channelId))
+		{
+			rights |= ChannelRights.TakeQueue;
 		}
 
 		return (int)rights;
@@ -612,6 +687,12 @@ public class ChannelService : IChannelService
 		{
 			serverRolesId.Add(neededRole.RoleId);
 		}
+		var usersCanSee = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+			.Where(us => us.ServerId == serverId &&
+				us.SubscribeRoles.Any(sr => serverRolesId.Contains(sr.RoleId)))
+			.Select(us => us.UserId)
+			.ToListAsync();
 
 		Guid channelId = Guid.NewGuid();
 		string channelName = "";
@@ -669,15 +750,8 @@ public class ChannelService : IChannelService
 				await _hitsContext.TextChannel.AddAsync(newTextChannel);
 				await _hitsContext.SaveChangesAsync();
 
-				var usersIdText = await _hitsContext.UserServer
-					.Include(us => us.SubscribeRoles)
-					.Where(us => us.ServerId == serverId &&
-						us.SubscribeRoles.Any(sr => serverRolesId.Contains(sr.RoleId)))
-					.Select(us => us.UserId)
-					.ToListAsync();
-
 				var lastReadedList = new List<LastReadChannelMessageDbModel>();
-				foreach (var userId in usersIdText)
+				foreach (var userId in usersCanSee)
 				{
 					lastReadedList.Add(new LastReadChannelMessageDbModel
 					{
@@ -795,15 +869,8 @@ public class ChannelService : IChannelService
 				await _hitsContext.NotificationChannel.AddAsync(newNotificationChannel);
 				await _hitsContext.SaveChangesAsync();
 
-				var usersIdNot = await _hitsContext.UserServer
-					.Include(us => us.SubscribeRoles)
-					.Where(us => us.ServerId == serverId &&
-						us.SubscribeRoles.Any(sr => serverRolesId.Contains(sr.RoleId)))
-					.Select(us => us.UserId)
-					.ToListAsync();
-
 				var lastReadedListNot = new List<LastReadChannelMessageDbModel>();
-				foreach (var userId in usersIdNot)
+				foreach (var userId in usersCanSee)
 				{
 					lastReadedListNot.Add(new LastReadChannelMessageDbModel
 					{
@@ -814,6 +881,109 @@ public class ChannelService : IChannelService
 				}
 
 				_hitsContext.LastReadChannelMessage.AddRange(lastReadedListNot);
+				await _hitsContext.SaveChangesAsync();
+
+				await UpdateUserToChannelByRolesAsync(serverId, channelId, serverRolesId);
+				await UpdateChannelToUserByRolesAsync(serverId, channelId, serverRolesId);
+
+				break;
+
+			case ChannelTypeEnum.Lesson:
+				var newLessonChannel = new TextLessonChannelDbModel
+				{
+					Name = name,
+					ServerId = serverId,
+					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
+					GroupId = groupId,
+					Position = lowestPosition,
+					Messages = new List<LessonChannelMessageDbModel>(),
+					ChannelCanMakeTasks = new List<ChannelCanMakeTasksDbModel>(),
+					DeleteTime = null
+				};
+
+				channelId = newLessonChannel.Id;
+				channelName = newLessonChannel.Name;
+
+				foreach (var roleId in serverRolesId)
+				{
+					newLessonChannel.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = newLessonChannel.Id, RoleId = roleId });
+				}
+				foreach (var roleId in serverRolesId)
+				{
+					newLessonChannel.ChannelCanMakeTasks.Add(new ChannelCanMakeTasksDbModel { TextLessonChannelId = newLessonChannel.Id, RoleId = roleId });
+				}
+
+				await _hitsContext.TextLessonChannel.AddAsync(newLessonChannel);
+				await _hitsContext.SaveChangesAsync();
+
+				var lastReadedListLes = new List<LastReadChannelMessageDbModel>();
+				foreach (var userId in usersCanSee)
+				{
+					lastReadedListLes.Add(new LastReadChannelMessageDbModel
+					{
+						UserId = userId,
+						TextChannelId = newLessonChannel.Id,
+						LastReadedMessageId = 0
+					});
+				}
+
+				_hitsContext.LastReadChannelMessage.AddRange(lastReadedListLes);
+				await _hitsContext.SaveChangesAsync();
+
+				await UpdateUserToChannelByRolesAsync(serverId, channelId, serverRolesId);
+				await UpdateChannelToUserByRolesAsync(serverId, channelId, serverRolesId);
+
+				break;
+
+			case ChannelTypeEnum.Queue:
+				var newQueueChannel = new TextQueueChannelDbModel
+				{
+					Name = name,
+					ServerId = serverId,
+					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
+					GroupId = groupId,
+					Position = lowestPosition,
+					Messages = new List<ChannelMessageDbModel>(),
+					ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
+					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
+					DeleteTime = null,
+					ChannelCanJoinQueue = new List<ChannelCanJoinQueueDbModel>(),
+					ChannelCanTakeFromQueue = new List<ChannelCanTakeFromQueueDbModel>(),
+					Queue = new List<QueueItemDbModel>(),
+					Takes = new List<QueueTakeDbModel>()
+				};
+
+				channelId = newQueueChannel.Id;
+				channelName = newQueueChannel.Name;
+
+				foreach (var roleId in serverRolesId)
+				{
+					newQueueChannel.ChannelCanSee.Add(new ChannelCanSeeDbModel { ChannelId = newQueueChannel.Id, RoleId = roleId });
+				}
+				foreach (var roleId in serverRolesId)
+				{
+					newQueueChannel.ChannelCanJoinQueue.Add(new ChannelCanJoinQueueDbModel { TextQueueChannelId = newQueueChannel.Id, RoleId = roleId });
+				}
+				foreach (var roleId in serverRolesId)
+				{
+					newQueueChannel.ChannelCanTakeFromQueue.Add(new ChannelCanTakeFromQueueDbModel { TextQueueChannelId = newQueueChannel.Id, RoleId = roleId });
+				}
+
+				await _hitsContext.TextQueueChannel.AddAsync(newQueueChannel);
+				await _hitsContext.SaveChangesAsync();
+
+				var lastReadedListQue = new List<LastReadChannelMessageDbModel>();
+				foreach (var userId in usersCanSee)
+				{
+					lastReadedListQue.Add(new LastReadChannelMessageDbModel
+					{
+						UserId = userId,
+						TextChannelId = newQueueChannel.Id,
+						LastReadedMessageId = 0
+					});
+				}
+
+				_hitsContext.LastReadChannelMessage.AddRange(lastReadedListQue);
 				await _hitsContext.SaveChangesAsync();
 
 				await UpdateUserToChannelByRolesAsync(serverId, channelId, serverRolesId);
@@ -835,11 +1005,10 @@ public class ChannelService : IChannelService
 			ChannelType = channelType,
 			Position = lowestPosition
 		};
-		var alertedUsers = await _cacheService.GetUsersInServerAsync(server.Id);
-		if (alertedUsers != null && alertedUsers.Count() > 0)
+		if (usersCanSee != null && usersCanSee.Count() > 0)
 		{
-			await _realtimeService.SendToServer(
-				server.Id,
+			await _realtimeService.SendToUsers(
+				usersCanSee,
 				newChannelResponse,
 				"New channel"
 			);
@@ -1275,9 +1444,18 @@ public class ChannelService : IChannelService
 			throw new CustomException("User does not have rights to work with channels", "Delete channel", "Owner", 403, "Пользователь не имеет права работать с каналами", "Удаление канала");
 		}
 
-		var alertedUsers = await _cacheService.GetUsersInServerAsync(channel.ServerId);
+		var alertedUsers = await _hitsContext.UserServer
+			.Where(us => us.ServerId == channel.ServerId &&
+				us.SubscribeRoles.Any(sr =>
+					sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == channel.Id)))
+			.Select(us => us.UserId)
+			.ToListAsync();
 
 		var channelType = await GetChannelType(channel.Id);
+		if (channelType == ChannelTypeEnum.Sub)
+		{
+			throw new CustomException("Cant delete sub channel", "Delete channel", "Subchannel", 400, "Таким образом нельзя удалить подканал", "Удаление канала");
+		}
 		if (channelType == ChannelTypeEnum.Voice || channelType == ChannelTypeEnum.Pair)
 		{
 			var userVoiceChannelIds = await _hitsContext.UserVoiceChannel.Where(uvc => uvc.VoiceChannelId == channel.Id).Select(uvc => uvc.UserId).ToListAsync();
@@ -1313,11 +1491,18 @@ public class ChannelService : IChannelService
 
 			await ClearUserChannelFull(channel.Id, channel.ServerId);
 		}
-		if (channelType == ChannelTypeEnum.Text || channelType == ChannelTypeEnum.Notification)
+		if (channelType == ChannelTypeEnum.Text || channelType == ChannelTypeEnum.Notification || channelType == ChannelTypeEnum.Queue)
 		{
 			var tc = await _hitsContext.TextChannel.FirstOrDefaultAsync(c => c.Id == channelId);
 			tc.DeleteTime = DateTime.UtcNow.AddDays(21);
 			_hitsContext.TextChannel.Update(tc);
+			await _hitsContext.SaveChangesAsync();
+		}
+		if (channelType == ChannelTypeEnum.Lesson)
+		{
+			var tc = await _hitsContext.TextLessonChannel.FirstOrDefaultAsync(c => c.Id == channelId);
+			tc.DeleteTime = DateTime.UtcNow.AddDays(21);
+			_hitsContext.TextLessonChannel.Update(tc);
 			await _hitsContext.SaveChangesAsync();
 		}
 
@@ -1333,8 +1518,8 @@ public class ChannelService : IChannelService
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _realtimeService.SendToServer(
-				channel.ServerId,
+			await _realtimeService.SendToUsers(
+				alertedUsers,
 				deletedChannelResponse,
 				"Channel deleted"
 			);
@@ -1408,7 +1593,10 @@ public class ChannelService : IChannelService
 						}).ToList(),
 						CanJoin = null,
 						CanUse = null,
-						Notificated = null
+						Notificated = null,
+						CanCreateTasks = null,
+						CanJoinToQueue = null,
+						CanTakeFromQueue = null
 					})
 					.FirstOrDefaultAsync();
 				if (rolesText == null)
@@ -1449,7 +1637,10 @@ public class ChannelService : IChannelService
 							Position = ccj.Role.Position
 						}).ToList(),
 						CanUse = null,
-						Notificated = null
+						Notificated = null,
+						CanCreateTasks = null,
+						CanJoinToQueue = null,
+						CanTakeFromQueue = null
 					})
 					.FirstOrDefaultAsync();
 				if (rolesVoice == null)
@@ -1491,7 +1682,10 @@ public class ChannelService : IChannelService
 							Position = ccj.Role.Position
 						}).ToList(),
 						CanUse = null,
-						Notificated = null
+						Notificated = null,
+						CanCreateTasks = null,
+						CanJoinToQueue = null,
+						CanTakeFromQueue = null
 					})
 					.FirstOrDefaultAsync();
 				if (rolesPair == null)
@@ -1543,7 +1737,10 @@ public class ChannelService : IChannelService
 							Color = cn.Role.Color,
 							Type = cn.Role.Role,
 							Position = cn.Role.Position
-						}).ToList()
+						}).ToList(),
+						CanCreateTasks = null,
+						CanJoinToQueue = null,
+						CanTakeFromQueue = null
 					})
 					.FirstOrDefaultAsync();
 				if (rolesNotification == null)
@@ -1574,7 +1771,10 @@ public class ChannelService : IChannelService
 							Type = ccu.Role.Role,
 							Position = ccu.Role.Position
 						}).ToList(),
-						Notificated = null
+						Notificated = null,
+						CanCreateTasks = null,
+						CanJoinToQueue = null,
+						CanTakeFromQueue = null
 					})
 					.FirstOrDefaultAsync();
 				if (rolesSub == null)
@@ -1583,6 +1783,105 @@ public class ChannelService : IChannelService
 				}
 				return rolesSub;
 
+			case ChannelTypeEnum.Lesson:
+				var rolesLesson = await _hitsContext.TextLessonChannel
+					.Include(ntc => ntc.ChannelCanSee)
+						.ThenInclude(ccs => ccs.Role)
+					.Include(ntc => ntc.ChannelCanMakeTasks)
+						.ThenInclude(ccw => ccw.Role)
+					.Where(ntc => ntc.Id == channel.Id)
+					.Select(ntc => new ChannelSettingsDTO
+					{
+						CanSee = ntc.ChannelCanSee.Select(ccs => new RolesItemDTO
+						{
+							Id = ccs.Role.Id,
+							ServerId = ccs.Role.ServerId,
+							Name = ccs.Role.Name,
+							Tag = ccs.Role.Tag,
+							Color = ccs.Role.Color,
+							Type = ccs.Role.Role,
+							Position = ccs.Role.Position
+						}).ToList(),
+						CanWrite = null,
+						CanWriteSub = null,
+						CanJoin = null,
+						CanUse = null,
+						Notificated = null,
+						CanCreateTasks = ntc.ChannelCanMakeTasks.Select(ccs => new RolesItemDTO
+						{
+							Id = ccs.Role.Id,
+							ServerId = ccs.Role.ServerId,
+							Name = ccs.Role.Name,
+							Tag = ccs.Role.Tag,
+							Color = ccs.Role.Color,
+							Type = ccs.Role.Role,
+							Position = ccs.Role.Position
+						}).ToList(),
+						CanJoinToQueue = null,
+						CanTakeFromQueue = null
+					})
+					.FirstOrDefaultAsync();
+				if (rolesLesson == null)
+				{
+					throw new CustomException("Lesson channel not found", "Get channel settings", "Lesson channel id", 404, "Канал для заданий не найден", "Получение настроек сервера");
+				}
+				return rolesLesson;
+
+			case ChannelTypeEnum.Queue:
+				var rolesQueue = await _hitsContext.TextQueueChannel
+					.Include(ntc => ntc.ChannelCanSee)
+						.ThenInclude(ccs => ccs.Role)
+					.Include(ntc => ntc.ChannelCanTakeFromQueue)
+						.ThenInclude(ccw => ccw.Role)
+					.Include(ntc => ntc.ChannelCanJoinQueue)
+						.ThenInclude(ccw => ccw.Role)
+					.Where(ntc => ntc.Id == channel.Id)
+					.Select(ntc => new ChannelSettingsDTO
+					{
+						CanSee = ntc.ChannelCanSee.Select(ccs => new RolesItemDTO
+						{
+							Id = ccs.Role.Id,
+							ServerId = ccs.Role.ServerId,
+							Name = ccs.Role.Name,
+							Tag = ccs.Role.Tag,
+							Color = ccs.Role.Color,
+							Type = ccs.Role.Role,
+							Position = ccs.Role.Position
+						}).ToList(),
+						CanWrite = null,
+						CanWriteSub = null,
+						CanJoin = null,
+						CanUse = null,
+						Notificated = null,
+						CanCreateTasks = null,
+						CanJoinToQueue = ntc.ChannelCanJoinQueue.Select(ccs => new RolesItemDTO
+						{
+							Id = ccs.Role.Id,
+							ServerId = ccs.Role.ServerId,
+							Name = ccs.Role.Name,
+							Tag = ccs.Role.Tag,
+							Color = ccs.Role.Color,
+							Type = ccs.Role.Role,
+							Position = ccs.Role.Position
+						}).ToList(),
+						CanTakeFromQueue = ntc.ChannelCanTakeFromQueue.Select(ccs => new RolesItemDTO
+						{
+							Id = ccs.Role.Id,
+							ServerId = ccs.Role.ServerId,
+							Name = ccs.Role.Name,
+							Tag = ccs.Role.Tag,
+							Color = ccs.Role.Color,
+							Type = ccs.Role.Role,
+							Position = ccs.Role.Position
+						}).ToList()
+					})
+					.FirstOrDefaultAsync();
+				if (rolesQueue == null)
+				{
+					throw new CustomException("Queue channel not found", "Get channel settings", "Queue channel id", 404, "Канал для очереди не найден", "Получение настроек сервера");
+				}
+				return rolesQueue;
+
 			default:
 				throw new CustomException("Channel not found", "Get channel settings", "Channel id", 404, "Канал не найден", "Получение настроек канала");
 		}
@@ -1590,7 +1889,7 @@ public class ChannelService : IChannelService
 
 	public async Task<MessageListResponseDTO> MessagesListAsync(Guid channelId, Guid UserId, int number, long fromMessageId, bool down)
 	{
-		var channel = await CheckTextOrNotificationOrSubChannelExistAsync(channelId);
+		var channel = await CheckTextOrNotificationOrSubOrQueueChannelExistAsync(channelId);
 
 		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
 		if (userSub == null)
@@ -1775,6 +2074,373 @@ public class ChannelService : IChannelService
 		}
 
 		return result;
+	}
+
+	public async Task<MessageListResponseDTO> TasksListAsync(Guid lessonChannelId, Guid UserId, int number, long fromMessageId, bool down)
+	{
+		var channel = await CheckTextLessonChannelExistAsync(lessonChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(UserId, channel.Id);
+		if (userSub == null)
+		{
+			throw new CustomException("User is not subscriber of this server", "Get channel messages", "User", 404, "Пользователь не является подписчиком сервера", "Получение списка заданий канала");
+		}
+
+		var rights = (ChannelRights)userSub.ChannelRights;
+		if (!rights.HasFlag(ChannelRights.See))
+		{
+			throw new CustomException("User has no access to see this channel", "Get channel messages", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Получение списка заданий канала");
+		}
+
+		var canManageTasks = rights.HasFlag(ChannelRights.Task);
+
+		var userRoleIds = await _hitsContext.SubscribeRole
+			.Where(sr =>
+				sr.UserServer.UserId == UserId &&
+				sr.UserServer.ServerId == channel.ServerId)
+			.Select(sr => sr.RoleId)
+			.ToListAsync();
+
+		var userRoleIdsSet = userRoleIds.ToHashSet();
+
+		IQueryable<LessonChannelMessageTaskDbModel> baseMessageQuery;
+
+		if (canManageTasks)
+		{
+			baseMessageQuery = _hitsContext.LessonChannelMessageTask
+				.AsNoTracking()
+				.Where(m =>
+					m.TextLessonChannelId == lessonChannelId &&
+					m.DeleteTime == null);
+		}
+		else
+		{
+			baseMessageQuery = _hitsContext.LessonChannelMessageTask
+				.AsNoTracking()
+				.Where(m =>
+					m.TextLessonChannelId == lessonChannelId &&
+					m.DeleteTime == null &&
+					m.AssignedRoles.Any(ar => userRoleIdsSet.Contains(ar.Id)));
+		}
+
+		var messagesQuery = down
+			? baseMessageQuery
+				.Where(m => m.Id >= fromMessageId)
+				.OrderBy(m => m.Id)
+			: baseMessageQuery
+				.Where(m => m.Id <= fromMessageId)
+				.OrderByDescending(m => m.Id);
+
+		var tasks = await messagesQuery
+			.Include(x => x.Files)
+			.Include(x => x.AssignedRoles)
+			.Take(number)
+			.ToListAsync();
+
+		if (!down)
+		{
+			tasks.Reverse();
+		}
+
+		var taskIds = tasks
+				.Select(x => x.Id)
+				.ToList();
+
+		var solutions = await _hitsContext.LessonChannelMessageSolution
+			.AsNoTracking()
+			.Where(x =>
+				x.ReplyToMessageId != null &&
+				taskIds.Contains(x.ReplyToMessageId.Value) &&
+				x.DeleteTime == null)
+			.ToListAsync();
+
+		var solutionsCount = solutions
+			.GroupBy(x => x.ReplyToMessageId!.Value)
+			.ToDictionary(
+				x => x.Key,
+				x => x.Count());
+
+		var mySolutions = solutions
+			.Where(x => x.AuthorId == UserId)
+			.GroupBy(x => x.ReplyToMessageId!.Value)
+			.ToDictionary(
+				x => x.Key,
+				x => x.OrderByDescending(s => s.CreatedAt).First());
+
+		Dictionary<Guid, List<UserServerDbModel>> usersByRole = new();
+
+		if (canManageTasks)
+		{
+			var roleIds = tasks
+				.SelectMany(x => x.AssignedRoles)
+				.Select(x => x.Id)
+				.Distinct()
+				.ToList();
+
+			var users = await _hitsContext.UserServer
+				.AsNoTracking()
+				.Include(x => x.User)
+				.Include(x => x.SubscribeRoles)
+				.Where(us =>
+					us.ServerId == channel.ServerId &&
+					us.SubscribeRoles.Any(sr => roleIds.Contains(sr.RoleId)))
+				.ToListAsync();
+
+			usersByRole = users
+				.SelectMany(
+					u => u.SubscribeRoles
+						.Where(sr => roleIds.Contains(sr.RoleId))
+						.Select(sr => new
+						{
+							sr.RoleId,
+							User = u
+						}))
+				.GroupBy(x => x.RoleId)
+				.ToDictionary(
+					x => x.Key,
+					x => x.Select(v => v.User).ToList());
+		}
+
+		var maxId = tasks.Any() ? tasks.Max(x => x.Id) : 0;
+		var minId = tasks.Any() ? tasks.Min(x => x.Id) : 0;
+
+		var remainingCount = down
+			? await baseMessageQuery.CountAsync(x => x.Id > maxId)
+			: await baseMessageQuery.CountAsync(x => x.Id < minId);
+
+		var totalCount = await baseMessageQuery.CountAsync();
+
+		var result = new MessageListResponseDTO
+		{
+			Messages = new(),
+			NumberOfMessages = tasks.Count,
+			StartMessageId = minId,
+			RemainingMessagesCount = remainingCount,
+			AllMessagesCount = totalCount
+		};
+
+		foreach (var task in tasks)
+		{
+			var assignedRoleIds = task.AssignedRoles
+				.Select(x => x.Id)
+				.ToHashSet();
+
+			var assignedToMe = assignedRoleIds
+				.Overlaps(userRoleIdsSet);
+
+			mySolutions.TryGetValue(task.Id, out var mySolution);
+
+			var dto = new TaskMessageResponseDTO
+			{
+				MessageType = task.MessageType ?? "Task",
+
+				ServerId = channel.ServerId,
+				ChannelId = task.TextLessonChannelId,
+
+				Id = task.Id,
+				AuthorId = task.AuthorId,
+				CreatedAt = task.CreatedAt,
+
+				ReplyToMessage = null,
+				Reactions = new(),
+
+				taggedUsers = new(),
+				taggedRoles = new(),
+
+				Description = task.Description,
+				UpdatedAt = task.UpdatedAt,
+				Deadline = task.Deadline,
+
+				Files = task.Files
+					.Select(f => new FileMetaResponseDTO
+					{
+						FileId = f.Id,
+						FileName = f.Name,
+						FileType = f.Type,
+						FileSize = f.Size,
+						Deleted = f.Deleted
+					})
+					.ToList(),
+
+				AssignedToMe = assignedToMe,
+
+				SolutionSent = mySolution != null,
+				MyGrade = mySolution?.Grade
+			};
+
+			if (canManageTasks)
+			{
+				dto.SolutionsCount =
+					solutionsCount.TryGetValue(task.Id, out var count)
+						? count
+						: 0;
+
+				dto.AssignedRoles = task.AssignedRoles
+					.Select(role => new RolesItemDTO
+					{
+						Id = role.Id,
+						ServerId = role.ServerId,
+						Name = role.Name,
+						Tag = role.Tag,
+						Color = role.Color,
+						Type = role.Role,
+						Position = role.Position
+					})
+					.ToList();
+
+				dto.AssignedUsers = task.AssignedRoles
+					.SelectMany(role =>
+						usersByRole.TryGetValue(role.Id, out var users)
+							? users
+							: Enumerable.Empty<UserServerDbModel>())
+					.DistinctBy(x => x.UserId)
+					.Select(MapServerUser)
+					.ToList();
+			}
+
+			result.Messages.Add(dto);
+		}
+
+		return result;
+	}
+
+	public async Task<List<SolutionMessageResponseDTO>> SolutionsListAsync(Guid lessonChannelId, long taskId, Guid userId)
+	{
+		var channel = await CheckTextLessonChannelExistAsync(lessonChannelId);
+
+		var userSub = await _cacheService.GetUserToChannelAsync(userId, channel.Id);
+
+		if (userSub == null)
+		{
+			throw new CustomException(
+				"User is not subscriber of this server",
+				"Get task solutions",
+				"User",
+				404,
+				"Пользователь не является подписчиком сервера",
+				"Получение списка решений");
+		}
+
+		var rights = (ChannelRights)userSub.ChannelRights;
+
+		if (!rights.HasFlag(ChannelRights.See))
+		{
+			throw new CustomException(
+				"User has no access to see this channel",
+				"Get task solutions",
+				"User permissions",
+				403,
+				"У пользователя нет доступа к этому каналу",
+				"Получение списка решений");
+		}
+
+		var canManageTasks = rights.HasFlag(ChannelRights.Task);
+
+		var task = await _hitsContext.LessonChannelMessageTask
+			.AsNoTracking()
+			.Include(x => x.AssignedRoles)
+			.FirstOrDefaultAsync(x =>
+				x.Id == taskId &&
+				x.TextLessonChannelId == lessonChannelId &&
+				x.DeleteTime == null);
+
+		if (task == null)
+		{
+			throw new CustomException(
+				"Task not found",
+				"Get task solutions",
+				"Task",
+				404,
+				"Задание не найдено",
+				"Получение списка решений");
+		}
+
+		if (!canManageTasks)
+		{
+			var userRoleIds = await _hitsContext.SubscribeRole
+				.Where(sr =>
+					sr.UserServer.UserId == userId &&
+					sr.UserServer.ServerId == channel.ServerId)
+				.Select(sr => sr.RoleId)
+				.ToListAsync();
+
+			var assignedToUser = task.AssignedRoles
+				.Any(r => userRoleIds.Contains(r.Id));
+
+			if (!assignedToUser)
+			{
+				throw new CustomException(
+					"Task is not assigned to user",
+					"Get task solutions",
+					"Task permissions",
+					403,
+					"Задание не назначено пользователю",
+					"Получение списка решений");
+			}
+		}
+
+		IQueryable<LessonChannelMessageSolutionDbModel> query =
+			_hitsContext.LessonChannelMessageSolution
+				.AsNoTracking()
+				.Include(x => x.Files)
+				.Include(x => x.Author)
+				.Where(x =>
+					x.DeleteTime == null &&
+					x.ReplyToMessageId == taskId);
+
+		if (!canManageTasks)
+		{
+			query = query.Where(x => x.AuthorId == userId);
+		}
+
+		var solutions = await query
+			.OrderBy(x => x.CreatedAt)
+			.ToListAsync();
+
+		return solutions
+			.Select(solution => new SolutionMessageResponseDTO
+			{
+				MessageType = solution.MessageType ?? "Solution",
+
+				ServerId = channel.ServerId,
+				ChannelId = lessonChannelId,
+
+				Id = solution.Id,
+				AuthorId = solution.AuthorId,
+				CreatedAt = solution.CreatedAt,
+
+				ReplyToMessage = null,
+
+				Reactions = new(),
+
+				taggedUsers = new(),
+				taggedRoles = new(),
+
+				Description = solution.Description,
+				UpdatedAt = solution.UpdatedAt,
+
+				TaskId = taskId,
+
+				Grade = solution.Grade,
+				GradeDate = solution.GradeDate,
+				GradeAuthorId = solution.GradeAuthorId,
+
+				Files = solution.Files
+					.Select(f => new FileMetaResponseDTO
+					{
+						FileId = f.Id,
+						FileName = f.Name,
+						FileType = f.Type,
+						FileSize = f.Size,
+						Deleted = f.Deleted
+					})
+					.ToList(),
+
+				AuthorName = canManageTasks
+					? solution.Author?.AccountName
+					: null
+			})
+			.ToList();
 	}
 
 	public async Task<bool> ChangeVoiceChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData)
@@ -2501,6 +3167,339 @@ public class ChannelService : IChannelService
 		return true;
 	}
 
+	public async Task<bool> ChangeQueueChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData)
+	{
+		var channel = await CheckQueueChannelExistAsync(settingsData.ChannelId);
+
+		var userSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
+		if (userSub == null)
+		{
+			throw new CustomException("Owner is not subscriber of this server", "Change queue channel sttings", "User", 404, "Владелец не найден", "Изменение настроек канала очередей");
+		}
+		if (userSub.SubscribeRoles.Any(sr => sr.Role.ServerCanWorkChannels) == false)
+		{
+			throw new CustomException("Owner does not have rights to work with channels", "Change queue channel sttings", "User rights", 403, "Владелец не имеет права работать с каналами", "Изменение настроек канала очередей");
+		}
+
+		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == settingsData.RoleId && r.ServerId == channel.ServerId);
+		if (role == null)
+		{
+			throw new CustomException("Role doesnt exist", "Change queue channel sttings", "Role", 404, "Роль не существует", "Изменение настроек канала очередей");
+		}
+		if (role.Role == RoleEnum.Creator || role.Role == RoleEnum.Admin)
+		{
+			throw new CustomException("Cant change creator permissions", "Change queue channel sttings", "Role", 400, "Нельзя изменять разрешения создателя", "Изменение настроек канала очередей");
+		}
+
+		var userServersLastRead = await _hitsContext.UserServer
+			.Where(us => us.ServerId == channel.ServerId)
+			.Where(us => us.SubscribeRoles.Any(sr => sr.RoleId == role.Id))
+			.ToListAsync();
+
+		var lastMessageId = await _hitsContext.ChannelMessage
+			.Where(m => m.TextChannelId == channel.Id)
+			.OrderByDescending(m => m.Id)
+			.Select(m => m.Id)
+			.FirstOrDefaultAsync();
+
+		if (settingsData.Type == ChangeRoleTypeEnum.CanSee)
+		{
+			var canSee = await _hitsContext.ChannelCanSee.FirstOrDefaultAsync(ccs => ccs.ChannelId == channel.Id && ccs.RoleId == role.Id);
+
+			if (settingsData.Add == true)
+			{
+				if (canSee != null)
+				{
+					throw new CustomException("Role already can see channel", "Change queue channel sttings", "Role", 400, "Роль уже может видеть канал", "Изменение настроек канала очередей");
+				}
+				await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.SaveChangesAsync();
+
+				foreach (var us in userServersLastRead)
+				{
+					var alreadyExists = await _hitsContext.LastReadChannelMessage
+						.AnyAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
+					if (!alreadyExists)
+					{
+						await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
+						{
+							UserId = us.UserId,
+							TextChannelId = channel.Id,
+							LastReadedMessageId = lastMessageId
+						});
+					}
+				}
+				await _hitsContext.SaveChangesAsync();
+			}
+			else
+			{
+				if (canSee == null)
+				{
+					throw new CustomException("Role already cant see channel", "Change queue channel sttings", "Role", 400, "Роль уже не может видеть канал", "Изменение настроек канала очередей");
+				}
+				var canJoin = await _hitsContext.ChannelCanJoinQueue.FirstOrDefaultAsync(ccs => ccs.TextQueueChannelId == channel.Id && ccs.RoleId == role.Id);
+				if (canJoin != null)
+				{
+					_hitsContext.ChannelCanJoinQueue.Remove(canJoin);
+				}
+				var canTake = await _hitsContext.ChannelCanTakeFromQueue.FirstOrDefaultAsync(ccs => ccs.TextQueueChannelId == channel.Id && ccs.RoleId == role.Id);
+				if (canTake != null)
+				{
+					_hitsContext.ChannelCanTakeFromQueue.Remove(canTake);
+				}
+				_hitsContext.ChannelCanSee.Remove(canSee);
+				await _hitsContext.SaveChangesAsync();
+
+				foreach (var us in userServersLastRead)
+				{
+					var hasOtherAccess = us.SubscribeRoles
+						.Any(sr => sr.Role.ChannelCanSee.Any(ccs => ccs.ChannelId == channel.Id && sr.RoleId != role.Id));
+					if (!hasOtherAccess)
+					{
+						var lastReadEntries = await _hitsContext.LastReadChannelMessage
+							.FirstOrDefaultAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
+						if (lastReadEntries != null)
+						{
+							_hitsContext.LastReadChannelMessage.RemoveRange(lastReadEntries);
+						}
+					}
+				}
+				await _hitsContext.SaveChangesAsync();
+			}
+		}
+
+		if (settingsData.Type == ChangeRoleTypeEnum.CanJoinQueue)
+		{
+			var canJoin = await _hitsContext.ChannelCanJoinQueue.FirstOrDefaultAsync(ccs => ccs.TextQueueChannelId == channel.Id && ccs.RoleId == role.Id);
+
+			if (settingsData.Add == true)
+			{
+				if (canJoin != null)
+				{
+					throw new CustomException("Role already can join in channel", "Change queue channel sttings", "Role", 400, "Роль уже может присоединиться в канал", "Изменение настроек канала очередей");
+				}
+				var canSee = await _hitsContext.ChannelCanSee.FirstOrDefaultAsync(ccs => ccs.ChannelId == channel.Id && ccs.RoleId == role.Id);
+				if (canSee == null)
+				{
+					await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+				}
+				await _hitsContext.ChannelCanJoinQueue.AddAsync(new ChannelCanJoinQueueDbModel { TextQueueChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.SaveChangesAsync();
+
+				foreach (var us in userServersLastRead)
+				{
+					var alreadyExists = await _hitsContext.LastReadChannelMessage
+						.AnyAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
+					if (!alreadyExists)
+					{
+						await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
+						{
+							UserId = us.UserId,
+							TextChannelId = channel.Id,
+							LastReadedMessageId = lastMessageId
+						});
+					}
+				}
+				await _hitsContext.SaveChangesAsync();
+			}
+			else
+			{
+				if (canJoin == null)
+				{
+					throw new CustomException("Role already cant join in channel", "Change queue channel sttings", "Role", 400, "Роль уже не может присоединиться в канал", "Изменение настроек канала очередей");
+				}
+				_hitsContext.ChannelCanJoinQueue.Remove(canJoin);
+				await _hitsContext.SaveChangesAsync();
+			}
+		}
+
+		if (settingsData.Type == ChangeRoleTypeEnum.CanTakeQueue)
+		{
+			var canTake = await _hitsContext.ChannelCanTakeFromQueue.FirstOrDefaultAsync(ccs => ccs.TextQueueChannelId == channel.Id && ccs.RoleId == role.Id);
+
+			if (settingsData.Add == true)
+			{
+				if (canTake != null)
+				{
+					throw new CustomException("Role already can take in channel", "Change queue channel sttings", "Role", 400, "Роль уже может брать в канале", "Изменение настроек канала очередей");
+				}
+				var canSee = await _hitsContext.ChannelCanSee.FirstOrDefaultAsync(ccs => ccs.ChannelId == channel.Id && ccs.RoleId == role.Id);
+				if (canSee == null)
+				{
+					await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+				}
+				await _hitsContext.ChannelCanTakeFromQueue.AddAsync(new ChannelCanTakeFromQueueDbModel { TextQueueChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.SaveChangesAsync();
+
+				foreach (var us in userServersLastRead)
+				{
+					var alreadyExists = await _hitsContext.LastReadChannelMessage
+						.AnyAsync(lr => lr.UserId == us.UserId && lr.TextChannelId == channel.Id);
+					if (!alreadyExists)
+					{
+						await _hitsContext.LastReadChannelMessage.AddAsync(new LastReadChannelMessageDbModel
+						{
+							UserId = us.UserId,
+							TextChannelId = channel.Id,
+							LastReadedMessageId = lastMessageId
+						});
+					}
+				}
+				await _hitsContext.SaveChangesAsync();
+			}
+			else
+			{
+				if (canTake == null)
+				{
+					throw new CustomException("Role already can take in channel", "Change queue channel sttings", "Role", 400, "Роль уже может брать в канале", "Изменение настроек канала очередей");
+				}
+				_hitsContext.ChannelCanTakeFromQueue.Remove(canTake);
+				await _hitsContext.SaveChangesAsync();
+			}
+		}
+
+		if (settingsData.Type != ChangeRoleTypeEnum.CanSee && settingsData.Type != ChangeRoleTypeEnum.CanJoin && settingsData.Type != ChangeRoleTypeEnum.CanTakeQueue)
+		{
+			throw new CustomException("Wrong setting type", "Change queue channel sttings", "Role", 404, "Тип настроек не верен", "Изменение настроек канала очередей");
+		}
+
+		await ClearUserChannelFull(channel.Id, channel.ServerId);
+		await UpdateUserToChannelByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+		await UpdateChannelToUserByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+
+		var changedSettingsresponse = new ChannelRoleResponseSocket
+		{
+			ServerId = channel.ServerId,
+			ChannelId = channel.Id,
+			RoleId = role.Id,
+			Add = settingsData.Add,
+			Type = settingsData.Type
+		};
+
+		await _realtimeService.SendToServer(
+			channel.ServerId,
+			changedSettingsresponse,
+			"Queue channel settings edited"
+		);
+
+		return true;
+	}
+
+	public async Task<bool> ChangeLessonChannelSettingsAsync(Guid UserId, ChannelRoleDTO settingsData)
+	{
+		var channel = await CheckTextLessonChannelExistAsync(settingsData.ChannelId);
+
+		var userSub = await _hitsContext.UserServer
+			.Include(us => us.SubscribeRoles)
+				.ThenInclude(sr => sr.Role)
+			.FirstOrDefaultAsync(us => us.ServerId == channel.ServerId && us.UserId == UserId);
+		if (userSub == null)
+		{
+			throw new CustomException("Owner is not subscriber of this server", "Change lesson channel sttings", "User", 404, "Владелец не найден", "Изменение настроек канала заданий");
+		}
+		if (userSub.SubscribeRoles.Any(sr => sr.Role.ServerCanWorkChannels) == false)
+		{
+			throw new CustomException("Owner does not have rights to work with channels", "Change lesson channel sttings", "User rights", 403, "Владелец не имеет права работать с каналами", "Изменение настроек канала заданий");
+		}
+
+		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == settingsData.RoleId && r.ServerId == channel.ServerId);
+		if (role == null)
+		{
+			throw new CustomException("Role doesnt exist", "Change lesson channel sttings", "Role", 404, "Роль не существует", "Изменение настроек канала заданий");
+		}
+		if (role.Role == RoleEnum.Creator || role.Role == RoleEnum.Admin)
+		{
+			throw new CustomException("Cant change creator permissions", "Change lesson channel sttings", "Role", 400, "Нельзя изменять разрешения создателя", "Изменение настроек канала заданий");
+		}
+
+		if (settingsData.Type == ChangeRoleTypeEnum.CanSee)
+		{
+			var canSee = await _hitsContext.ChannelCanSee.FirstOrDefaultAsync(ccs => ccs.ChannelId == channel.Id && ccs.RoleId == role.Id);
+
+			if (settingsData.Add == true)
+			{
+				if (canSee != null)
+				{
+					throw new CustomException("Role already can see channel", "Change lesson channel sttings", "Role", 400, "Роль уже может видеть канал", "Изменение настроек канала заданий");
+				}
+				await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.SaveChangesAsync();
+			}
+			else
+			{
+				if (canSee == null)
+				{
+					throw new CustomException("Role already cant see channel", "Change lesson channel sttings", "Role", 400, "Роль уже не может видеть канал", "Изменение настроек канала заданий");
+				}
+				var canTask = await _hitsContext.ChannelCanMakeTasks.FirstOrDefaultAsync(ccs => ccs.TextLessonChannelId == channel.Id && ccs.RoleId == role.Id);
+				if (canTask != null)
+				{
+					_hitsContext.ChannelCanMakeTasks.Remove(canTask);
+				}
+				_hitsContext.ChannelCanSee.Remove(canSee);
+				await _hitsContext.SaveChangesAsync();
+			}
+		}
+
+		if (settingsData.Type == ChangeRoleTypeEnum.CanCreateTask)
+		{
+			var canJoin = await _hitsContext.ChannelCanMakeTasks.FirstOrDefaultAsync(ccs => ccs.TextLessonChannelId == channel.Id && ccs.RoleId == role.Id);
+
+			if (settingsData.Add == true)
+			{
+				if (canJoin != null)
+				{
+					throw new CustomException("Role already can join in channel", "Change lesson channel sttings", "Role", 400, "Роль уже может добавлять задания в канал", "Изменение настроек канала заданий");
+				}
+				var canSee = await _hitsContext.ChannelCanSee.FirstOrDefaultAsync(ccs => ccs.ChannelId == channel.Id && ccs.RoleId == role.Id);
+				if (canSee == null)
+				{
+					await _hitsContext.ChannelCanSee.AddAsync(new ChannelCanSeeDbModel { ChannelId = channel.Id, RoleId = role.Id });
+				}
+				await _hitsContext.ChannelCanMakeTasks.AddAsync(new ChannelCanMakeTasksDbModel { TextLessonChannelId = channel.Id, RoleId = role.Id });
+				await _hitsContext.SaveChangesAsync();
+			}
+			else
+			{
+				if (canJoin == null)
+				{
+					throw new CustomException("Role already cant join in channel", "Change lesson channel sttings", "Role", 400, "Роль уже не может добавлять задания в канал", "Изменение настроек канала заданий");
+				}
+				_hitsContext.ChannelCanMakeTasks.Remove(canJoin);
+				await _hitsContext.SaveChangesAsync();
+			}
+		}
+
+		if (settingsData.Type != ChangeRoleTypeEnum.CanSee && settingsData.Type != ChangeRoleTypeEnum.CanCreateTask)
+		{
+			throw new CustomException("Wrong setting type", "Change lesson channel sttings", "Role", 404, "Тип настроек не верен", "Изменение настроек канала заданий");
+		}
+
+		await ClearUserChannelFull(channel.Id, channel.ServerId);
+		await UpdateUserToChannelByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+		await UpdateChannelToUserByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+
+		var changedSettingsresponse = new ChannelRoleResponseSocket
+		{
+			ServerId = channel.ServerId,
+			ChannelId = channel.Id,
+			RoleId = role.Id,
+			Add = settingsData.Add,
+			Type = settingsData.Type
+		};
+
+		await _realtimeService.SendToServer(
+			channel.ServerId,
+			changedSettingsresponse,
+			"Lesson channel settings edited"
+		);
+
+		return true;
+	}
+
 	public async Task UpdateChannnelAsync(Guid UserId, Guid channelId, string name, Guid? groupId, int? position)
 	{
 		var channel = await CheckChannelExistAsync(channelId);
@@ -2632,7 +3631,7 @@ public class ChannelService : IChannelService
 
 	public async Task ChangeNonNotifiableChannelAsync(Guid UserId, Guid channelId)
 	{
-		var channel = await CheckTextOrNotificationOrSubChannelExistAsync(channelId);
+		var channel = await CheckTextOrNotificationOrSubOrQueueChannelExistAsync(channelId);
 
 		var userSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
@@ -3038,6 +4037,25 @@ public class ChannelService : IChannelService
 				.ExecuteDeleteAsync();
 
 			_hitsContext.TextChannel.Remove(channel);
+			await _hitsContext.SaveChangesAsync();
+
+			await ClearUserChannelFull(channel.Id, channel.ServerId);
+		}
+
+		var lessonChannels = await _hitsContext.TextLessonChannel.Where(c =>
+				c.DeleteTime != null
+				&& c.DeleteTime < now
+			)
+			.ToListAsync();
+
+		foreach (var channel in lessonChannels)
+		{
+
+			await _hitsContext.LessonChannelMessage
+				.Where(m => m.TextLessonChannelId == channel.Id)
+				.ExecuteDeleteAsync();
+
+			_hitsContext.TextLessonChannel.Remove(channel);
 			await _hitsContext.SaveChangesAsync();
 
 			await ClearUserChannelFull(channel.Id, channel.ServerId);

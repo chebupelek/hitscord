@@ -343,7 +343,8 @@ public class ScheduleService : IScheduleService
 										Name = r.Name,
 										Tag = r.Tag,
 										Color = r.Color,
-										Type = r.Role
+										Type = r.Role,
+										Position = r.Position
 									})
 									.ToList(),
 								Note = p.Note
@@ -406,7 +407,8 @@ public class ScheduleService : IScheduleService
 										Name = r.Name,
 										Tag = r.Tag,
 										Color = r.Color,
-										Type = r.Role
+										Type = r.Role,
+										Position = r.Position
 									})
 									.ToList(),
 								Note = p.Note
@@ -463,7 +465,8 @@ public class ScheduleService : IScheduleService
 										Name = r.Name,
 										Tag = r.Tag,
 										Color = r.Color,
-										Type = r.Role
+										Type = r.Role,
+										Position = r.Position
 									})
 									.ToList(),
 								Note = p.Note

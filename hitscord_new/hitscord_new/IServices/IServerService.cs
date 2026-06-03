@@ -44,4 +44,6 @@ public interface IServerService
 
 
     Task<ServerInvitationResponseDTO> CreateInvitationToken(Guid UserId, Guid serverId, DateTime? expiresAt);
+    Task<InvitationDataResponseDTO> GetInvitationTokensDataAsync(Guid UserId, Guid serverId);
+    Task RevokeTokenAsync(Guid UserId, Guid serverId, Guid invitationId);
 }
