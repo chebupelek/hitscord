@@ -18,6 +18,8 @@ services:
     restart: unless-stopped
     networks:
       - hitscord_network
+    ports:
+      - "5000:80"   # API + Swagger
 
   frontend:
     build:
@@ -29,14 +31,16 @@ services:
       - frontend_build:/app/build
     networks:
       - hitscord_network
-
-
+    ports:
+      - "3000:3000" # если dev сервер / или nginx внутри фронта
 
   clamav:
     image: clamav/clamav:latest
     restart: always
     networks:
       - hitscord_network
+    ports:
+      - "3310:3310" # ClamAV daemon
 
   postgres:
     image: postgres:15
@@ -50,7 +54,9 @@ services:
       - pgdata:/var/lib/postgresql/data
     networks:
       - hitscord_network
-  
+    ports:
+      - "5432:5432"
+
   redis:
     image: redis:7-alpine
     restart: always
@@ -59,19 +65,8 @@ services:
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     networks:
       - hitscord_network
-
-  nginx:
-    image: nginx:latest
     ports:
-      - "80:80"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - frontend_build:/usr/share/nginx/html:ro
-    depends_on:
-      - frontend
-      - hitscord
-    networks:
-      - hitscord_network
+      - "6379:6379"
 
   minio:
     image: minio/minio:latest
@@ -87,6 +82,9 @@ services:
       - minio_data:/data
     networks:
       - hitscord_network
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web console
 
   minio-create-bucket:
     image: minio/mc:latest
