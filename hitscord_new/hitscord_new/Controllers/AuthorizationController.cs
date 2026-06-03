@@ -34,7 +34,7 @@ public class AuthorizationController : ControllerBase
 		Response.Cookies.Append("access_token", tokens.AccessToken, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = true,
+			Secure = false,
 			SameSite = SameSiteMode.None,
 			Expires = DateTime.UtcNow.AddMinutes(15)
 		});
@@ -42,7 +42,7 @@ public class AuthorizationController : ControllerBase
 		Response.Cookies.Append("refresh_token", tokens.RefreshToken, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = true,
+			Secure = false,
 			SameSite = SameSiteMode.None,
 			Expires = DateTime.UtcNow.AddDays(10)
 		});
@@ -50,7 +50,7 @@ public class AuthorizationController : ControllerBase
 		Response.Cookies.Append("session_id", tokens.SessionId, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = true,
+			Secure = false,
 			SameSite = SameSiteMode.None,
 			Expires = DateTime.UtcNow.AddDays(10)
 		});
