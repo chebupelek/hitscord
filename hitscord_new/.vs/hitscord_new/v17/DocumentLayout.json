@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\services\\notificationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\services\\notificationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|c:\\users\\misti\\documents\\github\\hitscord\\hitscord_new\\hitscord_new\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{286BFF40-A1E9-48C9-B212-CF070E2CF11D}|hitscord_new\\hitscord_new.csproj|solutionrelative:hitscord_new\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -18,8 +22,21 @@
       "DocumentGroups": [
         {
           "DockedWidth": 25,
-          "SelectedChildIndex": 5,
+          "SelectedChildIndex": 0,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "NotificationService.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\NotificationService.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Services\\NotificationService.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\NotificationService.cs",
+              "RelativeToolTip": "hitscord_new\\Services\\NotificationService.cs",
+              "ViewState": "AgIAABAAAAAAAAAAAAAgwCMAAAADAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-08T20:02:59.624Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
@@ -38,7 +55,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "AuthorizationController.cs",
               "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\AuthorizationController.cs",
               "RelativeDocumentMoniker": "hitscord_new\\Controllers\\AuthorizationController.cs",
@@ -50,7 +67,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "Program.cs",
               "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Program.cs",
               "RelativeDocumentMoniker": "hitscord_new\\Program.cs",
