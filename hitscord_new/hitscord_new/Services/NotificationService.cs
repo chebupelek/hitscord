@@ -22,6 +22,18 @@ public class NotificationService : INotificationService
 	public async Task<NotificationsListResponseDTO> GetNotificationsAsync(Guid UserId, int Page, int Size)
 	{
 		var notificationsCount = await _hitsContext.Notifications.Where(n => n.UserId == UserId).CountAsync();
+		if (notificationsCount == 0)
+		{
+			return (
+				 new NotificationsListResponseDTO
+				 {
+					 Notifications = new List<NotificationResponseDTO>(),
+					 Page = Page,
+					 Size = Size,
+					 Total = notificationsCount
+				 }
+			);
+		}
 		if (Page < 1 || Size < 1 || ((Page - 1) * Size) + 1 > notificationsCount)
 		{
 			throw new CustomException($"Pagination error", "Get user notifications", "pagination", 400, $"Проблема с пагинацией", "Получение уведомлений пользователя");
