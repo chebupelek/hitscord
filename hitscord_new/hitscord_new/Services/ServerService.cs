@@ -495,7 +495,7 @@ public class ServerService : IServerService
 			newVoiceChannel.Id,
 			new UserToChannelRedisDTO
 			{
-				ChannelRights = await HashChannelRightsAsync(user.Id, newServer.Id, newTextChannel.Id)
+				ChannelRights = await HashChannelRightsAsync(user.Id, newServer.Id, newVoiceChannel.Id)
 			}
 		);
 
