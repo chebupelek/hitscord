@@ -41,10 +41,9 @@ public class MessageService : IMessageService
 	private readonly IRealtimeService _realtimeService;
 	private readonly MinioService _minioService;
 	private readonly IRedisCacheService _cacheService;
-	private readonly IFirebaseService _firebaseService;
 
 
-	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, /*ILogger<MessageService> logger,*/ nClamService clamService, IChannelService channelService, IRealtimeService realtimeService, MinioService minioService, IRedisCacheService cacheService, IFirebaseService firebaseService)
+	public MessageService(HitsContext hitsContext, IServices.IAuthorizationService authorizationService, /*ILogger<MessageService> logger,*/ nClamService clamService, IChannelService channelService, IRealtimeService realtimeService, MinioService minioService, IRedisCacheService cacheService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
@@ -54,7 +53,6 @@ public class MessageService : IMessageService
 		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
-		_firebaseService = firebaseService ?? throw new ArgumentNullException(nameof(firebaseService));
 	}
 
 	private static readonly Regex UserTagRegex = new(@"\/\/\{usertag:([0-9a-f\-]{36})\}\/\/", RegexOptions.Compiled | RegexOptions.IgnoreCase);
