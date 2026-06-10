@@ -1911,6 +1911,10 @@ public class ChannelService : IChannelService
 
 		var baseMessageQuery = _hitsContext.ChannelMessage
 			.AsNoTracking()
+			.Include(m => m.Reactions)
+			.Include(m => ((ClassicChannelMessageDbModel)m).Files)
+			.Include(m => ((ChannelVoteDbModel)m).Variants)
+				.ThenInclude(v => v.UsersVariants)
 			.Where(m => m.TextChannelId == channelId && m.DeleteTime == null);
 
 		var messagesQuery = down
@@ -1946,7 +1950,8 @@ public class ChannelService : IChannelService
 
 		var variantIds = messagesFresh
 			.Where(m => m.Vote != null)
-			.SelectMany(m => m.Vote!.Variants.Select(v => v.Id))
+			.SelectMany(m => m.Vote?.Variants?.Select(v => v.Id)
+				?? Enumerable.Empty<Guid>())
 			.ToHashSet();
 
 		var votesByVariantId = await _hitsContext.ChannelVariantUser
@@ -1995,30 +2000,36 @@ public class ChannelService : IChannelService
 					ModifiedAt = classic.UpdatedAt,
 					ReplyToMessage = reply != null ? MapReplyToMessage(channel.ServerId, reply) : null,
 					NestedChannel = classic.NestedChannel != null,
-					Files = classic.Files.Select(f => new FileMetaResponseDTO
-					{
-						FileId = f.Id,
-						FileName = f.Name,
-						FileType = f.Type,
-						FileSize = f.Size,
-						Deleted = f.Deleted
-					}).ToList(),
-					Reactions = item.Reactions.Select(r => new MessageReactionShortDTO
-					{
-						Id = r.Id,
-						AuthorId = r.AuthorId,
-						CreatedAt = r.CreatedAt,
-						ReactionCode = r.ReactionCode
-					}).ToList(),
-					taggedUsers = classic.TaggedUsers,
-					taggedRoles = classic.TaggedRoles
+					Files = (classic.Files ?? Enumerable.Empty<FileDbModel>())
+						.Select(f => new FileMetaResponseDTO
+						{
+							FileId = f.Id,
+							FileName = f.Name,
+							FileType = f.Type,
+							FileSize = f.Size,
+							Deleted = f.Deleted
+						})
+						.ToList(),
+					Reactions = (item.Reactions ?? Enumerable.Empty<ChannelMessageReactionDbModel>())
+						.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						})
+						.ToList(),
+					taggedUsers = classic.TaggedUsers ?? new(),
+					taggedRoles = classic.TaggedRoles ?? new()
 				});
 			}
 			else if (item.Vote != null)
 			{
 				var vote = item.Vote;
 
-				var voteVariantIds = vote.Variants.Select(v => v.Id).ToList();
+				var voteVariantIds = (vote.Variants ?? Enumerable.Empty<ChannelVoteVariantDbModel>())
+					.Select(v => v.Id)
+					.ToList();
 
 				var allVotes = voteVariantIds
 					.Where(votesByVariantId.ContainsKey)
@@ -2042,7 +2053,7 @@ public class ChannelService : IChannelService
 					Multiple = vote.Multiple,
 					Deadline = vote.Deadline,
 					TotalUsers = uniqueUsers,
-					Variants = vote.Variants
+					Variants = (vote.Variants ?? Enumerable.Empty<ChannelVoteVariantDbModel>())
 						.Select(variant =>
 						{
 							var votes = votesByVariantId.TryGetValue(variant.Id, out var list)
@@ -2055,20 +2066,26 @@ public class ChannelService : IChannelService
 								Number = variant.Number,
 								Content = variant.Content,
 								TotalVotes = votes.Count,
-								VotedUserIds = vote.IsAnonimous ? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>()) : votes.Select(v => v.UserId).ToList()
+								VotedUserIds = vote.IsAnonimous
+									? (votes.Any(v => v.UserId == UserId)
+										? new List<Guid> { UserId }
+										: new List<Guid>())
+									: votes.Select(v => v.UserId).ToList()
 							};
 						})
 						.OrderBy(v => v.Number)
 						.ToList(),
-					Reactions = item.Reactions.Select(r => new MessageReactionShortDTO
-					{
-						Id = r.Id,
-						AuthorId = r.AuthorId,
-						CreatedAt = r.CreatedAt,
-						ReactionCode = r.ReactionCode
-					}).ToList(),
-					taggedUsers = vote.TaggedUsers,
-					taggedRoles = vote.TaggedRoles
+					Reactions = (item.Reactions ?? Enumerable.Empty<ChannelMessageReactionDbModel>())
+						.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						})
+						.ToList(),
+					taggedUsers = vote.TaggedUsers ?? new(),
+					taggedRoles = vote.TaggedRoles ?? new()
 				});
 			}
 		}
