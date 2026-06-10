@@ -19,6 +19,7 @@ using Grpc.Net.Client.Balancer;
 using System.Runtime.InteropServices;
 using hitscord.SignalR;
 using Pipelines.Sockets.Unofficial.Buffers;
+using System.Linq;
 
 namespace hitscord.Services;
 
@@ -556,79 +557,95 @@ public class ChannelService : IChannelService
 
 	public async Task UpdateReddisFullChannelAsync()
 	{
-		var users = await _hitsContext.UserServer
+		var userRoles = await _hitsContext.UserServer
 			.SelectMany(us => us.SubscribeRoles.Select(sr => new
 			{
-				UserId = us.UserId,
-				UserTag = us.User.AccountTag,
-				UserNotifiable = us.User.Notifiable,
-				UserServerId = us.Id,
+				us.UserId,
+				us.Id,
+				us.User.AccountTag,
+				us.User.Notifiable,
 				us.NonNotifiable,
-				RoleId = sr.Role.Id,
+				RoleId = sr.RoleId,
 				RoleTag = sr.Role.Tag
 			}))
 			.ToListAsync();
 
-		var roleChannels = await _hitsContext.Role
-			.SelectMany(r =>
-				r.ChannelCanSee.Select(c => new
-				{
-					RoleId = r.Id,
-					ChannelId = c.ChannelId
-				})
-				.Concat(
-					r.ChannelCanUse.Select(c => new
-					{
-						RoleId = r.Id,
-						ChannelId = c.SubChannelId
-					})
-				)
-			)
+		var roles = await _hitsContext.Role
+			.AsNoTracking()
+			.Include(r => r.ChannelCanSee)
+			.Include(r => r.ChannelCanWrite)
+			.Include(r => r.ChannelCanWriteSub)
+			.Include(r => r.ChannelNotificated)
+			.Include(r => r.ChannelCanJoin)
+			.Include(r => r.ChannelCanUse)
+			.Include(r => r.ChannelCanMakeTasks)
+			.Include(r => r.ChannelCanJoinQueue)
+			.Include(r => r.ChannelCanTakeFromQueue)
 			.ToListAsync();
 
-		var channelUsers = users
-			.Join(roleChannels,
+		var roleChannelRights = roles
+			.SelectMany(r =>
+			{
+				var list = new List<(Guid RoleId, Guid ChannelId, ChannelRights Right)>();
+
+				list.AddRange(r.ChannelCanSee.Select(c => (r.Id, c.ChannelId, ChannelRights.See)));
+				list.AddRange(r.ChannelCanWrite.Select(c => (r.Id, c.TextChannelId, ChannelRights.Write)));
+				list.AddRange(r.ChannelCanWriteSub.Select(c => (r.Id, c.TextChannelId, ChannelRights.WriteSub)));
+				list.AddRange(r.ChannelNotificated.Select(c => (r.Id, c.NotificationChannelId, ChannelRights.Notificate)));
+				list.AddRange(r.ChannelCanJoin.Select(c => (r.Id, c.VoiceChannelId, ChannelRights.Join)));
+				list.AddRange(r.ChannelCanUse.Select(c => (r.Id, c.SubChannelId, ChannelRights.Use)));
+				list.AddRange(r.ChannelCanMakeTasks.Select(c => (r.Id, c.TextLessonChannelId, ChannelRights.Task)));
+				list.AddRange(r.ChannelCanJoinQueue.Select(c => (r.Id, c.TextQueueChannelId, ChannelRights.JoinQueue)));
+				list.AddRange(r.ChannelCanTakeFromQueue.Select(c => (r.Id, c.TextQueueChannelId, ChannelRights.TakeQueue)));
+
+				return list;
+			})
+			.ToList();
+
+		var userChannelRights = userRoles
+			.Join(roleChannelRights,
 				u => u.RoleId,
-				rc => rc.RoleId,
-				(u, rc) => new
+				r => r.RoleId,
+				(u, r) => new
 				{
 					u.UserId,
-					u.UserTag,
-					u.UserNotifiable,
-					u.UserServerId,
+					u.AccountTag,
+					u.Notifiable,
 					u.NonNotifiable,
+
 					u.RoleId,
 					u.RoleTag,
-					rc.ChannelId
+
+					r.ChannelId,
+					r.Right
 				})
 			.ToList();
 
-		var userChannelGrouped = channelUsers
+		var grouped = userChannelRights
 			.GroupBy(x => new { x.UserId, x.ChannelId })
 			.Select(g => new
 			{
 				g.Key.UserId,
 				g.Key.ChannelId,
-				UserTag = g.First().UserTag,
-				UserNotifiable = g.First().UserNotifiable,
-				UserServerId = g.First().UserServerId,
+				UserTag = g.First().AccountTag,
+				UserNotifiable = g.First().Notifiable,
 				NonNotifiable = g.First().NonNotifiable,
+
 				RoleIds = g.Select(x => x.RoleId).Distinct().ToList(),
-				RoleTags = g.Select(x => x.RoleTag).Distinct().ToList()
+				RoleTags = g.Select(x => x.RoleTag).Distinct().ToList(),
+
+				Rights = g.Select(x => x.Right)
+						  .Aggregate(ChannelRights.None, (acc, r) => acc | r)
 			})
 			.ToList();
 
 		var userToChannel = new List<UpdateUserToChannelRedisDTO>();
 		var channelToUser = new List<UpdateChannelToUserRedisDTO>();
 
-		foreach (var item in userChannelGrouped)
+		foreach (var item in grouped)
 		{
 			int channelNotifiable =
-				(item.UserNotifiable ? 1 : 0) +
-				(!item.NonNotifiable ? 1 : 0) +
-				1;
-
-			var rights = ChannelRights.See | ChannelRights.Write;
+				item.UserNotifiable && !item.NonNotifiable ? 1 : 0;
 
 			userToChannel.Add(new UpdateUserToChannelRedisDTO
 			{
@@ -636,7 +653,7 @@ public class ChannelService : IChannelService
 				ChannelId = item.ChannelId,
 				Data = new UserToChannelRedisDTO
 				{
-					ChannelRights = (int)rights
+					ChannelRights = (int)item.Rights
 				}
 			});
 
