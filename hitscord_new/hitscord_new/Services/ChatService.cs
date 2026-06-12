@@ -73,6 +73,231 @@ public class ChatService : IChatService
 		};
 	}
 
+	private async Task<MessageResponceDTO?> MapMessageAsync(ChatMessageDbModel message, Guid userId, Guid chatId)
+	{
+		if (message == null)
+			return null;
+
+		var reply = message.ReplyToMessageId != null
+			? await _hitsContext.ChatMessage
+				.FirstOrDefaultAsync(m => m.Id == message.ReplyToMessageId)
+			: null;
+
+		switch (message)
+		{
+			case ClassicChatMessageDbModel classic:
+				return new ClassicMessageResponceDTO
+				{
+					MessageType = classic.MessageType,
+					ServerId = null,
+					ChannelId = chatId,
+					Id = classic.Id,
+					AuthorId = classic.Author.Id,
+					CreatedAt = classic.CreatedAt,
+					Text = classic.Text,
+					ModifiedAt = classic.UpdatedAt,
+					ReplyToMessage = reply != null
+						? MapReplyToMessage(reply)
+						: null,
+					NestedChannel = false,
+					Files = classic.Files.Select(f => new FileMetaResponseDTO
+					{
+						FileId = f.Id,
+						FileName = f.Name,
+						FileType = f.Type,
+						FileSize = f.Size,
+						Deleted = f.Deleted
+					}).ToList(),
+					Reactions = classic.Reactions.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					taggedUsers = classic.TaggedUsers
+				};
+
+			case ChatVoteDbModel vote:
+
+				var variantIds = vote.Variants.Select(v => v.Id).ToList();
+
+				var votesByVariantId = await _hitsContext.ChatVariantUser
+					.Where(v => variantIds.Contains(v.VariantId))
+					.GroupBy(v => v.VariantId)
+					.ToDictionaryAsync(g => g.Key, g => g.ToList());
+
+				var allVotes = votesByVariantId
+					.SelectMany(x => x.Value)
+					.ToList();
+
+				return new VoteResponceDTO
+				{
+					MessageType = vote.MessageType,
+					ServerId = null,
+					ChannelId = chatId,
+					Id = vote.Id,
+					AuthorId = vote.Author.Id,
+					CreatedAt = vote.CreatedAt,
+					ReplyToMessage = reply != null
+						? MapReplyToMessage(reply)
+						: null,
+					Title = vote.Title,
+					Content = vote.Content,
+					IsAnonimous = vote.IsAnonimous,
+					Multiple = vote.Multiple,
+					Deadline = vote.Deadline,
+					TotalUsers = allVotes
+						.Select(v => v.UserId)
+						.Distinct()
+						.Count(),
+					Variants = vote.Variants
+						.Select(variant =>
+						{
+							var votes = votesByVariantId.TryGetValue(
+								variant.Id,
+								out var list)
+								? list
+								: new List<ChatVariantUserDbModel>();
+
+							return new VoteVariantResponseDTO
+							{
+								Id = variant.Id,
+								Number = variant.Number,
+								Content = variant.Content,
+								TotalVotes = votes.Count,
+								VotedUserIds = vote.IsAnonimous
+									? votes.Any(v => v.UserId == userId)
+										? new List<Guid> { userId }
+										: new List<Guid>()
+									: votes.Select(v => v.UserId).ToList()
+							};
+						})
+						.OrderBy(v => v.Number)
+						.ToList(),
+					Reactions = vote.Reactions.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					taggedUsers = vote.TaggedUsers
+				};
+		}
+
+		return null;
+	}
+
+	private MessageResponceDTO? MapMessage(ChatMessageDbModel message, Guid userId, Guid chatId, Dictionary<long, ChatMessageDbModel> replies, Dictionary<Guid, List<ChatVariantUserDbModel>> votesByVariantId)
+	{
+		switch (message)
+		{
+			case ClassicChatMessageDbModel classic:
+				return new ClassicMessageResponceDTO
+				{
+					MessageType = classic.MessageType,
+					ServerId = null,
+					ChannelId = chatId,
+					Id = classic.Id,
+					AuthorId = classic.Author.Id,
+					CreatedAt = classic.CreatedAt,
+					Text = classic.Text,
+					ModifiedAt = classic.UpdatedAt,
+					ReplyToMessage =
+						classic.ReplyToMessageId.HasValue &&
+						replies.TryGetValue(classic.ReplyToMessageId.Value, out var replyClassic)
+							? MapReplyToMessage(replyClassic)
+							: null,
+					NestedChannel = false,
+					Files = classic.Files.Select(f => new FileMetaResponseDTO
+					{
+						FileId = f.Id,
+						FileName = f.Name,
+						FileType = f.Type,
+						FileSize = f.Size,
+						Deleted = f.Deleted
+					}).ToList(),
+					Reactions = classic.Reactions.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					taggedUsers = classic.TaggedUsers
+				};
+
+			case ChatVoteDbModel vote:
+
+				var voteVariantIds = vote.Variants
+					.Select(v => v.Id)
+					.ToList();
+
+				var allVotes = votesByVariantId
+					.Where(x => voteVariantIds.Contains(x.Key))
+					.SelectMany(x => x.Value)
+					.ToList();
+
+				return new VoteResponceDTO
+				{
+					MessageType = vote.MessageType,
+					ServerId = null,
+					ChannelId = chatId,
+					Id = vote.Id,
+					AuthorId = vote.Author.Id,
+					CreatedAt = vote.CreatedAt,
+					ReplyToMessage =
+						vote.ReplyToMessageId.HasValue &&
+						replies.TryGetValue(vote.ReplyToMessageId.Value, out var replyVote)
+							? MapReplyToMessage(replyVote)
+							: null,
+					Title = vote.Title,
+					Content = vote.Content,
+					IsAnonimous = vote.IsAnonimous,
+					Multiple = vote.Multiple,
+					Deadline = vote.Deadline,
+					TotalUsers = allVotes
+						.Select(v => v.UserId)
+						.Distinct()
+						.Count(),
+					Variants = vote.Variants
+						.Select(variant =>
+						{
+							var votes = votesByVariantId.TryGetValue(
+								variant.Id,
+								out var list)
+								? list
+								: new List<ChatVariantUserDbModel>();
+
+							return new VoteVariantResponseDTO
+							{
+								Id = variant.Id,
+								Number = variant.Number,
+								Content = variant.Content,
+								TotalVotes = votes.Count,
+								VotedUserIds = vote.IsAnonimous
+									? votes.Any(v => v.UserId == userId)
+										? new List<Guid> { userId }
+										: new List<Guid>()
+									: votes.Select(v => v.UserId).ToList()
+							};
+						})
+						.OrderBy(v => v.Number)
+						.ToList(),
+					Reactions = vote.Reactions.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					taggedUsers = vote.TaggedUsers
+				};
+		}
+
+		return null;
+	}
 
 	public async Task<ChatInfoDTO> CreateChatAsync(Guid OwnerId, string userTag)
     {
@@ -245,48 +470,112 @@ public class ChatService : IChatService
 		}
 	}
 
-	public async Task<ChatListDTO> GetChatsListAsync(Guid UserId)
+	public async Task<ChatListDTO> GetChatsListAsync(Guid userId)
 	{
 		var lastReads = await _hitsContext.LastReadChatMessage
-			.Include(lr => lr.Chat)
-				.ThenInclude(c => c.Users)
-			.Where(lr => lr.UserId == UserId && lr.Chat.Users.Any(u => u.UserId == UserId))
+			.Where(lr => lr.UserId == userId)
 			.ToListAsync();
 
-		var lastReadsDict = lastReads.ToDictionary(lr => lr.ChatId, lr => lr.LastReadedMessageId);
-
+		var lastReadsDict = lastReads.ToDictionary(
+			lr => lr.ChatId,
+			lr => lr.LastReadedMessageId);
 
 		var chats = await _hitsContext.Chat
-			.Include(c => c.Users).ThenInclude(uc => uc.User)
+			.Include(c => c.Users)
 			.Include(c => c.Messages)
 			.Include(c => c.IconFile)
-			.Where(c => c.Users.Any(u => u.UserId == UserId))
+			.Where(c => c.Users.Any(u => u.UserId == userId))
 			.ToListAsync();
 
-		var chatListItems = chats.Select(c =>
+		var lastMessageIds = lastReads
+			.Select(x => x.LastReadedMessageId)
+			.Where(x => x > 0)
+			.Distinct()
+			.ToList();
+
+		var lastMessages = await _hitsContext.ChatMessage
+			.Include(m => m.Author)
+			.Include(m => (m as ChatVoteDbModel)!.Variants)
+			.Include(m => (m as ClassicChatMessageDbModel)!.Files)
+			.Include(m => m.Reactions)
+			.Where(m => lastMessageIds.Contains(m.Id))
+			.ToListAsync();
+
+		var lastMessagesDict = lastMessages.ToDictionary(m => m.Id);
+
+		var replyIds = lastMessages
+			.Where(m => m.ReplyToMessageId.HasValue)
+			.Select(m => m.ReplyToMessageId!.Value)
+			.Distinct()
+			.ToList();
+
+		var replies = await _hitsContext.ChatMessage
+			.Where(m => replyIds.Contains(m.Id))
+			.ToDictionaryAsync(m => m.Id);
+
+		var variantIds = lastMessages
+			.OfType<ChatVoteDbModel>()
+			.SelectMany(v => v.Variants)
+			.Select(v => v.Id)
+			.ToList();
+
+		var votesByVariantId = await _hitsContext.ChatVariantUser
+			.Where(v => variantIds.Contains(v.VariantId))
+			.GroupBy(v => v.VariantId)
+			.ToDictionaryAsync(
+				g => g.Key,
+				g => g.ToList());
+
+		var result = new List<ChatListItemDTO>();
+
+		foreach (var chat in chats)
 		{
-			var lastReadId = lastReadsDict.ContainsKey(c.Id) ? lastReadsDict[c.Id] : 0;
-			var nonReadedMessages = c.Messages.Where(m => m.Id > lastReadId && m.DeleteTime == null).ToList();
+			var lastReadId = lastReadsDict.TryGetValue(chat.Id, out var id)
+				? id
+				: 0;
 
-			return new ChatListItemDTO
+			var nonReadedMessages = chat.Messages
+				.Where(m => m.Id > lastReadId && m.DeleteTime == null)
+				.ToList();
+
+			MessageResponceDTO? lastReadMessage = null;
+
+			if (lastMessagesDict.TryGetValue(lastReadId, out var message))
 			{
-				ChatId = c.Id,
-				ChatName = c.Name,
-				NonReadedCount = nonReadedMessages.Count,
-				NonReadedTaggedCount = nonReadedMessages.Count(m => m.TaggedUsers.Contains(UserId)),
-				LastReadedMessageId = lastReadId,
-				Icon = c.IconFile != null ? new FileMetaResponseDTO
-				{
-					FileId = c.IconFile.Id,
-					FileName = c.IconFile.Name,
-					FileType = c.IconFile.Type,
-					FileSize = c.IconFile.Size,
-					Deleted = false
-				} : null
-			};
-		}).ToList();
+				lastReadMessage = MapMessage(
+					message,
+					userId,
+					chat.Id,
+					replies,
+					votesByVariantId);
+			}
 
-		return new ChatListDTO { ChatsList = chatListItems };
+			result.Add(new ChatListItemDTO
+			{
+				ChatId = chat.Id,
+				ChatName = chat.Name,
+				NonReadedCount = nonReadedMessages.Count,
+				NonReadedTaggedCount = nonReadedMessages.Count(
+					m => m.TaggedUsers.Contains(userId)),
+				LastReadedMessageId = lastReadId,
+				LastReadedMessage = lastReadMessage,
+				Icon = chat.IconFile == null
+					? null
+					: new FileMetaResponseDTO
+					{
+						FileId = chat.IconFile.Id,
+						FileName = chat.IconFile.Name,
+						FileType = chat.IconFile.Type,
+						FileSize = chat.IconFile.Size,
+						Deleted = false
+					}
+			});
+		}
+
+		return new ChatListDTO
+		{
+			ChatsList = result
+		};
 	}
 
 	public async Task<ChatInfoDTO> GetChatInfoAsync(Guid UserId, Guid chatId)
@@ -328,6 +617,19 @@ public class ChatService : IChatService
 			throw new CustomException("Chat info not found", "GetChatInfo", "Chat info", 404, "Не найдена информация о чате", "Получении информации о чате");
 		}
 
+		ChatMessageDbModel? lastMessage = null;
+
+		if (lastRead.LastReadedMessageId > 0)
+		{
+			lastMessage = await _hitsContext.ChatMessage
+				.Include(m => m.Author)
+				.Include(m => (m as ChatVoteDbModel)!.Variants)
+				.Include(m => (m as ClassicChatMessageDbModel)!.Files)
+				.Include(m => m.Reactions)
+				.FirstOrDefaultAsync(m =>
+					m.Id == lastRead.LastReadedMessageId);
+		}
+
 		var chatResponse = new ChatInfoDTO
 		{
 			ChatId = chatInfo.Id,
@@ -339,6 +641,12 @@ public class ChatService : IChatService
 					m.TaggedUsers.Contains(UserId)
 				),
 			LastReadedMessageId = lastRead.LastReadedMessageId,
+			LastReadedMessage = lastMessage != null
+				? await MapMessageAsync(
+					lastMessage,
+					UserId,
+					chatInfo.Id)
+				: null,
 			NonNotifiable = userChat.NonNotifiable,
 			Icon = chatInfo.IconFile != null ? new FileMetaResponseDTO
 			{

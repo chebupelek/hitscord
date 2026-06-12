@@ -137,6 +137,151 @@ public class ServerService : IServerService
 
 
 
+	private static ReplyToMessageResponceDTO? MapReplyToMessage(Guid? serverId, ChannelMessageDbModel? reply)
+	{
+		if (reply == null)
+		{
+			return null;
+		}
+
+		var text = reply switch
+		{
+			ClassicChannelMessageDbModel classic => classic.Text,
+			ChannelVoteDbModel vote => vote.Title,
+			_ => string.Empty
+		};
+
+		return new ReplyToMessageResponceDTO
+		{
+			MessageType = reply.MessageType,
+			ServerId = serverId,
+			ChannelId = (Guid)reply.TextChannelId,
+			Id = reply.Id,
+			AuthorId = reply.AuthorId,
+			CreatedAt = reply.CreatedAt,
+			Text = text
+		};
+	}
+
+	private MessageResponceDTO? MapChannelMessage(ChannelMessageDbModel message, Guid userId, Dictionary<long, ChannelMessageDbModel> replies, Dictionary<Guid, List<ChannelVariantUserDbModel>> votesByVariantId, Guid ServerId)
+	{
+		replies.TryGetValue(message.ReplyToMessageId ?? 0, out var reply);
+
+		switch (message)
+		{
+			case ClassicChannelMessageDbModel classic:
+
+				return new ClassicMessageResponceDTO
+				{
+					MessageType = classic.MessageType,
+					ServerId = ServerId,
+					ChannelId = classic.TextChannelId,
+					Id = classic.Id,
+					AuthorId = classic.AuthorId,
+					CreatedAt = classic.CreatedAt,
+					Text = classic.Text,
+					ModifiedAt = classic.UpdatedAt,
+					ReplyToMessage = reply != null
+						? MapReplyToMessage(ServerId, reply)
+						: null,
+					NestedChannel = classic.NestedChannel != null,
+					Files = (classic.Files ?? Enumerable.Empty<FileDbModel>())
+						.Select(f => new FileMetaResponseDTO
+						{
+							FileId = f.Id,
+							FileName = f.Name,
+							FileType = f.Type,
+							FileSize = f.Size,
+							Deleted = f.Deleted
+						})
+						.ToList(),
+					Reactions = classic.Reactions
+						.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						})
+						.ToList(),
+					taggedUsers = classic.TaggedUsers ?? new(),
+					taggedRoles = classic.TaggedRoles ?? new()
+				};
+
+			case ChannelVoteDbModel vote:
+
+				var voteVariantIds = vote.Variants
+					.Select(v => v.Id)
+					.ToList();
+
+				var allVotes = voteVariantIds
+					.Where(votesByVariantId.ContainsKey)
+					.SelectMany(id => votesByVariantId[id])
+					.ToList();
+
+				return new VoteResponceDTO
+				{
+					MessageType = vote.MessageType,
+					ServerId = ServerId,
+					ChannelId = vote.TextChannelId,
+					Id = vote.Id,
+					AuthorId = vote.AuthorId,
+					CreatedAt = vote.CreatedAt,
+					ReplyToMessage = reply != null
+						? MapReplyToMessage(ServerId, reply)
+						: null,
+					Title = vote.Title,
+					Content = vote.Content,
+					IsAnonimous = vote.IsAnonimous,
+					Multiple = vote.Multiple,
+					Deadline = vote.Deadline,
+					TotalUsers = allVotes
+						.Select(v => v.UserId)
+						.Distinct()
+						.Count(),
+					Variants = vote.Variants
+						.Select(variant =>
+						{
+							var votes = votesByVariantId.TryGetValue(
+								variant.Id,
+								out var list)
+								? list
+								: new List<ChannelVariantUserDbModel>();
+
+							return new VoteVariantResponseDTO
+							{
+								Id = variant.Id,
+								Number = variant.Number,
+								Content = variant.Content,
+								TotalVotes = votes.Count,
+								VotedUserIds = vote.IsAnonimous
+									? votes.Any(v => v.UserId == userId)
+										? new List<Guid> { userId }
+										: new List<Guid>()
+									: votes.Select(v => v.UserId).ToList()
+							};
+						})
+						.OrderBy(v => v.Number)
+						.ToList(),
+					Reactions = vote.Reactions
+						.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						})
+						.ToList(),
+					taggedUsers = vote.TaggedUsers ?? new(),
+					taggedRoles = vote.TaggedRoles ?? new()
+				};
+		}
+
+		return null;
+	}
+
+
+
 
 	private async Task<int> HashChannelRightsAsync(Guid UserId, Guid ServerId, Guid ChannelId)
 	{
@@ -1443,6 +1588,44 @@ public class ServerService : IServerService
 			.Where(lr => lr.UserId == UserId)
 			.ToDictionaryAsync(lr => lr.TextChannelId, lr => lr.LastReadedMessageId);
 
+		var lastMessageIds = lastReadsDict.Values
+			.Where(id => id > 0)
+			.Distinct()
+			.ToList();
+
+		var lastMessages = await _hitsContext.ChannelMessage
+			.Include(m => m.Reactions)
+			.Include(m => ((ClassicChannelMessageDbModel)m).Files)
+			.Include(m => ((ChannelVoteDbModel)m).Variants)
+			.Where(m => lastMessageIds.Contains(m.Id))
+			.ToListAsync();
+
+		var replyIds = lastMessages
+			.Where(m => m.ReplyToMessageId.HasValue)
+			.Select(m => m.ReplyToMessageId!.Value)
+			.Distinct()
+			.ToList();
+
+		var repliesDict = await _hitsContext.ChannelMessage
+			.Where(m => replyIds.Contains(m.Id))
+			.ToDictionaryAsync(m => m.Id);
+
+		var variantIds = lastMessages
+			.OfType<ChannelVoteDbModel>()
+			.SelectMany(v => v.Variants)
+			.Select(v => v.Id)
+			.Distinct()
+			.ToList();
+
+		var votesByVariantId = await _hitsContext.ChannelVariantUser
+			.Where(v => variantIds.Contains(v.VariantId))
+			.GroupBy(v => v.VariantId)
+			.ToDictionaryAsync(
+				g => g.Key,
+				g => g.ToList());
+
+		var lastMessagesDict = lastMessages.ToDictionary(m => m.Id);
+
 		var groups = await _hitsContext.ChannelGroup
 			.Where(g => g.ServerId == server.Id)
 			.OrderBy(g => g.Position)
@@ -1466,32 +1649,57 @@ public class ServerService : IServerService
 				Type = EF.Property<string>(c, "ChannelType")
 			})
 			.ToListAsync();
-		var textDict = await _hitsContext.TextChannel
+		var textChannels = await _hitsContext.TextChannel
+			.Include(t => t.ChannelCanWrite)
+				.ThenInclude(x => x.Role)
+			.Include(t => t.ChannelCanWriteSub)
+			.Include(t => t.Messages)
 			.Where(t => channelsRaw.Select(c => c.Id).Contains(t.Id))
-			.Select(t => new
+			.ToListAsync();
+
+		var textDict = textChannels.ToDictionary(t => t.Id,
+			t =>
 			{
-				t.Id,
-				DTO = new TextChannelResponseDTO
+				var lastReadId = lastReadsDict.TryGetValue(t.Id, out var lr)
+					? lr
+					: 0;
+
+				return new TextChannelResponseDTO
 				{
 					ChannelId = t.Id,
 					ChannelName = t.Name,
 					CanWrite = t.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
 					CanWriteSub = t.ChannelCanWriteSub.Any(ccws => userRoleIds.Contains(ccws.RoleId)),
 					IsNotifiable = nonNotifiableSet.Contains(t.Id),
+
 					NonReadedCount = t.Messages.Count(m => m.DeleteTime == null),
+
 					NonReadedTaggedCount = t.Messages.Count(m =>
 						m.TaggedUsers.Contains(UserId) ||
 						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
-					LastReadedMessageId = lastReadsDict.ContainsKey(t.Id) ? lastReadsDict[t.Id] : 0,
-					RolesCanWrite = t.ChannelCanWrite.Select(ccw => new UserServerRoles
-					{
-						RoleId = ccw.RoleId,
-						RoleName = ccw.Role.Name,
-						RoleType = ccw.Role.Role
-					}).ToList()
-				}
-			})
-			.ToDictionaryAsync(x => x.Id, x => x.DTO);
+
+					LastReadedMessageId = lastReadId,
+
+					LastReadedMessage =
+						lastMessagesDict.TryGetValue(lastReadId, out var msg)
+							? MapChannelMessage(
+								msg,
+								UserId,
+								repliesDict,
+								votesByVariantId,
+								serverId)
+							: null,
+
+					RolesCanWrite = t.ChannelCanWrite
+						.Select(ccw => new UserServerRoles
+						{
+							RoleId = ccw.RoleId,
+							RoleName = ccw.Role.Name,
+							RoleType = ccw.Role.Role
+						})
+						.ToList()
+				};
+			});
 
 		var voiceDict = await _hitsContext.VoiceChannel
 			.Where(v => channelsRaw.Select(c => c.Id).Contains(v.Id))
@@ -1516,47 +1724,103 @@ public class ServerService : IServerService
 			})
 			.ToDictionaryAsync(x => x.Id, x => x.DTO);
 
-		var notificationDict = await _hitsContext.NotificationChannel
+		var notificationChannels = await _hitsContext.NotificationChannel
+			.Include(n => n.ChannelCanWrite)
+			.Include(n => n.ChannelNotificated)
+			.Include(n => n.Messages)
 			.Where(n => channelsRaw.Select(c => c.Id).Contains(n.Id))
-			.Select(n => new
-			{
-				n.Id,
-				DTO = new NotificationChannelResponseDTO
-				{
-					ChannelId = n.Id,
-					ChannelName = n.Name,
-					CanWrite = n.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
-					IsNotificated = n.ChannelNotificated.Any(cn => userRoleIds.Contains(cn.RoleId)),
-					IsNotifiable = nonNotifiableSet.Contains(n.Id),
-					NonReadedCount = n.Messages.Count(m => m.DeleteTime == null),
-					NonReadedTaggedCount = n.Messages.Count(m =>
-						m.TaggedUsers.Contains(UserId) ||
-						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
-					LastReadedMessageId = lastReadsDict.ContainsKey(n.Id) ? lastReadsDict[n.Id] : 0
-				}
-			})
-			.ToDictionaryAsync(x => x.Id, x => x.DTO);
+			.ToListAsync();
 
-		var queueDict = await _hitsContext.TextQueueChannel
-			.Where(n => channelsRaw.Select(c => c.Id).Contains(n.Id))
-			.Select(n => new
+		var notificationDict = notificationChannels.ToDictionary(n => n.Id,
+			n =>
 			{
-				n.Id,
-				DTO = new TextQueueChannelResponseDTO
+				var lastReadId = lastReadsDict.TryGetValue(n.Id, out var lr)
+					? lr
+					: 0;
+
+				return new NotificationChannelResponseDTO
 				{
 					ChannelId = n.Id,
 					ChannelName = n.Name,
-					ChannelCanJoinQueue = n.ChannelCanJoinQueue.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
-					ChannelCanTakeFromQueue = n.ChannelCanTakeFromQueue.Any(cn => userRoleIds.Contains(cn.RoleId)),
+
+					CanWrite = n.ChannelCanWrite.Any(ccw =>
+						userRoleIds.Contains(ccw.RoleId)),
+
+					IsNotificated = n.ChannelNotificated.Any(cn =>
+						userRoleIds.Contains(cn.RoleId)),
+
 					IsNotifiable = nonNotifiableSet.Contains(n.Id),
-					NonReadedCount = n.Messages.Count(m => m.DeleteTime == null),
+
+					NonReadedCount = n.Messages.Count(m =>
+						m.DeleteTime == null),
+
 					NonReadedTaggedCount = n.Messages.Count(m =>
 						m.TaggedUsers.Contains(UserId) ||
 						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
-					LastReadedMessageId = lastReadsDict.ContainsKey(n.Id) ? lastReadsDict[n.Id] : 0
-				}
-			})
-			.ToDictionaryAsync(x => x.Id, x => x.DTO);
+
+					LastReadedMessageId = lastReadId,
+
+					LastReadedMessage =
+						lastMessagesDict.TryGetValue(lastReadId, out var msg)
+							? MapChannelMessage(
+								msg,
+								UserId,
+								repliesDict,
+								votesByVariantId,
+								serverId)
+							: null
+				};
+			});
+
+		var queueChannels = await _hitsContext.TextQueueChannel
+			.Include(q => q.ChannelCanJoinQueue)
+			.Include(q => q.ChannelCanTakeFromQueue)
+			.Include(q => q.Messages)
+			.Where(q => channelsRaw.Select(c => c.Id).Contains(q.Id))
+			.ToListAsync();
+
+		var queueDict = queueChannels.ToDictionary(q => q.Id,
+			q =>
+			{
+				var lastReadId = lastReadsDict.TryGetValue(q.Id, out var lr)
+					? lr
+					: 0;
+
+				return new TextQueueChannelResponseDTO
+				{
+					ChannelId = q.Id,
+					ChannelName = q.Name,
+
+					ChannelCanJoinQueue =
+						q.ChannelCanJoinQueue.Any(r =>
+							userRoleIds.Contains(r.RoleId)),
+
+					ChannelCanTakeFromQueue =
+						q.ChannelCanTakeFromQueue.Any(r =>
+							userRoleIds.Contains(r.RoleId)),
+
+					IsNotifiable = nonNotifiableSet.Contains(q.Id),
+
+					NonReadedCount = q.Messages.Count(m =>
+						m.DeleteTime == null),
+
+					NonReadedTaggedCount = q.Messages.Count(m =>
+						m.TaggedUsers.Contains(UserId) ||
+						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
+
+					LastReadedMessageId = lastReadId,
+
+					LastReadedMessage =
+						lastMessagesDict.TryGetValue(lastReadId, out var msg)
+							? MapChannelMessage(
+								msg,
+								UserId,
+								repliesDict,
+								votesByVariantId, 
+								serverId)
+							: null
+				};
+			});
 
 		var textLessonDict = await _hitsContext.TextLessonChannel
 			.Where(n => channelsRaw.Select(c => c.Id).Contains(n.Id))
