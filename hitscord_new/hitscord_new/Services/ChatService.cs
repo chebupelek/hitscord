@@ -299,6 +299,51 @@ public class ChatService : IChatService
 		return null;
 	}
 
+	private async Task<UserChatResponseDTO> MapChatUserAsync(UserDbModel user, Guid chatId, Guid currentUserId)
+	{
+		var friendsIds = await _hitsContext.Friendship
+			.Where(f => f.UserIdFrom == currentUserId ||
+						f.UserIdTo == currentUserId)
+			.Select(f => f.UserIdFrom == currentUserId
+				? f.UserIdTo
+				: f.UserIdFrom)
+			.ToListAsync();
+
+		return new UserChatResponseDTO
+		{
+			ChatId = chatId,
+			UserId = user.Id,
+			UserName = user.AccountName,
+			UserTag = user.AccountTag,
+
+			Icon = user.IconFile == null
+				? null
+				: new FileMetaResponseDTO
+				{
+					FileId = user.IconFile.Id,
+					FileName = user.IconFile.Name,
+					FileType = user.IconFile.Type,
+					FileSize = user.IconFile.Size,
+					Deleted = user.IconFile.Deleted
+				},
+
+			Notifiable = user.Notifiable,
+			NonFriendMessage = user.NonFriendMessage,
+			FriendshipApplication = user.FriendshipApplication,
+
+			isFriend = friendsIds.Contains(user.Id),
+
+			SystemRoles = user.SystemRoles
+				.Select(sr => new SystemRoleShortItemDTO
+				{
+					Id = null,
+					Name = sr.Name,
+					Type = sr.Type
+				})
+				.ToList()
+		};
+	}
+
 	public async Task<ChatInfoDTO> CreateChatAsync(Guid OwnerId, string userTag)
     {
 		var owner = await _authorizationService.GetUserAsync(OwnerId);
@@ -539,6 +584,7 @@ public class ChatService : IChatService
 				.ToList();
 
 			MessageResponceDTO? lastReadMessage = null;
+			UserDbModel? author = null;
 
 			if (lastMessagesDict.TryGetValue(lastReadId, out var message))
 			{
@@ -548,7 +594,13 @@ public class ChatService : IChatService
 					chat.Id,
 					replies,
 					votesByVariantId);
+
+				author = await _hitsContext.User
+					.Include(u => u.IconFile)
+					.Include(u => u.SystemRoles)
+					.FirstAsync(u => u.Id == message.AuthorId);
 			}
+
 
 			result.Add(new ChatListItemDTO
 			{
@@ -558,7 +610,11 @@ public class ChatService : IChatService
 				NonReadedTaggedCount = nonReadedMessages.Count(
 					m => m.TaggedUsers.Contains(userId)),
 				LastReadedMessageId = lastReadId,
-				LastReadedMessage = lastReadMessage,
+				LastReadedMessage = new LastReadMessageDTO
+				{
+					Message = lastReadMessage,
+					Author = await MapChatUserAsync(author, chat.Id, userId)
+				},
 				Icon = chat.IconFile == null
 					? null
 					: new FileMetaResponseDTO
