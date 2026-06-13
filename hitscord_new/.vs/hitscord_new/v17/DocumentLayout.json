@@ -26,47 +26,8 @@
       "DocumentGroups": [
         {
           "DockedWidth": 25,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 4,
           "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "Program.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Program.cs",
-              "RelativeDocumentMoniker": "hitscord_new\\Program.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Program.cs",
-              "RelativeToolTip": "hitscord_new\\Program.cs",
-              "ViewState": "AgIAAEYBAAAAAAAAAAAowF8BAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-13T16:27:09.265Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "ServerController.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\ServerController.cs",
-              "RelativeDocumentMoniker": "hitscord_new\\Controllers\\ServerController.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\ServerController.cs",
-              "RelativeToolTip": "hitscord_new\\Controllers\\ServerController.cs",
-              "ViewState": "AgIAAIYAAAAAAAAAAAAuwKYAAAAFAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-13T16:26:12.177Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "ServerService.cs",
-              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ServerService.cs",
-              "RelativeDocumentMoniker": "hitscord_new\\Services\\ServerService.cs",
-              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ServerService.cs",
-              "RelativeToolTip": "hitscord_new\\Services\\ServerService.cs",
-              "ViewState": "AgIAAEMGAAAAAAAAAAAIwFMGAAA+AAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-13T16:21:56.735Z",
-              "EditorCaption": ""
-            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
@@ -85,6 +46,43 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Program.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Program.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Program.cs",
+              "RelativeToolTip": "hitscord_new\\Program.cs",
+              "ViewState": "AgIAAPwAAAAAAAAAAAAowB4BAAADAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-13T16:27:09.265Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "ServerController.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\ServerController.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Controllers\\ServerController.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Controllers\\ServerController.cs",
+              "RelativeToolTip": "hitscord_new\\Controllers\\ServerController.cs",
+              "ViewState": "AgIAAIYAAAAAAAAAAAAuwKYAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-13T16:26:12.177Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "ServerService.cs",
+              "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ServerService.cs",
+              "RelativeDocumentMoniker": "hitscord_new\\Services\\ServerService.cs",
+              "ToolTip": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\ServerService.cs",
+              "RelativeToolTip": "hitscord_new\\Services\\ServerService.cs",
+              "ViewState": "AgIAAEMGAAAAAAAAAAAIwFMGAAA+AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-13T16:21:56.735Z"
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 3,
               "Title": "MessageService.cs",
               "DocumentMoniker": "C:\\Users\\misti\\Documents\\GitHub\\hitscord\\hitscord_new\\hitscord_new\\Services\\MessageService.cs",
@@ -93,8 +91,7 @@
               "RelativeToolTip": "hitscord_new\\Services\\MessageService.cs",
               "ViewState": "AgIAACYAAAAAAAAAAAAQwOcBAAAQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-13T08:07:19.368Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-13T08:07:19.368Z"
             }
           ]
         }
