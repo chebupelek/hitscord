@@ -2034,6 +2034,7 @@ public class ChannelService : IChannelService
 			.AsNoTracking()
 			.Include(m => m.Reactions)
 			.Include(m => ((ClassicChannelMessageDbModel)m).Files)
+			.Include(m => ((ClassicChannelMessageDbModel)m).NestedChannel)
 			.Include(m => ((ChannelVoteDbModel)m).Variants)
 				.ThenInclude(v => v.UsersVariants)
 			.Where(m => m.TextChannelId == channelId && m.DeleteTime == null);
