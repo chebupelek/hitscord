@@ -1596,13 +1596,14 @@ public class ServerService : IServerService
 			.ToList();
 
 		var lastMessages = await _hitsContext.ChannelMessage
+			.AsSplitQuery()
 			.Include(m => m.Reactions)
 			.Include(m => ((ClassicChannelMessageDbModel)m).Files)
 			.Include(m => ((ChannelVoteDbModel)m).Variants)
 			.Where(m => lastMessageIds.Contains(m.Id))
 			.ToListAsync();
 
-		var replyIds = lastMessages
+			var replyIds = lastMessages
 			.Where(m => m.ReplyToMessageId.HasValue)
 			.Select(m => m.ReplyToMessageId!.Value)
 			.Distinct()
@@ -1626,9 +1627,11 @@ public class ServerService : IServerService
 				g => g.Key,
 				g => g.ToList());
 
-		var lastMessagesDict = lastMessages.ToDictionary(m => m.Id);
+		var lastMessagesDict = lastMessages
+			.GroupBy(m => m.Id)
+			.ToDictionary(g => g.Key, g => g.First());
 
-		var groups = await _hitsContext.ChannelGroup
+			var groups = await _hitsContext.ChannelGroup
 			.Where(g => g.ServerId == server.Id)
 			.OrderBy(g => g.Position)
 			.Select(g => new
