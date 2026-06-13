@@ -537,7 +537,7 @@ public class RolesService : IRolesService
 		{
 			throw new CustomException("User is not subscriber of this server", "UpdateRoleAsync", "User", 404, "Пользователь не является подписчиком сервера", "Обновление роли");
 		}
-		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateRoles && sr.Role.Position > role.Position && sr.Role.Position > position) == false)
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.ServerCanCreateRoles && sr.Role.Position >= role.Position && sr.Role.Position >= position) == false)
 		{
 			throw new CustomException("User does not have rights to create roles", "UpdateRoleAsync", "User", 403, "Пользователь не имеет права удалять роли", "Обновление роли");
 		}

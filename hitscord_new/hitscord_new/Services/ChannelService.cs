@@ -3975,6 +3975,9 @@ public class ChannelService : IChannelService
 			Channels = new List<ChannelDbModel>()
 		};
 
+		await _hitsContext.ChannelGroup.AddAsync(newGroup);
+		await _hitsContext.SaveChangesAsync();
+
 		var newGroupResponse = new GroupResponseSocket
 		{
 			ServerId = server.Id,
