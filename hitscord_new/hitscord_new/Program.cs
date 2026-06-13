@@ -329,6 +329,27 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
+app.Use(async (context, next) =>
+{
+	try
+	{
+		await next();
+	}
+	catch (Exception ex)
+	{
+		var logger = context.RequestServices
+			.GetRequiredService<ILogger<Program>>();
+
+		logger.LogError(
+			ex,
+			"Unhandled exception. Path: {Path}, Method: {Method}",
+			context.Request.Path,
+			context.Request.Method);
+
+		throw;
+	}
+});
+
 app.MapControllers();
 
 app.Run();
