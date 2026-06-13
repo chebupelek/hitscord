@@ -128,7 +128,7 @@ public class ChannelService : IChannelService
 
 	public async Task<ChannelDbModel> CheckTextLessonChannelExistAsync(Guid channelId)
 	{
-		var channel = await _hitsContext.TextLessonChannel.FirstOrDefaultAsync(c => c.Id == channelId && EF.Property<string>(c, "LessonText") == "" && c.DeleteTime == null);
+		var channel = await _hitsContext.TextLessonChannel.FirstOrDefaultAsync(c => c.Id == channelId && c.DeleteTime == null);
 		if (channel == null || channel.GetType() == typeof(NotificationChannelDbModel) || channel.GetType() == typeof(SubChannelDbModel))
 		{
 			throw new CustomException("Text lesson channel not found", "Check text lesson channel for existing", "Text lesson channel", 404, "Текстовый канал для заданий не найден", "Проверка наличия текстового канала для заданий");
@@ -527,6 +527,110 @@ public class ChannelService : IChannelService
 				}
 			)
 		);
+
+		await Task.WhenAll(tasks);
+	}
+
+	private async Task UpdateChannelToUserAsync(Guid serverId, Guid channelId)
+	{
+		var users = await _hitsContext.UserServer
+			.Where(us => us.ServerId == serverId)
+			.Select(us => new
+			{
+				us.Id,
+				us.UserId,
+				us.User.AccountTag,
+				us.User.Notifiable,
+				us.NonNotifiable,
+				RoleIds = us.SubscribeRoles
+					.Select(sr => sr.RoleId)
+					.ToList(),
+				RoleTags = us.SubscribeRoles
+					.Select(sr => sr.Role.Tag)
+					.ToList()
+			})
+			.ToListAsync();
+
+		var nonNotifiableSet = (await _hitsContext.NonNotifiableChannel
+			.Where(n => n.TextChannelId == channelId)
+			.Select(n => n.UserServerId)
+			.ToListAsync())
+			.ToHashSet();
+
+		var tasks = users.Select(async user =>
+		{
+			var rights = await HashChannelRightsByRolesAsync(
+				user.RoleIds,
+				channelId);
+
+			if (rights == 0)
+			{
+				await _cacheService.RemoveChannelToUserAsync(
+					channelId,
+					user.UserId);
+
+				return;
+			}
+
+			int channelNotifiable =
+				(user.Notifiable ? 1 : 0) +
+				(user.NonNotifiable ? 1 : 0) +
+				(!nonNotifiableSet.Contains(user.Id) ? 1 : 0);
+
+			await _cacheService.SetChannelToUserAsync(
+				channelId,
+				new ChannelToUserRedisFullDTO
+				{
+					UserId = user.UserId,
+					Data = new ChannelToUserRedisItemDTO
+					{
+						UserTag = user.AccountTag,
+						RoleIds = user.RoleIds,
+						RoleTags = user.RoleTags,
+						ChannelNotifiable = channelNotifiable
+					}
+				});
+		});
+
+		await Task.WhenAll(tasks);
+	}
+
+	private async Task UpdateUserToChannelAsync(Guid serverId, Guid channelId)
+	{
+		var users = await _hitsContext.UserServer
+			.Where(us => us.ServerId == serverId)
+			.Select(us => new
+			{
+				us.UserId,
+				RoleIds = us.SubscribeRoles
+					.Select(sr => sr.RoleId)
+					.ToList()
+			})
+			.ToListAsync();
+
+		var tasks = users.Select(async user =>
+		{
+			var rights = await HashChannelRightsByRolesAsync(
+				user.RoleIds,
+				channelId);
+
+			if (rights == 0)
+			{
+				await _cacheService.RemoveUserToChannelAsync(
+					user.UserId,
+					channelId);
+
+				return;
+			}
+
+			await _cacheService.SetUserToChannelAsync(
+				user.UserId,
+				channelId,
+				new UserToChannelRedisDTO
+				{
+					ChannelRights = rights
+				});
+		});
 
 		await Task.WhenAll(tasks);
 	}
@@ -2570,7 +2674,7 @@ public class ChannelService : IChannelService
 			throw new CustomException("Wrong setting type", "Change voice channel sttings", "Role", 404, "Тип настроек не верен", "Изменение настроек голосового канала");
 		}
 		await ClearUserChannelFull(channel.Id, channel.ServerId);
-		await UpdateUserToChannelByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+		await UpdateUserToChannelAsync(channel.ServerId, channel.Id);
 
 		var changedSettingsresponse = new ChannelRoleResponseSocket
 		{
@@ -2816,8 +2920,8 @@ public class ChannelService : IChannelService
 		}
 
 		await ClearUserChannelFull(channel.Id, channel.ServerId);
-		await UpdateUserToChannelByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
-		await UpdateChannelToUserByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+		await UpdateUserToChannelAsync(channel.ServerId, channel.Id);
+		await UpdateChannelToUserAsync(channel.ServerId, channel.Id);
 
 		var changedSettingsresponse = new ChannelRoleResponseSocket
 		{
@@ -3042,8 +3146,8 @@ public class ChannelService : IChannelService
 		}
 
 		await ClearUserChannelFull(channel.Id, channel.ServerId);
-		await UpdateUserToChannelByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
-		await UpdateChannelToUserByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+		await UpdateUserToChannelAsync(channel.ServerId, channel.Id);
+		await UpdateChannelToUserAsync(channel.ServerId, channel.Id);
 
 		var changedSettingsresponse = new ChannelRoleResponseSocket
 		{
@@ -3175,8 +3279,8 @@ public class ChannelService : IChannelService
 		}
 
 		await ClearUserChannelFull(channel.Id, channel.ServerId);
-		await UpdateUserToChannelByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
-		await UpdateChannelToUserByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+		await UpdateUserToChannelAsync(channel.ServerId, channel.Id);
+		await UpdateChannelToUserAsync(channel.ServerId, channel.Id);
 
 		var changedSettingsresponse = new ChannelRoleResponseSocket
 		{
@@ -3401,8 +3505,8 @@ public class ChannelService : IChannelService
 		}
 
 		await ClearUserChannelFull(channel.Id, channel.ServerId);
-		await UpdateUserToChannelByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
-		await UpdateChannelToUserByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+		await UpdateUserToChannelAsync(channel.ServerId, channel.Id);
+		await UpdateChannelToUserAsync(channel.ServerId, channel.Id);
 
 		var changedSettingsresponse = new ChannelRoleResponseSocket
 		{
@@ -3513,8 +3617,8 @@ public class ChannelService : IChannelService
 		}
 
 		await ClearUserChannelFull(channel.Id, channel.ServerId);
-		await UpdateUserToChannelByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
-		await UpdateChannelToUserByRolesAsync(channel.ServerId, channel.Id, new List<Guid> { role.Id });
+		await UpdateUserToChannelAsync(channel.ServerId, channel.Id);
+		await UpdateChannelToUserAsync(channel.ServerId, channel.Id);
 
 		var changedSettingsresponse = new ChannelRoleResponseSocket
 		{
