@@ -1712,14 +1712,16 @@ public class ServerService : IServerService
 					ChannelName = v.Name,
 					CanJoin = v.ChannelCanJoin.Any(ccj => userRoleIds.Contains(ccj.RoleId)),
 					MaxCount = v.MaxCount,
-					Users = v.Users.Select(u => new VoiceChannelUserDTO
-					{
-						UserId = u.UserId,
-						MuteStatus = u.MutedOther ? MuteStatusEnum.Muted :
-									 u.MutedHimself ? MuteStatusEnum.SelfMuted :
-									 MuteStatusEnum.NotMuted,
-						IsStream = u.IsStream
-					}).ToList()
+					Users = v.Users
+						.Where(u => u.Inside)
+						.Select(u => new VoiceChannelUserDTO
+						{
+							UserId = u.UserId,
+							MuteStatus = u.MutedOther ? MuteStatusEnum.Muted :
+										 u.MutedHimself ? MuteStatusEnum.SelfMuted :
+										 MuteStatusEnum.NotMuted,
+							IsStream = u.IsStream
+						}).ToList()
 				}
 			})
 			.ToDictionaryAsync(x => x.Id, x => x.DTO);
