@@ -262,30 +262,6 @@ builder.Services.AddScoped<IFirebaseService, FirebaseService>();
 */
 var app = builder.Build();
 
-app.Use(async (context, next) =>
-{
-	try
-	{
-		await next();
-	}
-	catch (Exception ex)
-	{
-		var logger = context.RequestServices
-			.GetRequiredService<ILogger<Program>>();
-
-		logger.LogCritical(ex,
-			"UNHANDLED EXCEPTION\nPath: {Path}\nMethod: {Method}",
-			context.Request.Path,
-			context.Request.Method);
-
-		Console.WriteLine("====================================");
-		Console.WriteLine(ex.ToString());
-		Console.WriteLine("====================================");
-
-		throw;
-	}
-});
-
 using (var scope = app.Services.CreateScope())
 {
     var HitsContext = scope.ServiceProvider.GetRequiredService<HitsContext>();

@@ -45,11 +45,11 @@ public class ServerService : IServerService
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
 	private readonly IRedisCacheService _cacheService;
-	//private readonly ILogger<ServerService> _logger;
+	private readonly ILogger<ServerService> _logger;
 
-	public ServerService(/*ILogger<ServerService> logger, */HitsContext hitsContext, IAuthorizationService authorizationService, IRealtimeService realtimeService, INotificationService notificationsService, nClamService clamService, MinioService minioService, IRedisCacheService cacheService)
+	public ServerService(ILogger<ServerService> logger, HitsContext hitsContext, IAuthorizationService authorizationService, IRealtimeService realtimeService, INotificationService notificationsService, nClamService clamService, MinioService minioService, IRedisCacheService cacheService)
 	{
-		//_logger = logger;
+		_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
@@ -1560,7 +1560,9 @@ public class ServerService : IServerService
 
 	public async Task<ServerInfoDTO> GetServerInfoAsync(Guid UserId, Guid serverId)
 	{
-		var server = await GetServerFullModelAsync(serverId);
+		try
+		{
+			var server = await GetServerFullModelAsync(serverId);
 
 		var sub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
@@ -1987,6 +1989,16 @@ public class ServerService : IServerService
 		}
 
 		return info;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex,
+				"GetServerInfoAsync failed. UserId={UserId}, ServerId={ServerId}",
+				UserId,
+				serverId);
+
+			throw;
+		}
 	}
 
 	public async Task DeleteUserFromServerAsync(Guid UserId, Guid serverId, Guid DeletedUserId, string? banReason)
