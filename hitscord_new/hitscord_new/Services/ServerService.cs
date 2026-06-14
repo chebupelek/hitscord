@@ -335,6 +335,27 @@ public class ServerService : IServerService
 			rights |= ChannelRights.Use;
 		}
 
+		var canCreateTasks = await _hitsContext.ChannelCanMakeTasks
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextLessonChannelId == ChannelId);
+		if (canCreateTasks)
+		{
+			rights |= ChannelRights.Task;
+		}
+
+		var canTake = await _hitsContext.ChannelCanTakeFromQueue
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextQueueChannelId == ChannelId);
+		if (canTake)
+		{
+			rights |= ChannelRights.TakeQueue;
+		}
+
+		var canComeIn = await _hitsContext.ChannelCanJoinQueue
+			.AnyAsync(x => roleIds.Contains(x.RoleId) && x.TextQueueChannelId == ChannelId);
+		if (canComeIn)
+		{
+			rights |= ChannelRights.JoinQueue;
+		}
+
 		return ((int)rights);
 	}
 
@@ -944,7 +965,10 @@ public class ServerService : IServerService
 		}
 
 		var newCreatorSub = await _hitsContext.UserServer
-			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == newCreator.Id);
+			.Include(us => us.SubscribeRoles)
+			.FirstOrDefaultAsync(us =>
+				us.ServerId == server.Id &&
+				us.UserId == newCreator.Id);
 		if (newCreatorSub == null)
 		{
 			throw new CustomException("User not subscriber of this server", "Check subscription is exist", "User", 401, "Пользователь не является участником этого сервера", "Отписка для создателя");
