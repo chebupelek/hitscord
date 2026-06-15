@@ -314,7 +314,7 @@ app.UseWebSockets();
 
 app.MapGet("/", () => "WebSocket server is running!");
 
-app.MapHub<ChatHub>("/wss");
+app.MapHub<ChatHub>("/api/wss");
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
