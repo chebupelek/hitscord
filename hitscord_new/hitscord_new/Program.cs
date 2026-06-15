@@ -240,13 +240,10 @@ builder.Services.AddCors(options =>
 {
 	options.AddPolicy("AllowAll", p =>
 	{
-		p.WithOrigins(
-			"https://hitscord.site",
-			"https://www.hitscord.site"
-		)
-		.AllowAnyHeader()
-		.AllowAnyMethod()
-		.AllowCredentials();
+		p.SetIsOriginAllowed(_ => true)
+		 .AllowAnyHeader()
+		 .AllowAnyMethod()
+		 .AllowCredentials();
 	});
 });
 /*
