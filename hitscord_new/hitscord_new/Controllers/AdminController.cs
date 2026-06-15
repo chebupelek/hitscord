@@ -92,8 +92,14 @@ public class AdminController : ControllerBase
 			}
 
 			await _tokenService.InvalidateSessionAdminAsync(sessionId);
-			Response.Cookies.Delete("access_token");
-			Response.Cookies.Delete("session_id");
+			var cookieOptions = new CookieOptions
+			{
+				Secure = true,
+				SameSite = SameSiteMode.None
+			};
+
+			Response.Cookies.Delete("access_token", cookieOptions);
+			Response.Cookies.Delete("session_id", cookieOptions);
 
 			return Ok();
 		}

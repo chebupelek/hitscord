@@ -34,24 +34,24 @@ public class AuthorizationController : ControllerBase
 		Response.Cookies.Append("access_token", tokens.AccessToken, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = false,
-			SameSite = SameSiteMode.Lax,
+			Secure = true,
+			SameSite = SameSiteMode.None,
 			Expires = DateTime.UtcNow.AddMinutes(15)
 		});
 
 		Response.Cookies.Append("refresh_token", tokens.RefreshToken, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = false,
-			SameSite = SameSiteMode.Lax,
+			Secure = true,
+			SameSite = SameSiteMode.None,
 			Expires = DateTime.UtcNow.AddDays(10)
 		});
 
 		Response.Cookies.Append("session_id", tokens.SessionId, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = false,
-			SameSite = SameSiteMode.Lax,
+			Secure = true,
+			SameSite = SameSiteMode.None,
 			Expires = DateTime.UtcNow.AddDays(10)
 		});
 	}
@@ -233,9 +233,15 @@ public class AuthorizationController : ControllerBase
 			}
 
 			await _tokenService.InvalidateSessionAsync(sessionId);
-			Response.Cookies.Delete("access_token");
-			Response.Cookies.Delete("refresh_token");
-			Response.Cookies.Delete("session_id");
+			var cookieOptions = new CookieOptions
+			{
+				Secure = true,
+				SameSite = SameSiteMode.None
+			};
+
+			Response.Cookies.Delete("access_token", cookieOptions);
+			Response.Cookies.Delete("refresh_token", cookieOptions);
+			Response.Cookies.Delete("session_id", cookieOptions);
 
 			return Ok();
 		}

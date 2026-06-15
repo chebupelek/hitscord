@@ -241,9 +241,8 @@ builder.Services.AddCors(options =>
 	options.AddPolicy("AllowAll", p =>
 	{
 		p.WithOrigins(
-			"http://45.150.10.98",
-			"http://192.168.0.12:5173",
-			"http://localhost:5173"
+			"https://hitscord.site",
+			"https://www.hitscord.site"
 		)
 		.AllowAnyHeader()
 		.AllowAnyMethod()
