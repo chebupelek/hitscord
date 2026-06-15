@@ -163,9 +163,16 @@ public class ServerService : IServerService
 		};
 	}
 
-	private MessageResponceDTO? MapChannelMessage(ChannelMessageDbModel message, Guid userId, Dictionary<long, ChannelMessageDbModel> replies, Dictionary<Guid, List<ChannelVariantUserDbModel>> votesByVariantId, Guid ServerId)
+	private MessageResponceDTO? MapChannelMessage(ChannelMessageDbModel message, Guid userId, Dictionary<(Guid ChannelId, long MessageId), ChannelMessageDbModel> replies, Dictionary<Guid, List<ChannelVariantUserDbModel>> votesByVariantId, Guid ServerId)
 	{
-		replies.TryGetValue(message.ReplyToMessageId ?? 0, out var reply);
+		ChannelMessageDbModel? reply = null;
+
+		if (message.ReplyToMessageId.HasValue)
+		{
+			replies.TryGetValue(
+				(message.TextChannelId, message.ReplyToMessageId.Value),
+				out reply);
+		}
 
 		switch (message)
 		{
@@ -1627,15 +1634,35 @@ public class ServerService : IServerService
 			.Where(m => lastMessageIds.Contains(m.Id))
 			.ToListAsync();
 
-			var replyIds = lastMessages
+		var replyKeys = lastMessages
 			.Where(m => m.ReplyToMessageId.HasValue)
-			.Select(m => m.ReplyToMessageId!.Value)
+			.Select(m => new
+			{
+				m.TextChannelId,
+				ReplyId = m.ReplyToMessageId!.Value
+			})
 			.Distinct()
 			.ToList();
 
-		var repliesDict = await _hitsContext.ChannelMessage
-			.Where(m => replyIds.Contains(m.Id))
-			.ToDictionaryAsync(m => m.Id);
+		var channelIds = replyKeys
+			.Select(x => x.TextChannelId)
+			.Distinct()
+			.ToList();
+
+		var replyIds = replyKeys
+			.Select(x => x.ReplyId)
+			.Distinct()
+			.ToList();
+
+		var replies = await _hitsContext.ChannelMessage
+			.Where(m =>
+				channelIds.Contains(m.TextChannelId) &&
+				replyIds.Contains(m.Id))
+			.ToListAsync();
+
+		var repliesDict = replies.ToDictionary(
+			m => (m.TextChannelId, m.Id),
+			m => m);
 
 		var variantIds = lastMessages
 			.OfType<ChannelVoteDbModel>()
@@ -1652,8 +1679,9 @@ public class ServerService : IServerService
 				g => g.ToList());
 
 		var lastMessagesDict = lastMessages
-			.GroupBy(m => m.Id)
-			.ToDictionary(g => g.Key, g => g.First());
+			.ToDictionary(
+				m => (m.TextChannelId, m.Id),
+				m => m);
 
 			var groups = await _hitsContext.ChannelGroup
 			.Where(g => g.ServerId == server.Id)
@@ -1700,17 +1728,13 @@ public class ServerService : IServerService
 					CanWrite = t.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
 					CanWriteSub = t.ChannelCanWriteSub.Any(ccws => userRoleIds.Contains(ccws.RoleId)),
 					IsNotifiable = nonNotifiableSet.Contains(t.Id),
-
 					NonReadedCount = t.Messages.Count(m => m.DeleteTime == null),
-
 					NonReadedTaggedCount = t.Messages.Count(m =>
 						m.TaggedUsers.Contains(UserId) ||
 						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
-
 					LastReadedMessageId = lastReadId,
-
 					LastReadedMessage =
-						lastMessagesDict.TryGetValue(lastReadId, out var msg)
+						lastMessagesDict.TryGetValue((t.Id, lastReadId), out var msg)
 							? MapChannelMessage(
 								msg,
 								UserId,
@@ -1718,7 +1742,6 @@ public class ServerService : IServerService
 								votesByVariantId,
 								serverId)
 							: null,
-
 					RolesCanWrite = t.ChannelCanWrite
 						.Select(ccw => new UserServerRoles
 						{
@@ -1792,7 +1815,7 @@ public class ServerService : IServerService
 					LastReadedMessageId = lastReadId,
 
 					LastReadedMessage =
-						lastMessagesDict.TryGetValue(lastReadId, out var msg)
+						lastMessagesDict.TryGetValue((n.Id, lastReadId), out var msg)
 							? MapChannelMessage(
 								msg,
 								UserId,
@@ -1842,7 +1865,7 @@ public class ServerService : IServerService
 					LastReadedMessageId = lastReadId,
 
 					LastReadedMessage =
-						lastMessagesDict.TryGetValue(lastReadId, out var msg)
+						lastMessagesDict.TryGetValue((q.Id, lastReadId), out var msg)
 							? MapChannelMessage(
 								msg,
 								UserId,
@@ -3408,7 +3431,7 @@ public class ServerService : IServerService
 		{
 			throw new CustomException("Owner is not subscriber of this server", "Check owner", "Owner", 404, "Пользователь не найден", "Информация о приглашениях");
 		}
-		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Admin) == false)
+		if (ownerSub.SubscribeRoles.Any(sr => sr.Role.Role == RoleEnum.Admin || sr.Role.Role == RoleEnum.Creator) == false)
 		{
 			throw new CustomException("Owner does not have rights to get invitations data", "Check user rights to use invitations", "Owner", 403, "Пользователь не имеет права проверять приглашения", "Информация о приглашениях");
 		}
