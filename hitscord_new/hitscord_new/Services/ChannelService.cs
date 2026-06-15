@@ -2068,7 +2068,8 @@ public class ChannelService : IChannelService
 		var repliesDict = await _hitsContext.ChannelMessage
 			.AsNoTracking()
 			.Where(m => replyIds.Contains(m.Id))
-			.ToDictionaryAsync(m => m.Id);
+			.GroupBy(m => m.Id)
+			.ToDictionaryAsync(g => g.Key, g => g.First());
 
 		var variantIds = messagesFresh
 			.Where(m => m.Vote != null)
