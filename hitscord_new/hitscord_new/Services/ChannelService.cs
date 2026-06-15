@@ -517,18 +517,28 @@ public class ChannelService : IChannelService
 
 		var rights = await HashChannelRightsByRolesAsync(rolesIds, channelId);
 
-		var tasks = users.Select(userId =>
-			_cacheService.SetUserToChannelAsync(
-				userId,
+		foreach (var user in users)
+		{
+			var rights = await HashChannelRightsByRolesAsync(
+				user.RoleIds,
+				channelId);
+
+			if (rights == 0)
+			{
+				await _cacheService.RemoveUserToChannelAsync(
+					user.UserId,
+					channelId);
+				continue;
+			}
+
+			await _cacheService.SetUserToChannelAsync(
+				user.UserId,
 				channelId,
 				new UserToChannelRedisDTO
 				{
 					ChannelRights = rights
-				}
-			)
-		);
-
-		await Task.WhenAll(tasks);
+				});
+		}
 	}
 
 	private async Task UpdateChannelToUserAsync(Guid serverId, Guid channelId)
@@ -557,7 +567,7 @@ public class ChannelService : IChannelService
 			.ToListAsync())
 			.ToHashSet();
 
-		var tasks = users.Select(async user =>
+		foreach (var user in users)
 		{
 			var rights = await HashChannelRightsByRolesAsync(
 				user.RoleIds,
@@ -568,8 +578,7 @@ public class ChannelService : IChannelService
 				await _cacheService.RemoveChannelToUserAsync(
 					channelId,
 					user.UserId);
-
-				return;
+				continue;
 			}
 
 			int channelNotifiable =
@@ -590,9 +599,7 @@ public class ChannelService : IChannelService
 						ChannelNotifiable = channelNotifiable
 					}
 				});
-		});
-
-		await Task.WhenAll(tasks);
+		}
 	}
 
 	private async Task UpdateUserToChannelAsync(Guid serverId, Guid channelId)
@@ -608,7 +615,7 @@ public class ChannelService : IChannelService
 			})
 			.ToListAsync();
 
-		var tasks = users.Select(async user =>
+		foreach (var user in users)
 		{
 			var rights = await HashChannelRightsByRolesAsync(
 				user.RoleIds,
@@ -619,8 +626,7 @@ public class ChannelService : IChannelService
 				await _cacheService.RemoveUserToChannelAsync(
 					user.UserId,
 					channelId);
-
-				return;
+				continue;
 			}
 
 			await _cacheService.SetUserToChannelAsync(
@@ -630,9 +636,7 @@ public class ChannelService : IChannelService
 				{
 					ChannelRights = rights
 				});
-		});
-
-		await Task.WhenAll(tasks);
+		}
 	}
 
 	private async Task ClearUserChannelFull(Guid ChannelId, Guid ServerId)
@@ -3787,7 +3791,7 @@ public class ChannelService : IChannelService
 		}
 		var canSee = userSub.SubscribeRoles.SelectMany(sr => sr.Role.ChannelCanSee).Any(ccs => ccs.ChannelId == channel.Id);
 		var canUse = userSub.SubscribeRoles.SelectMany(sr => sr.Role.ChannelCanUse).Any(ccs => ccs.SubChannelId == channel.Id);
-		if (canSee == false || canUse == false)
+		if (canSee == false && canUse == false)
 		{
 			throw new CustomException("User cant see this channel", "Change notification channel sttings", "User rights", 403, "Пользователь не может видеть канал", "Изменение настроек уведомлений канала");
 		}
