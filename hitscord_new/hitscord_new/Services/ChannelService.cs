@@ -451,17 +451,16 @@ public class ChannelService : IChannelService
 					UserNotifiable = us.User.Notifiable,
 					UserServerId = us.Id,
 					us.NonNotifiable,
-					RoleId = sr.Role.Id,
+					RoleId = sr.RoleId,
 					RoleTag = sr.Role.Tag
 				}))
 			.ToListAsync();
 
-		var nonNotifiableChannels = await _hitsContext.NonNotifiableChannel
+		var nonNotifiableSet = (await _hitsContext.NonNotifiableChannel
 			.Where(n => n.TextChannelId == channelId)
 			.Select(n => n.UserServerId)
-			.ToListAsync();
-
-		var nonNotifiableSet = nonNotifiableChannels.ToHashSet();
+			.ToListAsync())
+			.ToHashSet();
 
 		var usersGrouped = users
 			.GroupBy(x => x.UserId)
@@ -477,14 +476,14 @@ public class ChannelService : IChannelService
 			})
 			.ToList();
 
-		var tasks = usersGrouped.Select(u =>
+		foreach (var u in usersGrouped)
 		{
 			int channelNotifiable =
 				(u.UserNotifiable ? 1 : 0) +
 				(u.NonNotifiable ? 1 : 0) +
 				(!nonNotifiableSet.Contains(u.UserServerId) ? 1 : 0);
 
-			return _cacheService.SetChannelToUserAsync(
+			await _cacheService.SetChannelToUserAsync(
 				channelId,
 				new ChannelToUserRedisFullDTO
 				{
@@ -497,25 +496,21 @@ public class ChannelService : IChannelService
 						ChannelNotifiable = channelNotifiable
 					}
 				});
-		});
-
-		await Task.WhenAll(tasks);
+		}
 	}
 
 	private async Task UpdateUserToChannelByRolesAsync(Guid serverId, Guid channelId, List<Guid> rolesIds)
 	{
 		var users = await _hitsContext.UserServer
 			.Where(us => us.ServerId == serverId)
-			.SelectMany(us => us.SubscribeRoles
-				.Where(sr => rolesIds.Contains(sr.RoleId))
-				.Select(sr => us.UserId))
-			.Distinct()
+			.Select(us => new
+			{
+				us.UserId,
+				RoleIds = us.SubscribeRoles
+					.Select(sr => sr.RoleId)
+					.ToList()
+			})
 			.ToListAsync();
-
-		if (users.Count == 0)
-			return;
-
-		var rights = await HashChannelRightsByRolesAsync(rolesIds, channelId);
 
 		foreach (var user in users)
 		{
