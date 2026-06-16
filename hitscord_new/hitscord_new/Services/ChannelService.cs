@@ -2247,6 +2247,7 @@ public class ChannelService : IChannelService
 		if (canManageTasks)
 		{
 			baseMessageQuery = _hitsContext.LessonChannelMessageTask
+				.Include(m => m.Files)
 				.AsNoTracking()
 				.Where(m =>
 					m.TextLessonChannelId == lessonChannelId &&
@@ -2255,6 +2256,7 @@ public class ChannelService : IChannelService
 		else
 		{
 			baseMessageQuery = _hitsContext.LessonChannelMessageTask
+				.Include(m => m.Files)
 				.AsNoTracking()
 				.Where(m =>
 					m.TextLessonChannelId == lessonChannelId &&
@@ -2476,6 +2478,7 @@ public class ChannelService : IChannelService
 		var canManageTasks = rights.HasFlag(ChannelRights.Task);
 
 		var task = await _hitsContext.LessonChannelMessageTask
+			.Include(m => m.Files)
 			.AsNoTracking()
 			.Include(x => x.AssignedRoles)
 			.FirstOrDefaultAsync(x =>

@@ -1167,7 +1167,7 @@ public class MessageService : IMessageService
 			throw new CustomException("User has no access to see this channel", "Create message", "User permissions", 403, "У пользователя нет доступа к этому каналу", "Создание задания");
 		}
 
-		var lastId = await _hitsContext.LessonChannelMessageTask
+		var lastId = await _hitsContext.LessonChannelMessage
 			.Where(m => m.TextLessonChannelId == ChannelId)
 			.OrderByDescending(m => m.Id)
 			.Select(m => (long?)m.Id)
@@ -1460,7 +1460,7 @@ public class MessageService : IMessageService
 			);
 		}
 
-		var lastId = await _hitsContext.LessonChannelMessageSolution
+		var lastId = await _hitsContext.LessonChannelMessage
 			.Where(m => m.TextLessonChannelId == ChannelId && m.ReplyToMessageId == task.Id)
 			.OrderByDescending(m => m.Id)
 			.Select(m => (long?)m.Id)
