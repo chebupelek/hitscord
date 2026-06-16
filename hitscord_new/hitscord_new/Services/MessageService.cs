@@ -98,7 +98,7 @@ public class MessageService : IMessageService
 		return (roles == null ? (new List<Guid>()) : roles);
 	}
 
-	private async Task<List<FileMetaResponseDTO>?> CreateFilesAsync(List<Guid> Files, Guid userId, long? channelMessageId, Guid? textChannelId, long? chatMessageId, Guid? chatId, Guid? ChannelRealId, Guid? ChatRealId)
+	private async Task<List<FileMetaResponseDTO>?> CreateFilesAsync(List<Guid> Files, Guid userId, long? channelMessageId, Guid? textChannelId, long? chatMessageId, Guid? chatId, Guid? ChannelRealId, Guid? ChatRealId, Guid? TaskRealId)
 	{
 		var files = await _hitsContext.File
 			.Where(f => Files.Contains(f.Id) 
@@ -119,6 +119,7 @@ public class MessageService : IMessageService
 			file.ChatId = chatId;
 			file.ChannelMessageRealId = ChannelRealId;
 			file.ChatMessageRealId = ChatRealId;
+			file.TaskMessageRealId = TaskRealId;
 		}
 
 		_hitsContext.File.UpdateRange(files);
@@ -463,7 +464,7 @@ public class MessageService : IMessageService
 				List<FileMetaResponseDTO>? filesResponse = null;
 				if (Content.Classic.Files != null && Content.Classic.Files.Any())
 				{
-					filesResponse = await CreateFilesAsync(Content.Classic.Files, UserId, newMessage.Id, newMessage.TextChannelId, null, null, newMessage.RealId, null);
+					filesResponse = await CreateFilesAsync(Content.Classic.Files, UserId, newMessage.Id, newMessage.TextChannelId, null, null, newMessage.RealId, null, null);
 				}
 
 				if (Content.Classic != null && Content.Classic.NestedChannel == true && channel.Type == ChannelTypeEnum.Text)
@@ -859,7 +860,7 @@ public class MessageService : IMessageService
 
 				if (Content.Classic.Files != null && Content.Classic.Files.Any())
 				{
-					await CreateFilesAsync(Content.Classic.Files, UserId, null, null, newMessage.Id, newMessage.ChatId, null, newMessage.RealId);
+					await CreateFilesAsync(Content.Classic.Files, UserId, null, null, newMessage.Id, newMessage.ChatId, null, newMessage.RealId, null);
 				}
 
 				break;
@@ -1216,7 +1217,7 @@ public class MessageService : IMessageService
 		List<FileMetaResponseDTO>? filesResponse = null;
 		if (Files != null && Files.Any())
 		{
-			filesResponse = await CreateFilesAsync(Files, UserId, newTask.Id, channel.Id, null, null, newTask.RealId, null);
+			filesResponse = await CreateFilesAsync(Files, UserId, newTask.Id, channel.Id, null, null, null, null, newTask.RealId);
 		}
 
 		var rolesIds = roles.Select(r => r.Id).ToList();
@@ -1482,7 +1483,7 @@ public class MessageService : IMessageService
 		List<FileMetaResponseDTO>? filesResponse = null;
 		if (Files != null && Files.Any())
 		{
-			filesResponse = await CreateFilesAsync(Files, UserId, newSolution.Id, channel.Id, null, null, newSolution.RealId, null);
+			filesResponse = await CreateFilesAsync(Files, UserId, newSolution.Id, channel.Id, null, null, null, null, newSolution.RealId);
 		}
 
 		var response = new SolutionResponceDTO

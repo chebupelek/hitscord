@@ -74,6 +74,8 @@ public class FileService : IFileService
 		var file = await _hitsContext.File
 			.Include(f => f.ChannelMessage)
 				.ThenInclude(cm => cm.TextChannel)
+			.Include(f => f.TaskMessage)
+				.ThenInclude(cm => cm.TextLessonChannel)
 			.Include(f => f.ChatMessage)
 			.FirstOrDefaultAsync(f => f.Id == fileId && f.Deleted == false);
 
@@ -82,7 +84,7 @@ public class FileService : IFileService
 			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
 		}
 
-		if (file.ChatMessageId == null && file.ChannelMessageId == null)
+		if (file.ChatMessageId == null && file.ChannelMessageId == null && file.TaskMessageRealId == null)
 		{
 			throw new CustomException("File not 'file'", "Get file", "File id", 400, "Файл не является приложенным к сообщению файлом", "Получение файла");
 		}
@@ -120,6 +122,31 @@ public class FileService : IFileService
 			if (!canSee)
 			{
 				throw new CustomException( "User has no access to see this channel", "Get file", "Permissions", 403, "Пользователь не имеет доступа к этому каналу", "Получение файла" );
+			}
+		}
+
+		if (file.ChannelMessageId != null && file.TaskMessage != null)
+		{
+			var channelId = file.TaskMessage.TextLessonChannelId;
+
+			var userSub = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+						.ThenInclude(r => r.ChannelCanSee)
+				.FirstOrDefaultAsync(us => us.ServerId == file.TaskMessage.TextLessonChannel.ServerId && us.UserId == UserId);
+
+			if (userSub == null)
+			{
+				throw new CustomException("User is not subscriber of this server", "Get file", "User", 403, "Пользователь не является подписчиком сервера", "Получение файла");
+			}
+
+			var canSee = userSub.SubscribeRoles
+				.SelectMany(sr => sr.Role.ChannelCanSee)
+				.Any(ccs => ccs.ChannelId == channelId);
+
+			if (!canSee)
+			{
+				throw new CustomException("User has no access to see this channel", "Get file", "Permissions", 403, "Пользователь не имеет доступа к этому каналу", "Получение файла");
 			}
 		}
 

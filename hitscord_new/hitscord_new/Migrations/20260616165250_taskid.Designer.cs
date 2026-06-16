@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using hitscord.Contexts;
@@ -12,9 +13,11 @@ using hitscord.Contexts;
 namespace hitscord_new.Migrations
 {
     [DbContext(typeof(HitsContext))]
-    partial class HitsContextModelSnapshot : ModelSnapshot
+    [Migration("20260616165250_taskid")]
+    partial class taskid
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
