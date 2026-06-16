@@ -207,7 +207,42 @@ public class FileService : IFileService
 
 			canUse = true;
 		}
+		var textLessonChannel = await _hitsContext.TextLessonChannel.FirstOrDefaultAsync(nc => nc.Id == channelId);
+		if (textLessonChannel != null)
+		{
+			var userServer = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+						.ThenInclude(r => r.ChannelCanSee)
+				.FirstOrDefaultAsync(us => us.ServerId == textLessonChannel.ServerId && us.UserId == UserId);
+			if (userServer == null)
+			{
+				throw new CustomException(
+					"User not subscriber of this server",
+					"UploadFileToMessageAsync",
+					"Channel id",
+					401,
+					"Пользователь не является подписчиком сервера",
+					"Загрузка файла в сообщение"
+				);
+			}
+			var canSee = userServer.SubscribeRoles
+				.SelectMany(sr => sr.Role.ChannelCanSee)
+				.Any(ccs => ccs.ChannelId == textLessonChannel.Id);
+			if (canSee == false)
+			{
+				throw new CustomException(
+					"User hasnt rights to write in this channel",
+					"UploadFileToMessageAsync",
+					"Channel id",
+					401,
+					"Пользователь не имеет прав писать в этом канале",
+					"Загрузка файла в сообщение"
+				);
+			}
 
+			canUse = true;
+		}
 		var subChannel = await _hitsContext.SubChannel.FirstOrDefaultAsync(nc => nc.Id == channelId);
 		if (subChannel != null)
 		{
