@@ -1728,10 +1728,11 @@ public class ServerService : IServerService
 					CanWrite = t.ChannelCanWrite.Any(ccw => userRoleIds.Contains(ccw.RoleId)),
 					CanWriteSub = t.ChannelCanWriteSub.Any(ccws => userRoleIds.Contains(ccws.RoleId)),
 					IsNotifiable = nonNotifiableSet.Contains(t.Id),
-					NonReadedCount = t.Messages.Count(m => m.DeleteTime == null),
+					NonReadedCount = t.Messages.Count(m => m.DeleteTime == null && m.Id > lastReadId),
 					NonReadedTaggedCount = t.Messages.Count(m =>
 						m.TaggedUsers.Contains(UserId) ||
-						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
+						m.TaggedRoles.Any(r => userRoleIds.Contains(r))
+						&& m.Id > lastReadId),
 					LastReadedMessageId = lastReadId,
 					LastReadedMessage =
 						lastMessagesDict.TryGetValue((t.Id, lastReadId), out var msg)
@@ -1806,11 +1807,12 @@ public class ServerService : IServerService
 					IsNotifiable = nonNotifiableSet.Contains(n.Id),
 
 					NonReadedCount = n.Messages.Count(m =>
-						m.DeleteTime == null),
+						m.DeleteTime == null && m.Id > lastReadId),
 
 					NonReadedTaggedCount = n.Messages.Count(m =>
 						m.TaggedUsers.Contains(UserId) ||
-						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
+						m.TaggedRoles.Any(r => userRoleIds.Contains(r))
+						&& m.Id > lastReadId),
 
 					LastReadedMessageId = lastReadId,
 
@@ -1856,11 +1858,12 @@ public class ServerService : IServerService
 					IsNotifiable = nonNotifiableSet.Contains(q.Id),
 
 					NonReadedCount = q.Messages.Count(m =>
-						m.DeleteTime == null),
+						m.DeleteTime == null && m.Id > lastReadId),
 
 					NonReadedTaggedCount = q.Messages.Count(m =>
 						m.TaggedUsers.Contains(UserId) ||
-						m.TaggedRoles.Any(r => userRoleIds.Contains(r))),
+						m.TaggedRoles.Any(r => userRoleIds.Contains(r))
+						&& m.Id > lastReadId),
 
 					LastReadedMessageId = lastReadId,
 
