@@ -10,7 +10,6 @@ public class LessonChannelMessageSolutionDbModel : LessonChannelMessageDbModel
 	[MaxLength(10000)]
 	public required string Description { get; set; }
 	public DateTime? UpdatedAt { get; set; }
-	public ICollection<FileDbModel> Files { get; set; }
 	public int? Grade { get; set; }
 	public DateTime? GradeDate { get; set; }
 	public Guid? GradeAuthorId { get; set; }

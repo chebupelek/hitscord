@@ -24,6 +24,8 @@ public class LessonChannelMessageDbModel
 	[ForeignKey(nameof(TextLessonChannelId))]
 	public TextLessonChannelDbModel TextLessonChannel { get; set; }
 
+	public ICollection<FileDbModel> Files { get; set; }
+
 	public long? ReplyToMessageId { get; set; }
 
     public DateTime? DeleteTime { get; set; }

@@ -658,6 +658,11 @@ namespace hitscord.Contexts
 					.WithMany(m => m.Files)
 					.HasForeignKey(f => f.ChatMessageRealId)
 					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(f => f.TaskMessage)
+					.WithMany(m => m.Files)
+					.HasForeignKey(f => f.TaskMessageRealId)
+					.OnDelete(DeleteBehavior.Cascade);
 			});
 
 			modelBuilder.Entity<ServerPresetDbModel>(entity =>
