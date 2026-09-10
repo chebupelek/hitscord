@@ -5,14 +5,13 @@ namespace hitscord.IServices;
 
 public interface ITokenService
 {
-    TokensDTO CreateTokens(UserDbModel user);
-    Task ValidateTokenAsync(string accessToken, string refreshToken, Guid? userId);
-    Task InvalidateTokenAsync(string token);
-    Task InvalidateRefreshTokenAsync(string token);
-    Task<bool> IsTokenValidAsync(string token);
-    bool IsTokenExpired(string token);
-    Task<bool> CheckRefreshToken(string token);
-    Task<TokensDTO> UpdateTokens(string refreshToken);
-    Task BanningTokensAsync();
-    Task<Guid> CheckAuth(string token);
+	// 1) Для обычных пользователей
+	Task<TokensDTO> CreateTokensAsync(UserDbModel user);
+	Task InvalidateSessionAsync(string sessionId);
+	Task<TokensDTO> UpdateTokensAsync(string sessionId, string refreshToken);
+
+	// 2) Для админов
+	Task<TokenAdminDTO> CreateTokensAdminAsync(AdminDbModel admin);
+	Task InvalidateSessionAdminAsync(string sessionId);
+	Task<bool> CheckAdminAuthAsync(string sessionId, string accessToken);
 }

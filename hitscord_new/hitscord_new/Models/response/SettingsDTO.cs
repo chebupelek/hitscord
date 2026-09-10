@@ -13,4 +13,6 @@ public class SettingsDTO
 	public required bool CanCreateRoles { get; set; }
 	public required bool CanCreateLessons { get; set; }
 	public required bool CanCheckAttendance { get; set; }
+	public required bool CanUseInvitations { get; set; }
+	public required bool CanCheckGrades { get; set; }
 }

@@ -5,10 +5,10 @@ namespace hitscord.IServices;
 
 public interface IFileService
 {
-	Task<FileResponseDTO> GetFileAsync(string token, Guid fileId);
-	Task<FileResponseDTO> GetIconAsync(string token, Guid fileId);
-	Task<FileMetaResponseDTO> UploadFileToMessageAsync(string token, Guid channelId, IFormFile file);
-	Task DeleteNotApprovedFileAsync(string token, Guid fileId);
+	Task<FileResponseDTO> GetFileAsync(Guid UserId, Guid fileId);
+	Task<FileResponseDTO> GetIconAsync(Guid fileId);
+	Task<FileMetaResponseDTO> UploadFileToMessageAsync(Guid UserId, Guid channelId, IFormFile file);
+	Task DeleteNotApprovedFileAsync(Guid UserId, Guid fileId);
 	Task RemoveNotApprovedFilesFromDBAsync();
 	Task RemoveOldFilesFromDBAsync();
 }

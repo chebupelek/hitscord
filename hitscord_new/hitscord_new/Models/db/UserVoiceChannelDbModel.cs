@@ -16,6 +16,9 @@ public class UserVoiceChannelDbModel
     [ForeignKey(nameof(VoiceChannelId))]
     public VoiceChannelDbModel VoiceChannel { get; set; }
 
-    public required MuteStatusEnum MuteStatus { get; set; }
+	public required bool Inside { get; set; }
+
+	public required bool MutedHimself { get; set; }
+    public required bool MutedOther { get; set; }
     public required bool IsStream { get; set; }
 }

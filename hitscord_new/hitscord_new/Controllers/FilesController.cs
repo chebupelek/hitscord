@@ -9,17 +9,18 @@ using hitscord.Models.other;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Файлы")]
 [Route("files")]
 public class FilesController : ControllerBase
 {
     private readonly IFileService _fileService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ICurrentUserService _currentUser;
 
-    public FilesController(IFileService fileService, IHttpContextAccessor httpContextAccessor)
+	public FilesController(IFileService fileService, ICurrentUserService currentUser)
     {
 		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+	}
 
     [Authorize]
     [HttpGet]
@@ -28,8 +29,7 @@ public class FilesController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var file = await _fileService.GetFileAsync(jwtToken, FileId);
+            var file = await _fileService.GetFileAsync(_currentUser.UserId, FileId);
             return Ok(file);
         }
         catch (CustomException ex)
@@ -48,9 +48,8 @@ public class FilesController : ControllerBase
 	public async Task<IActionResult> GetIcon([FromQuery] Guid fileId)
 	{
 		try
-		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var file = await _fileService.GetIconAsync(jwtToken, fileId);
+		{	
+			var file = await _fileService.GetIconAsync(fileId);
 			return Ok(file);
 		}
 		catch (CustomException ex)
@@ -70,8 +69,7 @@ public class FilesController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var file = await _fileService.UploadFileToMessageAsync(jwtToken, data.ChannelId, data.File);
+			var file = await _fileService.UploadFileToMessageAsync(_currentUser.UserId, data.ChannelId, data.File);
 			return Ok(file);
 		}
 		catch (CustomException ex)
@@ -91,8 +89,7 @@ public class FilesController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _fileService.DeleteNotApprovedFileAsync(jwtToken, data.Id);
+			await _fileService.DeleteNotApprovedFileAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)

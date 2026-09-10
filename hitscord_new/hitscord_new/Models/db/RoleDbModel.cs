@@ -32,6 +32,8 @@ public class RoleDbModel
 
     public required string Tag { get; set; }
 
+    public required int Position { get; set; }
+
     public required bool ServerCanChangeRole { get; set; }
 
     public required bool ServerCanWorkChannels { get; set; }
@@ -50,10 +52,17 @@ public class RoleDbModel
 
     public required bool ServerCanCheckAttendance { get; set; }
 
-    public ICollection<ChannelCanSeeDbModel> ChannelCanSee { get; set; }
+	public required bool ServerCanUseInvitations { get; set; }
+
+	public required bool ServerCanCheckGrades { get; set; }
+
+	public ICollection<ChannelCanSeeDbModel> ChannelCanSee { get; set; }
     public ICollection<ChannelCanWriteDbModel> ChannelCanWrite { get; set; }
     public ICollection<ChannelCanWriteSubDbModel> ChannelCanWriteSub { get; set; }
     public ICollection<ChannelNotificatedDbModel> ChannelNotificated { get; set; }
     public ICollection<ChannelCanUseDbModel> ChannelCanUse { get; set; }
     public ICollection<ChannelCanJoinDbModel> ChannelCanJoin { get; set; }
+	public ICollection<ChannelCanMakeTasksDbModel> ChannelCanMakeTasks { get; set; }
+	public ICollection<ChannelCanJoinQueueDbModel> ChannelCanJoinQueue { get; set; }
+	public ICollection<ChannelCanTakeFromQueueDbModel> ChannelCanTakeFromQueue { get; set; }
 }

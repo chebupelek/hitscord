@@ -9,26 +9,68 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using hitscord.Utils;
 using Microsoft.AspNetCore.HttpOverrides;
-using hitscord.WebSockets;
 using Quartz;
 using hitscord.nClamUtil;
 using hitscord.Models.db;
+using StackExchange.Redis;
+using hitscord.Redis.Sessions;
+using hitscord.Redis.CashedDB;
+using Microsoft.AspNetCore.SignalR;
+using hitscord.SignalR;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
+using hitscord.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<HitsContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("RoomContext")));
+builder.Configuration
+	.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+	.AddEnvironmentVariables();
 
-builder.Services.AddDbContext<hitscord.Contexts.TokenContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("TokenContext")));
+builder.Services.Configure<ClamAVOptions>(options =>
+{
+	options.Host = builder.Configuration["CLAMAV_HOST"] ?? "clamav";
+
+	var portStr = builder.Configuration["CLAMAV_PORT"];
+	if (!int.TryParse(portStr, out var port))
+	{
+		port = 3310;
+	}
+
+	options.Port = port;
+});
+
+string dbHost = builder.Configuration["DB_HOST"]!;
+string dbUser = builder.Configuration["DB_USER"]!;
+string dbPassword = builder.Configuration["DB_PASSWORD"]!;
+string dbNameFirst = builder.Configuration["DB_NAME_FIRST"]!;
+string dbNameSecond = builder.Configuration["DB_NAME_SECOND"]!;
+var redisHost = builder.Configuration["REDIS_HOST"] ?? "localhost";
+var redisPort = builder.Configuration["REDIS_PORT"] ?? "6379";
+var redisPassword = builder.Configuration["REDIS_PASSWORD"] ?? "";
+
+var redisConnString = $"{redisHost}:{redisPort},password={redisPassword}";
+
+string roomConn =
+	$"Host={dbHost};Database={dbNameFirst};Username={dbUser};Password={dbPassword};";
+
+string tokenConn =
+	$"Host={dbHost};Database={dbNameSecond};Username={dbUser};Password={dbPassword};";
+
+builder.Services.AddDbContext<HitsContext>(options =>
+    options.UseNpgsql(roomConn));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddHttpClient();
+
+builder.Services.AddSignalR();
+
+builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
+builder.Services.AddScoped<IRealtimeService, RealtimeService>();
 
 builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
@@ -42,19 +84,41 @@ builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("ApiSettings"));
+builder.Services.Configure<ApiSettings>(options =>
+{
+	options.BaseUrl = Environment.GetEnvironmentVariable("API_BASE_URL") ?? "https://default.url";
+});
 
-builder.Services.Configure<ClamAVOptions>(builder.Configuration.GetSection("ClamAV"));
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+	try
+	{
+		return ConnectionMultiplexer.Connect(redisConnString);
+	}
+	catch
+	{
+		return null!;
+	}
+});
+builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
+builder.Services.AddScoped<IRedisSessionService, RedisSessionService>();
+
 builder.Services.AddSingleton<nClamService>();
 
-builder.Services.Configure<MinioSettings>(builder.Configuration.GetSection("Minio"));
+builder.Services.Configure<MinioSettings>(options =>
+{
+	options.Endpoint = Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ?? "minio:9000";
+	options.AccessKey = Environment.GetEnvironmentVariable("MINIO_USER") ?? "";
+	options.SecretKey = Environment.GetEnvironmentVariable("MINIO_PASSWORD") ?? "";
+	options.BucketName = Environment.GetEnvironmentVariable("MINIO_BUCKET") ?? "";
+	options.UseSSL = false;
+});
+
 builder.Services.AddSingleton<MinioService>();
 
-builder.Services.AddSingleton<WebSocketConnectionStore>();
-builder.Services.AddScoped<WebSocketsManager>();
-builder.Services.AddScoped<WebSocketHandler>();
-
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "defaultSecretTooShort";
 builder.Services.AddAuthentication(opt => {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -65,52 +129,75 @@ builder.Services.AddAuthentication(opt => {
         {
             ValidateIssuer = false,
             ValidateAudience = false,
-            ValidateLifetime = false,
-            ValidateIssuerSigningKey = true,
+            ValidateLifetime = true,
+			ClockSkew = TimeSpan.Zero,
+			ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"]!,
             ValidAudience = builder.Configuration["Jwt:Audience"]!,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!))
-        };
-    });
+			IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+		};
+
+		options.Events = new JwtBearerEvents
+		{
+			OnMessageReceived = context =>
+			{
+				var token = context.Request.Cookies["access_token"];
+
+				if (!string.IsNullOrEmpty(token))
+				{
+					context.Token = token;
+				}
+
+				if (string.IsNullOrEmpty(context.Token))
+				{
+					var accessToken = context.Request.Query["access_token"];
+
+					if (!string.IsNullOrEmpty(accessToken))
+					{
+						context.Token = accessToken;
+					}
+				}
+
+				return Task.CompletedTask;
+			}
+		};
+	});
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
+	c.SwaggerDoc("v1", new OpenApiInfo
+	{
+		Title = "Hitscord API",
+		Version = "v1",
+		Description = "HTTP API платформы Hitscord. Большинство операций требуют JWT-пользователя: авторизация передаётся HTTP-only cookie `access_token` (Swagger UI сохраняет cookie при выполнении запросов) либо Bearer-токеном. Все даты передавайте в ISO 8601, идентификаторы — UUID."
+	});
+
+	c.OperationFilter<HitscordOperationFilter>();
+	c.SchemaFilter<HitscordSchemaFilter>();
 
 	c.AddServer(new OpenApiServer { Url = "/api" });
 
 	c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer"
-    });
+	{
+		Description = "JWT Authorization header using the Bearer scheme",
+		Type = SecuritySchemeType.Http,
+		Scheme = "bearer"
+	});
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] { }
-        }
-    });
-});
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowSpecificOrigin",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
-        });
+	c.AddSecurityRequirement(new OpenApiSecurityRequirement
+	{
+		{
+			new OpenApiSecurityScheme
+			{
+				Reference = new OpenApiReference
+				{
+					Type = ReferenceType.SecurityScheme,
+					Id = "Bearer"
+				}
+			},
+			Array.Empty<string>()
+		}
+	});
 });
 
 builder.Services.AddQuartz(q =>
@@ -153,6 +240,30 @@ builder.Services.AddQuartz(q =>
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("AllowAll", p =>
+	{
+		p.SetIsOriginAllowed(_ => true)
+		 .AllowAnyHeader()
+		 .AllowAnyMethod()
+		 .AllowCredentials();
+	});
+});
+/*
+builder.Services.AddSingleton(_ =>
+{
+	FirebaseApp.Create(new AppOptions
+	{
+		Credential = GoogleCredential.FromFile(
+			"Secrets/firebase-adminsdk.json"
+		)
+	});
+
+	return FirebaseApp.DefaultInstance;
+});
+builder.Services.AddScoped<IFirebaseService, FirebaseService>();
+*/
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -191,8 +302,11 @@ using (var scope = app.Services.CreateScope())
 	var adminService = scope.ServiceProvider.GetRequiredService<IAdminService>();
 	await adminService.CreateAccountOnce();
 
-	var LogContext = scope.ServiceProvider.GetRequiredService<hitscord.Contexts.TokenContext>();
-    await LogContext.Database.MigrateAsync();
+	var serverService = scope.ServiceProvider.GetRequiredService<IServerService>();
+	await serverService.RedisUpdateFullServerAsync();
+
+	var channelService = scope.ServiceProvider.GetRequiredService<IChannelService>();
+	await channelService.UpdateReddisFullChannelAsync();
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
@@ -200,15 +314,19 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-app.UseCors("AllowSpecificOrigin");
-
 app.UseWebSockets();
-app.UseMiddleware<WebSocketMiddleware>();
 
 app.MapGet("/", () => "WebSocket server is running!");
 
+app.MapHub<ChatHub>("/api/wss");
+
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+	c.ConfigObject.AdditionalItems["withCredentials"] = true;
+});
+
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 

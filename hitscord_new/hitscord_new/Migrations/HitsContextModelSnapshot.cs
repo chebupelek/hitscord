@@ -123,6 +123,36 @@ namespace hitscord_new.Migrations
                     b.ToTable("ChannelCanJoin");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.ChannelCanJoinQueueDbModel", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TextQueueChannelId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("RoleId", "TextQueueChannelId");
+
+                    b.HasIndex("TextQueueChannelId");
+
+                    b.ToTable("ChannelCanJoinQueue");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChannelCanMakeTasksDbModel", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TextLessonChannelId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("RoleId", "TextLessonChannelId");
+
+                    b.HasIndex("TextLessonChannelId");
+
+                    b.ToTable("ChannelCanMakeTasks");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.ChannelCanSeeDbModel", b =>
                 {
                     b.Property<Guid>("RoleId")
@@ -136,6 +166,21 @@ namespace hitscord_new.Migrations
                     b.HasIndex("ChannelId");
 
                     b.ToTable("ChannelCanSee");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChannelCanTakeFromQueueDbModel", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TextQueueChannelId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("RoleId", "TextQueueChannelId");
+
+                    b.HasIndex("TextQueueChannelId");
+
+                    b.ToTable("ChannelCanTakeFromQueue");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ChannelCanUseDbModel", b =>
@@ -194,15 +239,23 @@ namespace hitscord_new.Migrations
                         .HasMaxLength(21)
                         .HasColumnType("character varying(21)");
 
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("ServerId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GroupId");
 
                     b.HasIndex("ServerId");
 
@@ -213,13 +266,37 @@ namespace hitscord_new.Migrations
                     b.UseTphMappingStrategy();
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.ChannelGroupDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.ToTable("ChannelGroup");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.ChannelMessageDbModel", b =>
                 {
                     b.Property<Guid>("RealId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("AuthorId")
+                    b.Property<Guid?>("AuthorId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -247,10 +324,7 @@ namespace hitscord_new.Migrations
                         .IsRequired()
                         .HasColumnType("uuid[]");
 
-                    b.Property<Guid?>("TextChannelId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TextChannelIdDouble")
+                    b.Property<Guid>("TextChannelId")
                         .HasColumnType("uuid");
 
                     b.HasKey("RealId");
@@ -267,6 +341,34 @@ namespace hitscord_new.Migrations
                     b.HasDiscriminator<string>("MessageType").HasValue("ChannelMessageDbModel");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChannelMessageReactionDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChannelMessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReactionCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("ChannelMessageId");
+
+                    b.ToTable("ChannelMessageReaction");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ChannelNotificatedDbModel", b =>
@@ -362,7 +464,7 @@ namespace hitscord_new.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("AuthorId")
+                    b.Property<Guid?>("AuthorId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("ChatId")
@@ -406,6 +508,34 @@ namespace hitscord_new.Migrations
                     b.HasDiscriminator<string>("MessageType").HasValue("ChatMessageDbModel");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChatMessageReactionDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatMessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReactionCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("ChatMessageId");
+
+                    b.ToTable("ChatMessageReaction");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ChatVariantUserDbModel", b =>
@@ -509,6 +639,9 @@ namespace hitscord_new.Migrations
                     b.Property<long>("Size")
                         .HasColumnType("bigint");
 
+                    b.Property<Guid?>("TaskMessageRealId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("TextChannelId")
                         .HasColumnType("uuid");
 
@@ -529,6 +662,8 @@ namespace hitscord_new.Migrations
 
                     b.HasIndex("ServerId")
                         .IsUnique();
+
+                    b.HasIndex("TaskMessageRealId");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -620,6 +755,51 @@ namespace hitscord_new.Migrations
                     b.HasIndex("ChatId");
 
                     b.ToTable("LastReadChatMessage");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.LessonChannelMessageDbModel", b =>
+                {
+                    b.Property<Guid>("RealId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeleteTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Id")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(34)
+                        .HasColumnType("character varying(34)");
+
+                    b.Property<long?>("ReplyToMessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("TextLessonChannelId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("RealId");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("TextLessonChannelId");
+
+                    b.HasIndex("Id", "TextLessonChannelId")
+                        .IsUnique();
+
+                    b.ToTable("LessonChannelMessage");
+
+                    b.HasDiscriminator<string>("MessageType").HasValue("LessonChannelMessageDbModel");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("hitscord.Models.db.NonNotifiableChannelDbModel", b =>
@@ -751,6 +931,53 @@ namespace hitscord_new.Migrations
                     b.ToTable("PairUser");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.QueueItemDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChannelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChannelId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("QueueItem");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.QueueTakeDbModel", b =>
+                {
+                    b.Property<Guid>("TextQueueChannelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TakerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FromQueueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TextQueueChannelId", "TakerId", "FromQueueId");
+
+                    b.HasIndex("FromQueueId");
+
+                    b.HasIndex("TakerId");
+
+                    b.ToTable("QueueTake");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.RoleDbModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -761,10 +988,16 @@ namespace hitscord_new.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("LessonChannelMessageTaskDbModelRealId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Role")
                         .HasColumnType("integer");
@@ -773,6 +1006,9 @@ namespace hitscord_new.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<bool>("ServerCanCheckAttendance")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ServerCanCheckGrades")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("ServerCanCreateLessons")
@@ -793,6 +1029,9 @@ namespace hitscord_new.Migrations
                     b.Property<bool>("ServerCanMuteOther")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("ServerCanUseInvitations")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("ServerCanWorkChannels")
                         .HasColumnType("boolean");
 
@@ -804,6 +1043,8 @@ namespace hitscord_new.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LessonChannelMessageTaskDbModelRealId");
 
                     b.HasIndex("ServerId");
 
@@ -819,6 +1060,9 @@ namespace hitscord_new.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("InvitationId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ServerId")
                         .HasColumnType("uuid");
 
@@ -829,6 +1073,8 @@ namespace hitscord_new.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InvitationId");
 
                     b.HasIndex("ServerId");
 
@@ -854,15 +1100,43 @@ namespace hitscord_new.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<DateTime>("ServerCreateDate")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<int>("ServerType")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.ToTable("Server");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ServerInvitationDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Invitation");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ServerPresetDbModel", b =>
@@ -965,6 +1239,9 @@ namespace hitscord_new.Migrations
                     b.Property<Guid?>("IconFileId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsUser")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Mail")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -988,6 +1265,29 @@ namespace hitscord_new.Migrations
                     b.ToTable("User");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.UserDeviceTokenDbModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserDeviceToken");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.UserServerDbModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1000,8 +1300,14 @@ namespace hitscord_new.Migrations
                     b.Property<DateTime?>("BanTime")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("InvitationId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("IsBanned")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime>("JoinTime")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("NonNotifiable")
                         .HasColumnType("boolean");
@@ -1019,6 +1325,8 @@ namespace hitscord_new.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InvitationId");
+
                     b.HasIndex("ServerId");
 
                     b.HasIndex("UserId");
@@ -1034,16 +1342,19 @@ namespace hitscord_new.Migrations
                     b.Property<Guid>("VoiceChannelId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("Inside")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsStream")
                         .HasColumnType("boolean");
 
-                    b.Property<int>("MuteStatus")
-                        .HasColumnType("integer");
+                    b.Property<bool>("MutedHimself")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("MutedOther")
+                        .HasColumnType("boolean");
 
                     b.HasKey("UserId", "VoiceChannelId");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
 
                     b.HasIndex("VoiceChannelId");
 
@@ -1058,6 +1369,22 @@ namespace hitscord_new.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasDiscriminator().HasValue("Text");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.TextLessonChannelDbModel", b =>
+                {
+                    b.HasBaseType("hitscord.Models.db.ChannelDbModel");
+
+                    b.Property<DateTime?>("DeleteTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.ToTable("Channel", t =>
+                        {
+                            t.Property("DeleteTime")
+                                .HasColumnName("TextLessonChannelDbModel_DeleteTime");
+                        });
+
+                    b.HasDiscriminator().HasValue("LessonText");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.VoiceChannelDbModel", b =>
@@ -1148,6 +1475,59 @@ namespace hitscord_new.Migrations
                     b.HasDiscriminator().HasValue("Classic");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.LessonChannelMessageSolutionDbModel", b =>
+                {
+                    b.HasBaseType("hitscord.Models.db.LessonChannelMessageDbModel");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
+
+                    b.Property<int?>("Grade")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("GradeAuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("GradeDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasIndex("GradeAuthorId");
+
+                    b.HasDiscriminator().HasValue("Solution");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.LessonChannelMessageTaskDbModel", b =>
+                {
+                    b.HasBaseType("hitscord.Models.db.LessonChannelMessageDbModel");
+
+                    b.Property<DateTime?>("Deadline")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.ToTable("LessonChannelMessage", t =>
+                        {
+                            t.Property("Description")
+                                .HasColumnName("LessonChannelMessageTaskDbModel_Description");
+
+                            t.Property("UpdatedAt")
+                                .HasColumnName("LessonChannelMessageTaskDbModel_UpdatedAt");
+                        });
+
+                    b.HasDiscriminator().HasValue("Task");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.NotificationChannelDbModel", b =>
                 {
                     b.HasBaseType("hitscord.Models.db.TextChannelDbModel");
@@ -1172,6 +1552,13 @@ namespace hitscord_new.Migrations
                         .IsUnique();
 
                     b.HasDiscriminator().HasValue("Sub");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.TextQueueChannelDbModel", b =>
+                {
+                    b.HasBaseType("hitscord.Models.db.TextChannelDbModel");
+
+                    b.HasDiscriminator().HasValue("Queue");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.PairVoiceChannelDbModel", b =>
@@ -1240,6 +1627,44 @@ namespace hitscord_new.Migrations
                     b.Navigation("VoiceChannel");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.ChannelCanJoinQueueDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.RoleDbModel", "Role")
+                        .WithMany("ChannelCanJoinQueue")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.TextQueueChannelDbModel", "TextQueueChannel")
+                        .WithMany("ChannelCanJoinQueue")
+                        .HasForeignKey("TextQueueChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("TextQueueChannel");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChannelCanMakeTasksDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.RoleDbModel", "Role")
+                        .WithMany("ChannelCanMakeTasks")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.TextLessonChannelDbModel", "TextLessonChannel")
+                        .WithMany("ChannelCanMakeTasks")
+                        .HasForeignKey("TextLessonChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("TextLessonChannel");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.ChannelCanSeeDbModel", b =>
                 {
                     b.HasOne("hitscord.Models.db.ChannelDbModel", "Channel")
@@ -1257,6 +1682,25 @@ namespace hitscord_new.Migrations
                     b.Navigation("Channel");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChannelCanTakeFromQueueDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.RoleDbModel", "Role")
+                        .WithMany("ChannelCanTakeFromQueue")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.TextQueueChannelDbModel", "TextQueueChannel")
+                        .WithMany("ChannelCanTakeFromQueue")
+                        .HasForeignKey("TextQueueChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("TextQueueChannel");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ChannelCanUseDbModel", b =>
@@ -1318,8 +1762,25 @@ namespace hitscord_new.Migrations
 
             modelBuilder.Entity("hitscord.Models.db.ChannelDbModel", b =>
                 {
+                    b.HasOne("hitscord.Models.db.ChannelGroupDbModel", "Group")
+                        .WithMany("Channels")
+                        .HasForeignKey("GroupId");
+
                     b.HasOne("hitscord.Models.db.ServerDbModel", "Server")
                         .WithMany("Channels")
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+
+                    b.Navigation("Server");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChannelGroupDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.ServerDbModel", "Server")
+                        .WithMany("Groups")
                         .HasForeignKey("ServerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1331,18 +1792,35 @@ namespace hitscord_new.Migrations
                 {
                     b.HasOne("hitscord.Models.db.UserDbModel", "Author")
                         .WithMany()
-                        .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("AuthorId");
 
                     b.HasOne("hitscord.Models.db.TextChannelDbModel", "TextChannel")
                         .WithMany("Messages")
                         .HasForeignKey("TextChannelId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Author");
 
                     b.Navigation("TextChannel");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChannelMessageReactionDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.UserDbModel", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("hitscord.Models.db.ChannelMessageDbModel", "ChannelMessage")
+                        .WithMany("Reactions")
+                        .HasForeignKey("ChannelMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("ChannelMessage");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ChannelNotificatedDbModel", b =>
@@ -1407,18 +1885,34 @@ namespace hitscord_new.Migrations
                 {
                     b.HasOne("hitscord.Models.db.UserDbModel", "Author")
                         .WithMany()
-                        .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("AuthorId");
 
                     b.HasOne("hitscord.Models.db.ChatDbModel", "Chat")
                         .WithMany("Messages")
                         .HasForeignKey("ChatId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Author");
 
                     b.Navigation("Chat");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChatMessageReactionDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.UserDbModel", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("hitscord.Models.db.ChatMessageDbModel", "ChatMessage")
+                        .WithMany("Reactions")
+                        .HasForeignKey("ChatMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("ChatMessage");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.ChatVariantUserDbModel", b =>
@@ -1472,6 +1966,11 @@ namespace hitscord_new.Migrations
                         .HasForeignKey("hitscord.Models.db.FileDbModel", "ServerId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("hitscord.Models.db.LessonChannelMessageDbModel", "TaskMessage")
+                        .WithMany("Files")
+                        .HasForeignKey("TaskMessageRealId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("hitscord.Models.db.UserDbModel", "User")
                         .WithOne("IconFile")
                         .HasForeignKey("hitscord.Models.db.FileDbModel", "UserId")
@@ -1484,6 +1983,8 @@ namespace hitscord_new.Migrations
                     b.Navigation("ChatMessage");
 
                     b.Navigation("Server");
+
+                    b.Navigation("TaskMessage");
 
                     b.Navigation("User");
                 });
@@ -1564,6 +2065,23 @@ namespace hitscord_new.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.LessonChannelMessageDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.UserDbModel", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId");
+
+                    b.HasOne("hitscord.Models.db.TextLessonChannelDbModel", "TextLessonChannel")
+                        .WithMany("Messages")
+                        .HasForeignKey("TextLessonChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("TextLessonChannel");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.NonNotifiableChannelDbModel", b =>
                 {
                     b.HasOne("hitscord.Models.db.TextChannelDbModel", "TextChannel")
@@ -1632,8 +2150,58 @@ namespace hitscord_new.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.QueueItemDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.TextQueueChannelDbModel", "Channel")
+                        .WithMany("Queue")
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.UserDbModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Channel");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.QueueTakeDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.UserDbModel", "FromQueue")
+                        .WithMany()
+                        .HasForeignKey("FromQueueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.UserDbModel", "Taker")
+                        .WithMany()
+                        .HasForeignKey("TakerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.TextQueueChannelDbModel", "TextQueueChannel")
+                        .WithMany("Takes")
+                        .HasForeignKey("TextQueueChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FromQueue");
+
+                    b.Navigation("Taker");
+
+                    b.Navigation("TextQueueChannel");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.RoleDbModel", b =>
                 {
+                    b.HasOne("hitscord.Models.db.LessonChannelMessageTaskDbModel", null)
+                        .WithMany("AssignedRoles")
+                        .HasForeignKey("LessonChannelMessageTaskDbModelRealId");
+
                     b.HasOne("hitscord.Models.db.ServerDbModel", "Server")
                         .WithMany("Roles")
                         .HasForeignKey("ServerId")
@@ -1645,6 +2213,10 @@ namespace hitscord_new.Migrations
 
             modelBuilder.Entity("hitscord.Models.db.ServerApplicationDbModel", b =>
                 {
+                    b.HasOne("hitscord.Models.db.ServerInvitationDbModel", "Invitation")
+                        .WithMany()
+                        .HasForeignKey("InvitationId");
+
                     b.HasOne("hitscord.Models.db.ServerDbModel", "Server")
                         .WithMany()
                         .HasForeignKey("ServerId")
@@ -1656,6 +2228,25 @@ namespace hitscord_new.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Invitation");
+
+                    b.Navigation("Server");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ServerInvitationDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.ServerDbModel", "Server")
+                        .WithMany("Invitations")
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hitscord.Models.db.UserDbModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
 
                     b.Navigation("Server");
 
@@ -1728,8 +2319,23 @@ namespace hitscord_new.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.UserDeviceTokenDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.UserDbModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.UserServerDbModel", b =>
                 {
+                    b.HasOne("hitscord.Models.db.ServerInvitationDbModel", "Invitation")
+                        .WithMany()
+                        .HasForeignKey("InvitationId");
+
                     b.HasOne("hitscord.Models.db.ServerDbModel", "Server")
                         .WithMany("Subscribtions")
                         .HasForeignKey("ServerId")
@@ -1742,6 +2348,8 @@ namespace hitscord_new.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Invitation");
+
                     b.Navigation("Server");
 
                     b.Navigation("User");
@@ -1750,8 +2358,8 @@ namespace hitscord_new.Migrations
             modelBuilder.Entity("hitscord.Models.db.UserVoiceChannelDbModel", b =>
                 {
                     b.HasOne("hitscord.Models.db.UserDbModel", "User")
-                        .WithOne()
-                        .HasForeignKey("hitscord.Models.db.UserVoiceChannelDbModel", "UserId")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1764,6 +2372,15 @@ namespace hitscord_new.Migrations
                     b.Navigation("User");
 
                     b.Navigation("VoiceChannel");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.LessonChannelMessageSolutionDbModel", b =>
+                {
+                    b.HasOne("hitscord.Models.db.UserDbModel", "GradeAuthor")
+                        .WithMany()
+                        .HasForeignKey("GradeAuthorId");
+
+                    b.Navigation("GradeAuthor");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.SubChannelDbModel", b =>
@@ -1782,6 +2399,16 @@ namespace hitscord_new.Migrations
                     b.Navigation("ChannelCanSee");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.ChannelGroupDbModel", b =>
+                {
+                    b.Navigation("Channels");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.ChannelMessageDbModel", b =>
+                {
+                    b.Navigation("Reactions");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.ChannelVoteVariantDbModel", b =>
                 {
                     b.Navigation("UsersVariants");
@@ -1794,16 +2421,32 @@ namespace hitscord_new.Migrations
                     b.Navigation("Users");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.ChatMessageDbModel", b =>
+                {
+                    b.Navigation("Reactions");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.ChatVoteVariantDbModel", b =>
                 {
                     b.Navigation("UsersVariants");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.LessonChannelMessageDbModel", b =>
+                {
+                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.RoleDbModel", b =>
                 {
                     b.Navigation("ChannelCanJoin");
 
+                    b.Navigation("ChannelCanJoinQueue");
+
+                    b.Navigation("ChannelCanMakeTasks");
+
                     b.Navigation("ChannelCanSee");
+
+                    b.Navigation("ChannelCanTakeFromQueue");
 
                     b.Navigation("ChannelCanUse");
 
@@ -1818,7 +2461,11 @@ namespace hitscord_new.Migrations
                 {
                     b.Navigation("Channels");
 
+                    b.Navigation("Groups");
+
                     b.Navigation("IconFile");
+
+                    b.Navigation("Invitations");
 
                     b.Navigation("Roles");
 
@@ -1845,6 +2492,13 @@ namespace hitscord_new.Migrations
                     b.Navigation("ChannelCanWrite");
 
                     b.Navigation("ChannelCanWriteSub");
+
+                    b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.TextLessonChannelDbModel", b =>
+                {
+                    b.Navigation("ChannelCanMakeTasks");
 
                     b.Navigation("Messages");
                 });
@@ -1878,6 +2532,11 @@ namespace hitscord_new.Migrations
                     b.Navigation("Files");
                 });
 
+            modelBuilder.Entity("hitscord.Models.db.LessonChannelMessageTaskDbModel", b =>
+                {
+                    b.Navigation("AssignedRoles");
+                });
+
             modelBuilder.Entity("hitscord.Models.db.NotificationChannelDbModel", b =>
                 {
                     b.Navigation("ChannelNotificated");
@@ -1886,6 +2545,17 @@ namespace hitscord_new.Migrations
             modelBuilder.Entity("hitscord.Models.db.SubChannelDbModel", b =>
                 {
                     b.Navigation("ChannelCanUse");
+                });
+
+            modelBuilder.Entity("hitscord.Models.db.TextQueueChannelDbModel", b =>
+                {
+                    b.Navigation("ChannelCanJoinQueue");
+
+                    b.Navigation("ChannelCanTakeFromQueue");
+
+                    b.Navigation("Queue");
+
+                    b.Navigation("Takes");
                 });
 
             modelBuilder.Entity("hitscord.Models.db.PairVoiceChannelDbModel", b =>

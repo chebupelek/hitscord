@@ -6,7 +6,7 @@ using hitscord.Models.db;
 using hitscord.Models.inTime;
 using hitscord.Models.other;
 using hitscord.Models.response;
-using hitscord.WebSockets;
+using hitscord.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Data;
@@ -23,19 +23,19 @@ public class ScheduleService : IScheduleService
 	private readonly IAuthorizationService _authorizationService;
 	private readonly IChannelService _channelService;
 	private readonly IServerService _serverService;
-	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRealtimeService _realtimeService;
 	private readonly HttpClient _httpClient;
 	private readonly string _baseUrl;
 	//private readonly ILogger<ScheduleService> _logger;
 	private readonly INotificationService _notificationsService;
 
-	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IChannelService channelService, IServerService serverService, WebSocketsManager webSocketManager, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, /*ILogger<ScheduleService> logger,*/ INotificationService notificationsService)
+	public ScheduleService(HitsContext hitsContext, IAuthorizationService authorizationService, IChannelService channelService, IServerService serverService, IRealtimeService realtimeService, IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings, /*ILogger<ScheduleService> logger,*/ INotificationService notificationsService)
     {
         _hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_serverService = serverService ?? throw new ArgumentNullException(nameof(serverService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_httpClient = httpClientFactory.CreateClient();
 		_baseUrl = apiSettings.Value.BaseUrl;
 		//_logger = logger;
@@ -287,16 +287,15 @@ public class ScheduleService : IScheduleService
 		}
 	}
 
-	public async Task<ScheduleGrid> GetScheduleOnChannelAsync(string token, ScheduleType Type, Guid Id, string dateFrom, string dateTo, Guid pairVoiceChannelId)
+	public async Task<ScheduleGrid> GetScheduleOnChannelAsync(Guid UserId, ScheduleType Type, Guid Id, string dateFrom, string dateTo, Guid pairVoiceChannelId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 		var pairChannel = await _channelService.CheckPairVoiceChannelExistAsync(pairVoiceChannelId, false);
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanSee)
-			.FirstOrDefaultAsync(us => us.ServerId == pairChannel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == pairChannel.ServerId && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "GetScheduleOnChannelAsync", "User", 404, "Пользователь не является подписчиком сервера", "Получение расписания канала");
@@ -344,7 +343,8 @@ public class ScheduleService : IScheduleService
 										Name = r.Name,
 										Tag = r.Tag,
 										Color = r.Color,
-										Type = r.Role
+										Type = r.Role,
+										Position = r.Position
 									})
 									.ToList(),
 								Note = p.Note
@@ -359,15 +359,14 @@ public class ScheduleService : IScheduleService
 		return schedule;
 	}
 
-	public async Task<ScheduleGrid> GetScheduleOnServerAsync(string token, ScheduleType Type, Guid Id, string dateFrom, string dateTo, Guid serverId)
+	public async Task<ScheduleGrid> GetScheduleOnServerAsync(Guid UserId, ScheduleType Type, Guid Id, string dateFrom, string dateTo, Guid serverId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 		var server = await _serverService.CheckServerExistAsync(serverId, false);
 
 		var ownerSub = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
-			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == server.Id && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "GetScheduleOnServerAsync", "User", 404, "Пользователь не является подписчиком сервера", "Получение расписания сервера");
@@ -408,7 +407,8 @@ public class ScheduleService : IScheduleService
 										Name = r.Name,
 										Tag = r.Tag,
 										Color = r.Color,
-										Type = r.Role
+										Type = r.Role,
+										Position = r.Position
 									})
 									.ToList(),
 								Note = p.Note
@@ -423,13 +423,11 @@ public class ScheduleService : IScheduleService
 		return schedule;
 	}
 
-	public async Task<ScheduleGrid> GetScheduleForUserAsync(string token, ScheduleType Type, Guid Id, string dateFrom, string dateTo)
+	public async Task<ScheduleGrid> GetScheduleForUserAsync(Guid UserId, ScheduleType Type, Guid Id, string dateFrom, string dateTo)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
-
 		var roles = await _hitsContext.UserServer
 			.Include(us => us.SubscribeRoles)
-			.Where(us => us.UserId == user.Id)
+			.Where(us => us.UserId == UserId)
 			.SelectMany(us => us.SubscribeRoles.Select(sr => sr.RoleId))
 			.ToListAsync();
 
@@ -467,7 +465,8 @@ public class ScheduleService : IScheduleService
 										Name = r.Name,
 										Tag = r.Tag,
 										Color = r.Color,
-										Type = r.Role
+										Type = r.Role,
+										Position = r.Position
 									})
 									.ToList(),
 								Note = p.Note
@@ -482,9 +481,8 @@ public class ScheduleService : IScheduleService
 		return schedule;
 	}
 
-	public async Task CreatePairAsync(string token, Guid scheduleId, Guid pairVoiceChannelId, List<Guid> roleIds, string? note, ScheduleType Type, Guid Id, string date)
+	public async Task CreatePairAsync(Guid UserId, Guid scheduleId, Guid pairVoiceChannelId, List<Guid> roleIds, string? note, ScheduleType Type, Guid Id, string date)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 		var pairChannel = await _channelService.CheckPairVoiceChannelExistAsync(pairVoiceChannelId, false);
 		var server = await _serverService.CheckServerExistAsync(pairChannel.ServerId, false);
 
@@ -492,7 +490,7 @@ public class ScheduleService : IScheduleService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanSee)
-			.FirstOrDefaultAsync(us => us.ServerId == pairChannel.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == pairChannel.ServerId && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "CreatePairAsync", "User", 404, "Пользователь не является подписчиком сервера", "Создание занятия");
@@ -603,7 +601,6 @@ public class ScheduleService : IScheduleService
 
 
 		var alertedUsers = await _hitsContext.UserServer
-			.Include(us => us.SubscribeRoles)
 			.Where(us => us.SubscribeRoles.Any(sr => channelRoles.Contains(sr.RoleId)))
 			.Select(us => us.UserId)
 			.ToListAsync();
@@ -614,16 +611,14 @@ public class ScheduleService : IScheduleService
 
 			if (targetUsers.Any())
 			{
-				await _webSocketManager.BroadcastMessageAsync(newPairResponse, targetUsers, "New pair on this channel");
+				await _realtimeService.SendToUsers(targetUsers, newPairResponse, "New pair on this channel");
 				//await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Вам назначили пару на сервере: {server.Name}");
 			}
 		}
 	}
 
-	public async Task UpdatePairAsync(string token, Guid pairId, List<Guid> roleIds, string? note)
+	public async Task UpdatePairAsync(Guid UserId, Guid pairId, List<Guid> roleIds, string? note)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
-
 		var nowUtc = DateTime.UtcNow;
 		var currentDateStr = nowUtc.ToString("yyyy-MM-dd");
 		var secondsSinceMidnightUtc = (long)nowUtc.TimeOfDay.TotalSeconds;
@@ -646,7 +641,7 @@ public class ScheduleService : IScheduleService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanSee)
-			.FirstOrDefaultAsync(us => us.ServerId == pair.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == pair.ServerId && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "UpdatePairAsync", "User", 404, "Пользователь не является подписчиком сервера", "Обновление пары");
@@ -738,16 +733,14 @@ public class ScheduleService : IScheduleService
 
 			if (targetUsers.Any())
 			{
-				await _webSocketManager.BroadcastMessageAsync(newPairResponse, alertedUsers, "Updated pair on this channel");
+				await _realtimeService.SendToUsers(targetUsers, newPairResponse, "Updated pair on this channel");
 				//await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {updatedPair.Server.Name}");
 			}
 		}
 	}
 
-	public async Task DeletePairAsync(string token, Guid pairId)
+	public async Task DeletePairAsync(Guid UserId, Guid pairId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
-
 		var nowUtc = DateTime.UtcNow;
 		var currentDateStr = nowUtc.ToString("yyyy-MM-dd");
 		var secondsSinceMidnightUtc = (long)nowUtc.TimeOfDay.TotalSeconds;
@@ -768,7 +761,7 @@ public class ScheduleService : IScheduleService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanSee)
-			.FirstOrDefaultAsync(us => us.ServerId == pair.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == pair.ServerId && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "DeletePairAsync", "User", 404, "Пользователь не является подписчиком сервера", "Удаление пары");
@@ -829,15 +822,14 @@ public class ScheduleService : IScheduleService
 
 			if (targetUsers.Any())
 			{
-				await _webSocketManager.BroadcastMessageAsync(deletedPairResponse, alertedUsers, "Deleted pair on this channel");
+				await _realtimeService.SendToUsers(targetUsers, deletedPairResponse, "Deleted pair on this channel");
 				//await _notificationsService.AddNotificationForUsersListAsync(targetUsers, $"Пару изменили на сервере: {pair.Server.Name}");
 			}
 		}
 	}
 
-	public async Task<AttendanceListDTO> GetAttendanceAsync(string token, Guid pairId)
+	public async Task<AttendanceListDTO> GetAttendanceAsync(Guid UserId, Guid pairId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 		var pair = await _hitsContext.Pair.Include(p => p.Server).Include(p => p.PairVoiceChannel).FirstOrDefaultAsync(p => p.Id == pairId);
 		if (pair == null)
 		{
@@ -848,7 +840,7 @@ public class ScheduleService : IScheduleService
 			.Include(us => us.SubscribeRoles)
 				.ThenInclude(sr => sr.Role)
 					.ThenInclude(r => r.ChannelCanSee)
-			.FirstOrDefaultAsync(us => us.ServerId == pair.ServerId && us.UserId == user.Id);
+			.FirstOrDefaultAsync(us => us.ServerId == pair.ServerId && us.UserId == UserId);
 		if (ownerSub == null)
 		{
 			throw new CustomException("User is not subscriber of this server", "GetAttendanceAsync", "User", 404, "Пользователь не является подписчиком сервера", "Получение посещаемости");

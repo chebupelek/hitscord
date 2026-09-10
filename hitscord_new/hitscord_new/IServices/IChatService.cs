@@ -5,14 +5,14 @@ namespace hitscord.IServices;
 
 public interface IChatService
 {
-	Task<ChatInfoDTO> CreateChatAsync(string token, string userTag); 
-	Task ChangeChatNameAsync(string token, Guid chatId, string newName);
-	Task<ChatListDTO> GetChatsListAsync(string token);
-	Task<ChatInfoDTO> GetChatInfoAsync(string token, Guid chatId);
-	Task AddUserAsync(string token, string userTag, Guid chatId);
-	Task RemoveUserAsync(string token, Guid chatId);
-	Task<MessageListResponseDTO> GetChatMessagesAsync(string token, Guid chatId, int number, long fromMessageId, bool down);
-	Task ChangeChatIconAsync(string token, Guid chatId, IFormFile iconFile);
-	Task DeleteChatIconAsync(string token, Guid chatId);
-	Task ChangeNonNotifiableChatAsync(string token, Guid chatId);
+	Task<ChatInfoDTO> CreateChatAsync(Guid OwnerId, string userTag); 
+	Task ChangeChatNameAsync(Guid UserId, Guid chatId, string newName);
+	Task<ChatListDTO> GetChatsListAsync(Guid UserId);
+	Task<ChatInfoDTO> GetChatInfoAsync(Guid UserId, Guid chatId);
+	Task AddUserAsync(Guid OwnerId, string userTag, Guid chatId);
+	Task RemoveUserAsync(Guid UserId, Guid chatId);
+	Task<MessageListResponseDTO> GetChatMessagesAsync(Guid UserId, Guid chatId, int number, long fromMessageId, bool down);
+	Task ChangeChatIconAsync(Guid UserId, Guid chatId, IFormFile iconFile);
+	Task DeleteChatIconAsync(Guid UserId, Guid chatId);
+	Task ChangeNonNotifiableChatAsync(Guid UserId, Guid chatId);
 }

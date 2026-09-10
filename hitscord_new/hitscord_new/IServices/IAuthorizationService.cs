@@ -7,21 +7,19 @@ namespace hitscord.IServices;
 
 public interface IAuthorizationService
 {
-    Task<bool> CheckUserAuthAsync(string token);
-    Task<UserDbModel> GetUserAsync(string token);
     Task<UserDbModel> GetUserAsync(Guid userId);
     Task<UserDbModel> GetUserByTagAsync(string UserTag);
 	Task<TokensDTO> CreateAccount(UserRegistrationDTO registrationData);
     Task<TokensDTO> LoginAsync(LoginDTO loginData);
-    Task LogoutAsync(string token);
-    Task<TokensDTO> RefreshTokensAsync(string token);
-    Task<ProfileDTO> GetProfileAsync(string token);
-    Task<ProfileDTO> ChangeProfileAsync(string token, ChangeProfileDTO newData);
-    Task ChangeNotifiableAsync(string token);
-    Task ChangeFriendshipAsync(string token);
-    Task ChangeNonFriendAsync(string token);
-    Task ChangeNotificationLifetimeAsync(string token, int time);
-	Task<UserResponseDTO> GetUserDataByIdAsync(string token, Guid userId);
-    Task<FileMetaResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile);
-    Task DeleteUserIconAsync(string token);
+    Task RegisterDeviceAsync(string token, Guid id);
+
+	Task<ProfileDTO> GetProfileAsync(Guid UserId);
+    Task<ProfileDTO> ChangeProfileAsync(Guid UserId, ChangeProfileDTO newData);
+    Task ChangeNotifiableAsync(Guid UserId);
+    Task ChangeFriendshipAsync(Guid UserId);
+    Task ChangeNonFriendAsync(Guid UserId);
+    Task ChangeNotificationLifetimeAsync(Guid UserId, int time);
+	Task<UserResponseDTO> GetUserDataByIdAsync(Guid SearchedUserId);
+    Task<FileMetaResponseDTO> ChangeUserIconAsync(Guid UserId, IFormFile iconFile);
+    Task DeleteUserIconAsync(Guid UserId);
 }

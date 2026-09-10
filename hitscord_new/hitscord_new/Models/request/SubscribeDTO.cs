@@ -5,23 +5,11 @@ namespace hitscord.Models.request;
 
 public class SubscribeDTO
 {
-    public required Guid ServerId { get; set; }
+    public required string InvitationToken { get; set; }
     public string? UserName { get; set; }
 
     public void Validation()
     {
-        if (ServerId == Guid.Empty)
-        {
-            throw new CustomException(
-                "ServerId is required.",
-                "Subscribe",
-                "ServerId",
-                400,
-                "Необходимо отправить serverId",
-                "Валидация подписки"
-            );
-        }
-
         if (!string.IsNullOrWhiteSpace(UserName))
         {
             if (UserName.Length < 6 || UserName.Length > 50)

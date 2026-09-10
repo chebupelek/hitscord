@@ -1,9 +1,10 @@
-﻿using hitscord.Contexts;
+﻿using Authzed.Api.V0;
+using hitscord.Contexts;
 using hitscord.IServices;
 using hitscord.Models.db;
 using hitscord.Models.other;
 using hitscord.Models.response;
-using hitscord.WebSockets;
+using hitscord.SignalR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -16,20 +17,20 @@ public class FriendshipService : IFriendshipService
 {
     private readonly HitsContext _hitsContext;
 	private readonly IAuthorizationService _authorizationService;
-	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRealtimeService _realtimeService;
 	private readonly INotificationService _notificationsService;
 
-	public FriendshipService(HitsContext hitsContext, IAuthorizationService authorizationService, INotificationService notificationsService, WebSocketsManager webSocketManager)
+	public FriendshipService(HitsContext hitsContext, IAuthorizationService authorizationService, INotificationService notificationsService, IRealtimeService realtimeService)
 	{
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 		_notificationsService = notificationsService ?? throw new ArgumentNullException(nameof(notificationsService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 	}
 
-    public async Task CreateApplicationAsync(string token, string userTag)
+    public async Task CreateApplicationAsync(Guid UserId, string userTag)
     {
-        var user = await _authorizationService.GetUserAsync(token);
+        var user = await _authorizationService.GetUserAsync(UserId);
 		var friend = await _authorizationService.GetUserByTagAsync(userTag);
 
 		if (user.Id == friend.Id)
@@ -101,7 +102,11 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = application.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(responseTo, new List<Guid> { friend.Id }, "New friendship application");
+		await _realtimeService.SendToUser(
+			friend.Id,
+			responseTo, 
+			"New friendship application"
+		);
 		var responseFrom = new ApplicationsListItem
 		{
 			Id = application.Id,
@@ -131,12 +136,16 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = application.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(responseFrom, new List<Guid> { user.Id }, "Created friendship application");
+		await _realtimeService.SendToUser(
+			user.Id,
+			responseFrom, 
+			"Created friendship application"
+		);
 	}
 
-	public async Task DeleteApplicationAsync(string token, Guid applicationId)
+	public async Task DeleteApplicationAsync(Guid UserId, Guid applicationId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
+		var user = await _authorizationService.GetUserAsync(UserId);
 
 		var app = await _hitsContext.FriendshipApplication.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdFrom == user.Id);
 		if (app == null)
@@ -169,12 +178,16 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdTo }, "Friendship application deleted");
+		await _realtimeService.SendToUser(
+			app.UserIdTo,
+			response, 
+			"Friendship application deleted"
+		);
 	}
 
-	public async Task DeclineApplicationAsync(string token, Guid applicationId)
+	public async Task DeclineApplicationAsync(Guid UserId, Guid applicationId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
+		var user = await _authorizationService.GetUserAsync(UserId);
 
 		var app = await _hitsContext.FriendshipApplication.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdTo == user.Id);
 		if (app == null)
@@ -207,12 +220,16 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { app.UserIdFrom }, "Friendship application declined");
+		await _realtimeService.SendToUser(
+			app.UserIdFrom,
+			response,
+			"Friendship application declined"
+		);
 	}
 
-	public async Task ApproveApplicationAsync(string token, Guid applicationId)
+	public async Task ApproveApplicationAsync(Guid UserId, Guid applicationId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
+		var user = await _authorizationService.GetUserAsync(UserId);
 
 		var app = await _hitsContext.FriendshipApplication.FirstOrDefaultAsync(f => f.Id == applicationId && f.UserIdTo == user.Id);
 		if (app == null)
@@ -227,7 +244,7 @@ public class FriendshipService : IFriendshipService
 		}
 
 		_hitsContext.FriendshipApplication.Remove(app);
-		_hitsContext.Friendship.Add( new FriendshipDbModel
+		_hitsContext.Friendship.Add(new FriendshipDbModel
 		{
 			Id = Guid.NewGuid(),
 			UserIdFrom = app.UserIdFrom,
@@ -274,7 +291,11 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(responseFrom, new List<Guid> { app.UserIdFrom }, "Friendship application approved");
+		await _realtimeService.SendToUser(
+			app.UserIdFrom,
+			responseFrom, 
+			"Friendship application approved"
+		);
 
 		var responseTo = new ApplicationsListItem
 		{
@@ -305,13 +326,15 @@ public class FriendshipService : IFriendshipService
 			},
 			CreatedAt = app.CreatedAt
 		};
-		await _webSocketManager.BroadcastMessageAsync(responseTo, new List<Guid> { app.UserIdTo }, "You approved application");
+		await _realtimeService.SendToUser(
+			app.UserIdTo,
+			responseTo, 
+			"You approved application"
+		);
 	}
 
-	public async Task<ApplicationsList> GetApplicationListTo(string token)
+	public async Task<ApplicationsList> GetApplicationListTo(Guid UserId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
-
 		var applicationsList = new ApplicationsList()
 		{
 			Applications = await _hitsContext.FriendshipApplication
@@ -319,7 +342,7 @@ public class FriendshipService : IFriendshipService
 					.ThenInclude(uf => uf.IconFile)
 				.Include(f => f.UserFrom)
 					.ThenInclude(uf => uf.SystemRoles)
-				.Where(f => f.UserIdTo == user.Id)
+				.Where(f => f.UserIdTo == UserId)
 				.Select(f => new ApplicationsListItem
 				{
 					Id = f.Id,
@@ -355,10 +378,8 @@ public class FriendshipService : IFriendshipService
 		return applicationsList;
 	}
 
-	public async Task<ApplicationsList> GetApplicationListFrom(string token)
+	public async Task<ApplicationsList> GetApplicationListFrom(Guid UserId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
-
 		var applicationsList = new ApplicationsList()
 		{
 			Applications = await _hitsContext.FriendshipApplication
@@ -366,7 +387,7 @@ public class FriendshipService : IFriendshipService
 					.ThenInclude(ut => ut.IconFile)
 				.Include(f => f.UserTo)
 					.ThenInclude(ut => ut.SystemRoles)
-				.Where(f => f.UserIdFrom == user.Id)
+				.Where(f => f.UserIdFrom == UserId)
 				.Select(f => new ApplicationsListItem
 				{
 					Id = f.Id,
@@ -402,17 +423,16 @@ public class FriendshipService : IFriendshipService
 		return applicationsList;
 	}
 
-	public async Task<UsersList> GetFriendsListAsync(string token)
+	public async Task<UsersList> GetFriendsListAsync(Guid UserId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 
 		var friends = await _hitsContext.Friendship
 			.Include(f => f.UserFrom).ThenInclude(u => u.IconFile)
 			.Include(f => f.UserFrom).ThenInclude(u => u.SystemRoles)
 			.Include(f => f.UserTo).ThenInclude(u => u.IconFile)
 			.Include(f => f.UserTo).ThenInclude(u => u.SystemRoles)
-			.Where(f => f.UserIdFrom == user.Id || f.UserIdTo == user.Id)
-			.Select(f => f.UserIdFrom == user.Id ? f.UserTo : f.UserFrom)
+			.Where(f => f.UserIdFrom == UserId || f.UserIdTo == UserId)
+			.Select(f => f.UserIdFrom == UserId ? f.UserTo : f.UserFrom)
 			.ToListAsync();
 
 		var result = new UsersList
@@ -447,11 +467,11 @@ public class FriendshipService : IFriendshipService
 		return result;
 	}
 
-	public async Task DeleteFriendAsync(string token, Guid UserId)
+	public async Task DeleteFriendAsync(Guid UserId, Guid DeletedFriendId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
+		var user = await _authorizationService.GetUserAsync(UserId);
 
-		var friend = await _hitsContext.Friendship.FirstOrDefaultAsync(f => (f.UserIdFrom == user.Id && f.UserIdTo == UserId) || (f.UserIdTo == user.Id && f.UserIdFrom == UserId));
+		var friend = await _hitsContext.Friendship.FirstOrDefaultAsync(f => (f.UserIdFrom == user.Id && f.UserIdTo == DeletedFriendId) || (f.UserIdTo == user.Id && f.UserIdFrom == DeletedFriendId));
 		if (friend == null)
 		{
 			throw new CustomException("Users are not friends", "DeleteFriendAsync", "UserId", 404, "Пользователи - не друзья", "Удаление из друзей");
@@ -477,6 +497,10 @@ public class FriendshipService : IFriendshipService
 				})
 				.ToList()
 		};
-		await _webSocketManager.BroadcastMessageAsync(response, new List<Guid> { friend.UserIdFrom == user.Id ? friend.UserIdTo : friend.UserIdFrom }, "Friendship deleted");
+		await _realtimeService.SendToUser(
+			friend.UserIdFrom == user.Id ? friend.UserIdTo : friend.UserIdFrom,
+			response, 
+			"Friendship deleted"
+		);
 	}
 }

@@ -17,6 +17,9 @@ using Microsoft.EntityFrameworkCore.Query;
 using Grpc.Core;
 using hitscord.Utils;
 using Authzed.Api.V0;
+using System;
+using hitscord.Redis.Sessions;
+using hitscord.Redis.CashedDB;
 
 namespace hitscord.Services;
 
@@ -25,49 +28,28 @@ public class AuthorizationService : IAuthorizationService
     private readonly HitsContext _hitsContext;
 	private readonly PasswordHasher<string> _passwordHasher;
     private readonly ITokenService _tokenService;
+	private readonly IRedisCacheService _cacheService;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
+	//private readonly ILogger<FileService> _logger;
 
-	public AuthorizationService(HitsContext hitsContext, ITokenService tokenService, nClamService clamService, MinioService minioService)
+	public AuthorizationService(
+		/*ILogger<FileService> logger, */
+		HitsContext hitsContext, 
+		ITokenService tokenService, 
+		IRedisCacheService cacheService, 
+		nClamService clamService, 
+		MinioService minioService
+		)
     {
+		//_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
 		_passwordHasher = new PasswordHasher<string>();
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+		_cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
-
-    public async Task<bool> CheckUserAuthAsync(string token)
-    {
-        if (!await _tokenService.IsTokenValidAsync(token))
-        {
-            throw new CustomException("Access token not found", "CheckAuth", "Access token", 401, "Сессия не найдена", "Проверка авторизации");
-        }
-        if (_tokenService.IsTokenExpired(token))
-        {
-            throw new CustomException("Access token expired", "CheckAuth", "Access token", 401, "Сессия окончена", "Проверка авторизации");
-        }
-        return true;
-    }
-
-    public async Task<UserDbModel> GetUserAsync(string token)
-    {
-        await CheckUserAuthAsync(token);
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var jsonToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
-        var userId = jsonToken?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null)
-        {
-            throw new CustomException("UserId not found", "Profile", "Access token", 404, "Не найден подобный Id пользователя", "Получение профиля");
-        }
-        Guid userIdGuid = Guid.Parse(userId);
-        var user = await _hitsContext.User.Include(u => u.SystemRoles).Include(u => u.IconFile).FirstOrDefaultAsync(u => u.Id == userIdGuid);
-        if (user == null)
-        {
-            throw new CustomException("User not found", "Profile", "User", 404, "Пользователь не найден", "Получение профиля");
-        }
-        return user;
-    }
 
     public async Task<UserDbModel> GetUserAsync(Guid userId)
     {
@@ -93,10 +75,14 @@ public class AuthorizationService : IAuthorizationService
 	{
 		var file = await _hitsContext.File.FindAsync(iconId);
 		if (file == null)
+		{
 			return null;
+		}
 
 		if (!file.Type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+		{
 			return null;
+		}
 
 		return new FileMetaResponseDTO
 		{
@@ -107,6 +93,7 @@ public class AuthorizationService : IAuthorizationService
 			Deleted = file.Deleted,
 		};
 	}
+
 
 	public async Task<TokensDTO> CreateAccount(UserRegistrationDTO registrationData)
     {
@@ -141,17 +128,17 @@ public class AuthorizationService : IAuthorizationService
             FriendshipApplication = true,
             NonFriendMessage = true,
 			NotificationLifeTime = 4,
-			SystemRoles = new List<SystemRoleDbModel>()
+			SystemRoles = new List<SystemRoleDbModel>(),
+			IsUser = true
 		};
 		newUser.SystemRoles.Add(studentRole);
 
         await _hitsContext.User.AddAsync(newUser);
-        _hitsContext.SaveChanges();
+        await _hitsContext.SaveChangesAsync();
 
-        var tokens = _tokenService.CreateTokens(newUser);
-        await _tokenService.ValidateTokenAsync(tokens.AccessToken, tokens.RefreshToken, newUser.Id);
+        var tokens = await _tokenService.CreateTokensAsync(newUser);
 
-        return tokens;
+		return tokens;
     }
 
     public async Task<TokensDTO> LoginAsync(LoginDTO loginData)
@@ -169,38 +156,30 @@ public class AuthorizationService : IAuthorizationService
             throw new CustomException("Wrong password", "Login", "Password", 401, "Неверный пароль", "Логин");
         }
 
-        var tokens = _tokenService.CreateTokens(userData);
-        await _tokenService.ValidateTokenAsync(tokens.AccessToken, tokens.RefreshToken, userData.Id);
+        var tokens = await _tokenService.CreateTokensAsync(userData);
 
         return tokens;
     }
 
-    public async Task LogoutAsync(string token)
-    {
-        await GetUserAsync(token);
-        await _tokenService.InvalidateTokenAsync(token);
-    }
+	public async Task RegisterDeviceAsync(string token, Guid id)
+	{
+		var tokenDevice = new UserDeviceTokenDbModel
+		{
+			Id = Guid.NewGuid(),
+			UserId = id,
+			Token = token,
+			CreatedAt = DateTime.UtcNow
+		};
 
-    public async Task<TokensDTO> RefreshTokensAsync(string token)
-    {
-        if (!await _tokenService.CheckRefreshToken(token))
-        {
-            throw new CustomException("Refresh token not found", "Refresh", "Refresh token", 401, "Refresh токен не найден", "Обновление токенов");
-        }
-        if (_tokenService.IsTokenExpired(token))
-        {
-            await _tokenService.InvalidateRefreshTokenAsync(token);
-            throw new CustomException("Refresh token expired", "Refresh", "Refresh token", 401, "Refresh токен просрочен", "Обновление токенов");
-        }
-        var tokens = await _tokenService.UpdateTokens(token);
-        return tokens;
-    }
+		await _hitsContext.UserDeviceToken.AddAsync(tokenDevice);
+		await _hitsContext.SaveChangesAsync();
+	}
 
-    public async Task<ProfileDTO> GetProfileAsync(string token)
+	public async Task<ProfileDTO> GetProfileAsync(Guid UserId)
     {
-        var user = await GetUserAsync(token);
+		var user = await GetUserAsync(UserId);
 
-        var icon = user.IconFileId == null ? null : await GetImageAsync((Guid)user.IconFileId);
+		var icon = user.IconFileId == null ? null : await GetImageAsync((Guid)user.IconFileId);
 
         var userData = new ProfileDTO
         {
@@ -225,13 +204,15 @@ public class AuthorizationService : IAuthorizationService
 		return userData;
     }
 
-    public async Task<ProfileDTO> ChangeProfileAsync(string token, ChangeProfileDTO newData)
+    public async Task<ProfileDTO> ChangeProfileAsync(Guid UserId, ChangeProfileDTO newData)
     {
-        var userData = await GetUserAsync(token);
+        var userData = await GetUserAsync(UserId);
 		if (newData.Mail != null)
 		{
-			var existEmail = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id != userData.Id && u.Mail == newData.Mail);
-			throw new CustomException("Account with this mail already exist", "Account", "Mail", 400, "Аккаунт с такой почтой уже существует", "Изменение информации о пользователе");
+			if ((await _hitsContext.User.FirstOrDefaultAsync(u => u.Id != userData.Id && u.Mail == newData.Mail)) != null)
+			{
+				throw new CustomException("Account with this mail already exist", "Account", "Mail", 400, "Аккаунт с такой почтой уже существует", "Изменение информации о пользователе");
+			}
 		}
 		if (newData.Name != null)
 		{
@@ -243,6 +224,20 @@ public class AuthorizationService : IAuthorizationService
 				formattedNumber = formattedNumber.Substring(formattedNumber.Length - 6);
 			}
 			userData.AccountTag = Regex.Replace(Transliteration.CyrillicToLatin(userData.AccountName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower() + "#" + formattedNumber;
+
+			var channelIds = await _hitsContext.UserServer
+				.Where(us => us.UserId == userData.Id)
+				.SelectMany(us => us.SubscribeRoles)
+				.Select(sr => sr.Role)
+				.SelectMany(r => r.ChannelCanSee.Select(c => c.ChannelId)
+					.Concat(r.ChannelCanUse.Select(c => c.SubChannelId)))
+				.Distinct()
+				.ToListAsync();
+
+			if(channelIds != null && channelIds.Count > 0)
+			{
+				await _cacheService.UpdateUserTagAsync(channelIds, userData.Id, userData.AccountTag);
+			}
 		}
 		userData.Mail = newData.Mail != null ? newData.Mail : userData.Mail;
         _hitsContext.User.Update(userData);
@@ -270,45 +265,57 @@ public class AuthorizationService : IAuthorizationService
 		return newUserData;
     }
 
-	public async Task ChangeNotifiableAsync(string token)
+	public async Task ChangeNotifiableAsync(Guid UserId)
 	{
-		var userData = await GetUserAsync(token);
+		var userData = await GetUserAsync(UserId);
 		userData.Notifiable = !userData.Notifiable;
         _hitsContext.User.Update(userData);
         await _hitsContext.SaveChangesAsync();
+
+		var channelIds = await _hitsContext.UserServer
+			.Where(us => us.UserId == userData.Id)
+			.SelectMany(us => us.SubscribeRoles)
+			.SelectMany(sr => sr.Role.ChannelCanSee)
+			.Select(c => c.ChannelId)
+			.Distinct()
+			.ToListAsync();
+
+		if (channelIds != null && channelIds.Count > 0)
+		{
+			await _cacheService.UpdateUserNotifiableChannelsAsync(channelIds, userData.Id, userData.Notifiable == true ? 1 : -1);
+		}
 	}
 
-	public async Task ChangeFriendshipAsync(string token)
+	public async Task ChangeFriendshipAsync(Guid UserId)
 	{
-		var userData = await GetUserAsync(token);
+		var userData = await GetUserAsync(UserId);
 		userData.FriendshipApplication = !userData.FriendshipApplication;
 		_hitsContext.User.Update(userData);
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task ChangeNonFriendAsync(string token)
+	public async Task ChangeNonFriendAsync(Guid UserId)
 	{
-		var userData = await GetUserAsync(token);
+		var userData = await GetUserAsync(UserId);
 		userData.NonFriendMessage = !userData.NonFriendMessage;
 		_hitsContext.User.Update(userData);
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task ChangeNotificationLifetimeAsync(string token, int time)
+	public async Task ChangeNotificationLifetimeAsync(Guid UserId, int time)
 	{
-		var userData = await GetUserAsync(token);
+		var userData = await GetUserAsync(UserId);
 		userData.NotificationLifeTime = time;
 		_hitsContext.User.Update(userData);
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task<UserResponseDTO> GetUserDataByIdAsync(string token, Guid userId)
+	public async Task<UserResponseDTO> GetUserDataByIdAsync(Guid SearchedUserId)
     {
-		var user = await GetUserAsync(token);
-        var userById = await GetUserAsync(userId);
+        var userById = await GetUserAsync(SearchedUserId);
         var userData = new UserResponseDTO
         {
-			UserId = userId,
+			UserId = SearchedUserId,
 			UserName = userById.AccountName,
 			UserTag = userById.AccountTag,
 			Notifiable = userById.Notifiable,
@@ -325,33 +332,28 @@ public class AuthorizationService : IAuthorizationService
         return userData;
 	}
 
-	public async Task<FileMetaResponseDTO> ChangeUserIconAsync(string token, IFormFile iconFile)
+	public async Task<FileMetaResponseDTO> ChangeUserIconAsync(Guid UserId, IFormFile iconFile)
 	{
-		var user = await GetUserAsync(token);
-
+		var user = await GetUserAsync(UserId);
 		if (iconFile.Length > 10 * 1024 * 1024)
 		{
 			throw new CustomException("Icon too large", "Сhange server icon", "Icon", 400, "Файл слишком большой (макс. 10 МБ)", "Изменение иконки сервера");
 		}
-
 		if (!iconFile.ContentType.StartsWith("image/"))
 		{
 			throw new CustomException("Invalid file type", "Сhange server icon", "Icon", 400, "Файл не является изображением!", "Изменение иконки сервера");
 		}
-
 		byte[] fileBytes;
 		using (var ms = new MemoryStream())
 		{
 			await iconFile.CopyToAsync(ms);
 			fileBytes = ms.ToArray();
 		}
-
 		var scanResult = await _clamService.ScanFileAsync(fileBytes);
 		if (scanResult.Result != ClamScanResults.Clean)
 		{
 			throw new CustomException("Virus detected", "Сhange server icon", "Icon", 400, "Обнаружен вирус в файле", "Изменение иконки сервера");
 		}
-
 		using var imgStream = new MemoryStream(fileBytes);
 		SixLabors.ImageSharp.Image image;
 		try
@@ -362,18 +364,14 @@ public class AuthorizationService : IAuthorizationService
 		{
 			throw new CustomException("Invalid image file", "Сhange server icon", "Icon", 400, "Файл не является валидным изображением!", "Изменение иконки сервера");
 		}
-
 		if (image.Width > 650 || image.Height > 650)
 		{
 			throw new CustomException("Icon too large", "Сhange server icon", "Icon", 400, "Изображение слишком большое (макс. 650x650)", "Изменение иконки сервера");
 		}
-
 		var originalFileName = Path.GetFileName(iconFile.FileName);
 		var safeFileName = $"{Guid.NewGuid()}{Path.GetExtension(originalFileName)}";
 		var objectName = $"icons/{safeFileName}";
-
 		await _minioService.UploadFileAsync(objectName, fileBytes, iconFile.ContentType);
-
 		if (user.IconFileId != null)
 		{
 			var oldIcon = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == user.IconFileId);
@@ -389,7 +387,6 @@ public class AuthorizationService : IAuthorizationService
 				_hitsContext.File.Remove(oldIcon);
 			}
 		}
-
 		var file = new FileDbModel
 		{
 			Id = Guid.NewGuid(),
@@ -403,18 +400,14 @@ public class AuthorizationService : IAuthorizationService
 			Deleted = false,
 			UserId = user.Id
 		};
-
 		_hitsContext.File.Add(file);
 		await _hitsContext.SaveChangesAsync();
-
 		user.IconFileId = file.Id;
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
 
-
 		string base64Icon = Convert.ToBase64String(fileBytes);
-
-        return (new FileMetaResponseDTO
+		return (new FileMetaResponseDTO
 		{
             FileId = file.Id,
             FileName = file.Name,
@@ -424,9 +417,9 @@ public class AuthorizationService : IAuthorizationService
         });
 	}
 
-	public async Task DeleteUserIconAsync(string token)
+	public async Task DeleteUserIconAsync(Guid UserId)
 	{
-		var user = await GetUserAsync(token);
+		var user = await GetUserAsync(UserId);
 
 		if (user.IconFileId == null)
 		{

@@ -9,17 +9,18 @@ using hitscord.Services;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Уведомления")]
 [Route("notifications")]
 public class NotificationsController : ControllerBase
 {
     private readonly INotificationService _notificationService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ICurrentUserService _currentUser;
 
-    public NotificationsController(INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
+	public NotificationsController(INotificationService notificationService, ICurrentUserService currentUser)
     {
 		_notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+	}
 
     [Authorize]
     [HttpGet]
@@ -28,8 +29,7 @@ public class NotificationsController : ControllerBase
     {
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            var list = await _notificationService.GetNotificationsAsync(jwtToken, Page, Size);
+            var list = await _notificationService.GetNotificationsAsync(_currentUser.UserId, Page, Size);
             return Ok(list);
         }
         catch (CustomException ex)
@@ -49,8 +49,7 @@ public class NotificationsController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _notificationService.DeleteNotificationAsync(jwtToken, data.Id);
+			await _notificationService.DeleteNotificationAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -70,8 +69,7 @@ public class NotificationsController : ControllerBase
 	{
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _notificationService.ReadNotificationAsync(jwtToken, data.Id);
+			await _notificationService.ReadNotificationAsync(_currentUser.UserId, data.Id);
 			return Ok();
 		}
 		catch (CustomException ex)

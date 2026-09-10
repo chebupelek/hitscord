@@ -28,6 +28,8 @@ public class FileDbModel
 	public Guid? TextChannelId { get; set; }
 	public Guid? ChannelMessageRealId { get; set; }
 	public ClassicChannelMessageDbModel? ChannelMessage { get; set; }
+	public Guid? TaskMessageRealId { get; set; }
+	public LessonChannelMessageDbModel? TaskMessage { get; set; }
 
 	public long? ChatMessageId { get; set; }
 	public Guid? ChatId { get; set; }

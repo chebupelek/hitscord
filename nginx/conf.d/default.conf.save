@@ -1,0 +1,55 @@
+server {
+    listen 80;
+    server_name 196673.msk.web.highserver.ru;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name 196673.msk.web.highserver.ru;
+    ssl_certificate /etc/letsencrypt/live/196673.msk.web.highserver.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/196673.msk.web.highserver.ru/privkey.pem;
+
+    client_max_body_size 10M;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location /api/wss {
+        proxy_pass http://hitscord:80;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    location /api/ {
+        proxy_pass http://hitscord:80/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+
+        set $cors "";
+        if ($http_origin ~* "(https://196673.msk.web.highserver.ru|https://hitscord.site)") {
+            set $cors $http_origin;
+        }
+
+        # Добавил
+        #set $cors $http_origin;
+        #
+        add_header Access-Control-Allow-Origin $cors always;
+        add_header Access-Control-Allow-Credentials true always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization,Content-Type" always;
+
+        if ($request_method = OPTIONS) {
+            return 204;
+        }
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

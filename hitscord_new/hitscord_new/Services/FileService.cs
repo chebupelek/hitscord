@@ -1,12 +1,13 @@
-﻿using EasyNetQ;
+﻿using Authzed.Api.V0;
+using EasyNetQ;
 using hitscord.Contexts;
 using hitscord.IServices;
 using hitscord.Models.db;
 using hitscord.Models.other;
 using hitscord.Models.response;
 using hitscord.nClamUtil;
+using hitscord.SignalR;
 using hitscord.Utils;
-using hitscord.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using nClam;
 using System.Data;
@@ -16,28 +17,20 @@ namespace hitscord.Services;
 public class FileService : IFileService
 {
 	private readonly HitsContext _hitsContext;
-    private readonly IAuthorizationService _authorizationService;
-	private readonly WebSocketsManager _webSocketManager;
-	private readonly IChannelService _channelService;
 	private readonly nClamService _clamService;
 	//private readonly ILogger<FileService> _logger;
 	private readonly MinioService _minioService;
 
-	public FileService(HitsContext hitsContext, /*ILogger<FileService> logger,*/ IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IChannelService channelService, nClamService clamService, MinioService minioService)
+	public FileService(HitsContext hitsContext, /*ILogger<FileService> logger,*/ IChannelService channelService, nClamService clamService, MinioService minioService)
     {
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
-		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
-		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		//_logger = logger;
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
 
-	public async Task<FileResponseDTO> GetIconAsync(string token, Guid fileId)
+	public async Task<FileResponseDTO> GetIconAsync(Guid fileId)
 	{
-		await _authorizationService.GetUserAsync(token);
-
 		var file = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == fileId);
 		if (file == null)
 		{
@@ -76,13 +69,13 @@ public class FileService : IFileService
 		};
 	}
 
-	public async Task<FileResponseDTO> GetFileAsync(string token, Guid fileId)
+	public async Task<FileResponseDTO> GetFileAsync(Guid UserId, Guid fileId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
-
 		var file = await _hitsContext.File
 			.Include(f => f.ChannelMessage)
 				.ThenInclude(cm => cm.TextChannel)
+			.Include(f => f.TaskMessage)
+				.ThenInclude(cm => cm.TextLessonChannel)
 			.Include(f => f.ChatMessage)
 			.FirstOrDefaultAsync(f => f.Id == fileId && f.Deleted == false);
 
@@ -91,7 +84,7 @@ public class FileService : IFileService
 			throw new CustomException("File not found", "Get file", "File id", 404, "Файл не найден", "Получение файла");
 		}
 
-		if (file.ChatMessageId == null && file.ChannelMessageId == null)
+		if (file.ChatMessageId == null && file.ChannelMessageId == null && file.TaskMessageRealId == null)
 		{
 			throw new CustomException("File not 'file'", "Get file", "File id", 400, "Файл не является приложенным к сообщению файлом", "Получение файла");
 		}
@@ -99,7 +92,7 @@ public class FileService : IFileService
 		if (file.ChatMessageId != null && file.ChatMessage != null)
 		{
 			var isInChat = await _hitsContext.UserChat
-				.AnyAsync(uc => uc.ChatId == file.ChatMessage.ChatId && uc.UserId == user.Id);
+				.AnyAsync(uc => uc.ChatId == file.ChatMessage.ChatId && uc.UserId == UserId);
 
 			if (!isInChat)
 			{
@@ -115,7 +108,7 @@ public class FileService : IFileService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanSee)
-				.FirstOrDefaultAsync(us => us.ServerId == file.ChannelMessage.TextChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == file.ChannelMessage.TextChannel.ServerId && us.UserId == UserId);
 
 			if (userSub == null)
 			{
@@ -129,6 +122,31 @@ public class FileService : IFileService
 			if (!canSee)
 			{
 				throw new CustomException( "User has no access to see this channel", "Get file", "Permissions", 403, "Пользователь не имеет доступа к этому каналу", "Получение файла" );
+			}
+		}
+
+		if (file.ChannelMessageId != null && file.TaskMessage != null)
+		{
+			var channelId = file.TaskMessage.TextLessonChannelId;
+
+			var userSub = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+						.ThenInclude(r => r.ChannelCanSee)
+				.FirstOrDefaultAsync(us => us.ServerId == file.TaskMessage.TextLessonChannel.ServerId && us.UserId == UserId);
+
+			if (userSub == null)
+			{
+				throw new CustomException("User is not subscriber of this server", "Get file", "User", 403, "Пользователь не является подписчиком сервера", "Получение файла");
+			}
+
+			var canSee = userSub.SubscribeRoles
+				.SelectMany(sr => sr.Role.ChannelCanSee)
+				.Any(ccs => ccs.ChannelId == channelId);
+
+			if (!canSee)
+			{
+				throw new CustomException("User has no access to see this channel", "Get file", "Permissions", 403, "Пользователь не имеет доступа к этому каналу", "Получение файла");
 			}
 		}
 
@@ -154,15 +172,14 @@ public class FileService : IFileService
 		};
 	}
 
-	public async Task<FileMetaResponseDTO> UploadFileToMessageAsync(string token, Guid channelId, IFormFile file)
+	public async Task<FileMetaResponseDTO> UploadFileToMessageAsync(Guid UserId, Guid channelId, IFormFile file)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 		bool canUse = false;
 
 		var chat = await _hitsContext.Chat.Include(c => c.Users).FirstOrDefaultAsync(c => c.Id == channelId);
 		if (chat != null)
 		{
-			if (chat.Users.Any(u => u.UserId == user.Id))
+			if (chat.Users.Any(u => u.UserId == UserId))
 			{
 				canUse = true;
 			}
@@ -182,7 +199,7 @@ public class FileService : IFileService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanSee)
-				.FirstOrDefaultAsync(us => us.ServerId == notificationChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == notificationChannel.ServerId && us.UserId == UserId);
 			if (userServer == null)
 			{
 				throw new CustomException(
@@ -217,7 +234,42 @@ public class FileService : IFileService
 
 			canUse = true;
 		}
+		var textLessonChannel = await _hitsContext.TextLessonChannel.FirstOrDefaultAsync(nc => nc.Id == channelId);
+		if (textLessonChannel != null)
+		{
+			var userServer = await _hitsContext.UserServer
+				.Include(us => us.SubscribeRoles)
+					.ThenInclude(sr => sr.Role)
+						.ThenInclude(r => r.ChannelCanSee)
+				.FirstOrDefaultAsync(us => us.ServerId == textLessonChannel.ServerId && us.UserId == UserId);
+			if (userServer == null)
+			{
+				throw new CustomException(
+					"User not subscriber of this server",
+					"UploadFileToMessageAsync",
+					"Channel id",
+					401,
+					"Пользователь не является подписчиком сервера",
+					"Загрузка файла в сообщение"
+				);
+			}
+			var canSee = userServer.SubscribeRoles
+				.SelectMany(sr => sr.Role.ChannelCanSee)
+				.Any(ccs => ccs.ChannelId == textLessonChannel.Id);
+			if (canSee == false)
+			{
+				throw new CustomException(
+					"User hasnt rights to write in this channel",
+					"UploadFileToMessageAsync",
+					"Channel id",
+					401,
+					"Пользователь не имеет прав писать в этом канале",
+					"Загрузка файла в сообщение"
+				);
+			}
 
+			canUse = true;
+		}
 		var subChannel = await _hitsContext.SubChannel.FirstOrDefaultAsync(nc => nc.Id == channelId);
 		if (subChannel != null)
 		{
@@ -225,7 +277,7 @@ public class FileService : IFileService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanUse)
-				.FirstOrDefaultAsync(us => us.ServerId == subChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == subChannel.ServerId && us.UserId == UserId);
 			if (userServer == null)
 			{
 				throw new CustomException(
@@ -266,7 +318,7 @@ public class FileService : IFileService
 				.Include(us => us.SubscribeRoles)
 					.ThenInclude(sr => sr.Role)
 						.ThenInclude(r => r.ChannelCanSee)
-				.FirstOrDefaultAsync(us => us.ServerId == textChannel.ServerId && us.UserId == user.Id);
+				.FirstOrDefaultAsync(us => us.ServerId == textChannel.ServerId && us.UserId == UserId);
 			if (userServer == null)
 			{
 				throw new CustomException(
@@ -333,7 +385,7 @@ public class FileService : IFileService
 			Name = originalFileName,
 			Type = file.ContentType,
 			Size = file.Length,
-			Creator = user.Id,
+			Creator = UserId,
 			IsApproved = false,
 			Deleted = false,
 			CreatedAt = DateTime.UtcNow,
@@ -350,12 +402,11 @@ public class FileService : IFileService
 		};
 	}
 
-	public async Task DeleteNotApprovedFileAsync(string token, Guid fileId)
+	public async Task DeleteNotApprovedFileAsync(Guid UserId, Guid fileId)
 	{
-		var user = await _authorizationService.GetUserAsync(token);
 		var file = await _hitsContext.File
 			.FirstOrDefaultAsync(f => f.Id == fileId 
-			&& f.Creator == user.Id 
+			&& f.Creator == UserId
 			&& f.IsApproved == false
 			&& f.UserId == null
 			&& f.ServerId == null

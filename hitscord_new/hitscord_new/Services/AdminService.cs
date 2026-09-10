@@ -13,7 +13,6 @@ using hitscord.Utils;
 using SixLabors.ImageSharp;
 using hitscord.JwtCreation;
 using Grpc.Core;
-using hitscord.WebSockets;
 using Authzed.Api.V0;
 using Microsoft.AspNetCore.SignalR;
 using NickBuhro.Translit;
@@ -24,30 +23,34 @@ using System.Data;
 using hitscord_new.Migrations.Token;
 using nClam;
 using Newtonsoft.Json.Linq;
+using hitscord_new.Models.response;
+using Microsoft.IdentityModel.Tokens;
+using hitscord.SignalR;
+using StackExchange.Redis;
 
 namespace hitscord.Services;
 
-public class AdminService: IAdminService
+public class AdminService : IAdminService
 {
 	private readonly IConfiguration _configuration;
 	private readonly HitsContext _hitsContext;
 	private readonly PasswordHasher<string> _passwordHasher;
-	private readonly TokenContext _tokenContext;
-	private readonly WebSocketsManager _webSocketManager;
+	private readonly IRealtimeService _realtimeService;
 	private readonly MinioService _minioService;
 	private readonly nClamService _clamService;
 	private readonly IChannelService _channelService;
+	private readonly ITokenService _tokenService;
 
-	public AdminService(TokenContext tokenContext, WebSocketsManager webSocketManager, HitsContext hitsContext, IConfiguration configuration, IChannelService channelService, MinioService minioService, nClamService clamService)
+	public AdminService(IRealtimeService realtimeService, HitsContext hitsContext, IConfiguration configuration, IChannelService channelService, MinioService minioService, nClamService clamService, ITokenService tokenService)
 	{
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_passwordHasher = new PasswordHasher<string>();
 		_configuration = configuration;
-		_tokenContext = tokenContext ?? throw new ArgumentNullException(nameof(tokenContext));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_channelService = channelService ?? throw new ArgumentNullException(nameof(channelService));
+		_tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
 	}
 
 	public async Task<FileMetaResponseDTO?> GetImageAsync(Guid iconId)
@@ -69,39 +72,9 @@ public class AdminService: IAdminService
 		};
 	}
 
-	public async Task<bool> CheckAdminAuthAsync(string token)
+	public async Task<AdminDbModel> GetAdminAsync(Guid adminId)
 	{
-		if (await _tokenContext.AdminToken.FirstOrDefaultAsync(x => x.AccessToken == token) == null)
-		{
-			throw new CustomException("Access token not found", "CheckAuth", "Access token", 401, "Сессия не найдена", "Проверка авторизации");
-		}
-		var tokenHandler = new JwtSecurityTokenHandler();
-		if (!tokenHandler.CanReadToken(token))
-		{
-			return true;
-		}
-		var jwtToken = tokenHandler.ReadJwtToken(token);
-		var expirationTimeUnix = long.Parse(jwtToken.Claims.First(c => c.Type == "exp").Value);
-		var expirationTime = DateTimeOffset.FromUnixTimeSeconds(expirationTimeUnix).UtcDateTime;
-		if (expirationTime < DateTime.UtcNow)
-		{
-			throw new CustomException("Access token expired", "CheckAuth", "Access token", 401, "Сессия окончена", "Проверка авторизации");
-		}
-		return true;
-	}
-
-	public async Task<AdminDbModel> GetAdminAsync(string token)
-	{
-		await CheckAdminAuthAsync(token);
-		var tokenHandler = new JwtSecurityTokenHandler();
-		var jsonToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
-		var userId = jsonToken?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
-		if (userId == null)
-		{
-			throw new CustomException("UserId not found", "Profile", "Access token", 404, "Не найден подобный Id пользователя", "Получение профиля");
-		}
-		Guid userIdGuid = Guid.Parse(userId);
-		var user = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Id == userIdGuid && u.Approved == true);
+		var user = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Id == adminId && u.Approved == true);
 		if (user == null)
 		{
 			throw new CustomException("User not found", "Profile", "User", 404, "Пользователь не найден", "Получение профиля");
@@ -109,9 +82,9 @@ public class AdminService: IAdminService
 		return user;
 	}
 
-	public async Task CreateAccount(string token, AdminRegistrationDTO registrationData)
+	public async Task CreateAccount(Guid adminId, AdminRegistrationDTO registrationData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Login == registrationData.Login) != null)
 		{
@@ -144,7 +117,7 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task<TokenDTO> LoginAsync(AdminLoginDTO loginData)
+	public async Task<TokenAdminDTO> LoginAsync(AdminLoginDTO loginData)
 	{
 		var userData = await _hitsContext.Admin.FirstOrDefaultAsync(u => u.Login == loginData.Login && u.Approved == true);
 		if (userData == null)
@@ -159,28 +132,7 @@ public class AdminService: IAdminService
 			throw new CustomException("Wrong password", "Login", "Password", 401, "Неверный пароль", "Логин");
 		}
 
-		var tokenAccessData = userData.CreateClaims().CreateJwtTokenAccess(_configuration);
-		var tokenHandler = new JwtSecurityTokenHandler();
-		var accessToken = tokenHandler.WriteToken(tokenAccessData);
-
-		var logDb = new AdminLogDbModel
-		{
-			Id = Guid.NewGuid(),
-			AdminId = userData.Id,
-			AccessToken = accessToken,
-			Start = DateTime.UtcNow
-		};
-
-		try
-		{
-			_tokenContext.AdminToken.Add(logDb);
-			await _tokenContext.SaveChangesAsync();
-		}
-		catch (DbUpdateException ex)
-		{
-			var inner = ex.InnerException?.Message;
-			throw new Exception($"EF SaveChanges failed: {inner}", ex);
-		}
+		var tokens = await _tokenService.CreateTokensAdminAsync(userData);
 
 		var newOperation = new AdminOperationsHistoryDbModel
 		{
@@ -191,26 +143,12 @@ public class AdminService: IAdminService
 		await _hitsContext.OperationsHistory.AddAsync(newOperation);
 		await _hitsContext.SaveChangesAsync();
 
-		return new TokenDTO { AccessToken = accessToken };
+		return tokens;
 	}
 
-	public async Task LogoutAsync(string token)
+	public async Task<UsersAdminListDTO> UsersListAsync(Guid adminId, int num, int page, UsersSortEnum? sort, string? name, string? mail, List<Guid>? rolesIds)
 	{
-		await GetAdminAsync(token);
-		var bannedToken = await _tokenContext.AdminToken.FirstOrDefaultAsync(x => x.AccessToken == token);
-
-		if (bannedToken == null)
-		{
-			throw new CustomException("Access token not found", "Logout", "Access token", 404, "Access токен не найден", "Инвалидация access токена");
-		}
-
-		_tokenContext.AdminToken.Remove(bannedToken);
-		await _tokenContext.SaveChangesAsync();
-	}
-
-	public async Task<UsersAdminListDTO> UsersListAsync(string token, int num, int page, UsersSortEnum? sort, string? name, string? mail, List<Guid>? rolesIds)
-	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (num < 1)
 		{
@@ -336,9 +274,9 @@ public class AdminService: IAdminService
 		return usersList;
 	}
 
-	public async Task<ChannelsAdminListDTO> DeletedChannelsListAsync(string token, int num, int page)
+	public async Task<ChannelsAdminListDTO> DeletedChannelsListAsync(Guid adminId, int num, int page)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (num < 1)
 		{
@@ -377,7 +315,7 @@ public class AdminService: IAdminService
 			.Where(c => ((TextChannelDbModel)c).DeleteTime != null)
 			.Skip((page - 1) * num)
 			.Take(num)
-			.Select( c => new TextChannelAdminItemDTO
+			.Select(c => new TextChannelAdminItemDTO
 			{
 				ChannelId = c.Id,
 				ChannelName = c.Name,
@@ -408,9 +346,9 @@ public class AdminService: IAdminService
 		return channelsList;
 	}
 
-	public async Task RewiveDeletedChannel(string token, Guid ChannelId)
+	public async Task RewiveDeletedChannel(Guid adminId, Guid ChannelId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var channel = await _hitsContext.Channel
 			.FirstOrDefaultAsync(c => ((TextChannelDbModel)c).DeleteTime != null && c.Id == ChannelId);
@@ -435,9 +373,9 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task<SystemRolesFullListDTO> RolesFullListAsync(string token)
+	public async Task<SystemRolesFullListDTO> RolesFullListAsync(Guid adminId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var allRoles = await _hitsContext.SystemRole
 			.Include(r => r.ChildRoles)
@@ -445,11 +383,11 @@ public class AdminService: IAdminService
 			.ToListAsync();
 
 		var roleDtos = allRoles.Select(r => new SystemRoleItemDTO
-			{
-				Id = r.Id,
-				Name = r.Name,
-				Type = r.Type
-			})
+		{
+			Id = r.Id,
+			Name = r.Name,
+			Type = r.Type
+		})
 			.ToList();
 
 		var rolesDict = roleDtos.ToDictionary(r => r.Id);
@@ -487,9 +425,9 @@ public class AdminService: IAdminService
 		return roles;
 	}
 
-	public async Task<SystemRolesFullListDTO> RolesShortListAsync(string token, string? name)
+	public async Task<SystemRolesFullListDTO> RolesShortListAsync(Guid adminId, string? name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var allRoles = await _hitsContext.SystemRole
 			.Where(r => name == null || r.Name.Contains(name))
@@ -509,9 +447,9 @@ public class AdminService: IAdminService
 		return roles;
 	}
 
-	public async Task CreateSystemRoleAsync(string token, Guid ParentRoleId, string name)
+	public async Task CreateSystemRoleAsync(Guid adminId, Guid ParentRoleId, string name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var parentRole = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == ParentRoleId);
@@ -544,9 +482,9 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task RenameSystemRoleAsync(string token, Guid RoleId, string name)
+	public async Task RenameSystemRoleAsync(Guid adminId, Guid RoleId, string name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var role = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == RoleId);
@@ -610,7 +548,11 @@ public class AdminService: IAdminService
 			};
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+				await _realtimeService.SendToServer(
+					role.ServerId, 
+					newUnsubscriberResponse, 
+					"User unsubscribe"
+				);
 			}
 		}
 		else
@@ -650,14 +592,18 @@ public class AdminService: IAdminService
 			};
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+				await _realtimeService.SendToServer(
+					role.ServerId, 
+					oldUserRole,
+					"Role removed from user"
+				);
 			}
 		}
 	}
 
-	public async Task DeleteSystemRoleAsync(string token, Guid RoleId)
+	public async Task DeleteSystemRoleAsync(Guid adminId, Guid RoleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var role = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == RoleId);
@@ -741,7 +687,8 @@ public class AdminService: IAdminService
 				UserServerName = user.AccountName,
 				IsBanned = false,
 				NonNotifiable = false,
-				SubscribeRoles = new List<SubscribeRoleDbModel>()
+				SubscribeRoles = new List<SubscribeRoleDbModel>(),
+				JoinTime = DateTime.UtcNow
 			};
 			newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
 			{
@@ -815,7 +762,11 @@ public class AdminService: IAdminService
 				foreach (var alertedUser in alertedUsers)
 				{
 					newSubscriberResponse.isFriend = friendsSet.Contains(alertedUser);
-					await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, new List<Guid> { alertedUser }, "New user on server");
+					await _realtimeService.SendToUser(
+						alertedUser, 
+						newSubscriberResponse, 
+						"New user on server"
+					);
 				}
 			}
 		}
@@ -863,14 +814,18 @@ public class AdminService: IAdminService
 			};
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role added to user");
+				await _realtimeService.SendToServer(
+					role.ServerId, 
+					newUserRole, 
+					"Role added to user"
+				);
 			}
 		}
 	}
 
-	public async Task AddSystemRoleAsync(string token, Guid RoleId, List<Guid> UsersIds)
+	public async Task AddSystemRoleAsync(Guid adminId, Guid RoleId, List<Guid> UsersIds)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var role = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == RoleId);
@@ -935,9 +890,9 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task RemoveSystemRoleAsync(string token, Guid RoleId, Guid UserId)
+	public async Task RemoveSystemRoleAsync(Guid adminId, Guid RoleId, Guid UserId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var role = await _hitsContext.SystemRole
 			.FirstOrDefaultAsync(c => c.Id == RoleId);
@@ -989,9 +944,9 @@ public class AdminService: IAdminService
 		var newAdmin = new AdminDbModel
 		{
 			Id = Guid.NewGuid(),
-			Login = "TetyaDusya",
-			PasswordHash = _passwordHasher.HashPassword("TetyaDusya", "TetyaDusya"),
-			AccountName = "Тётя Дуся",
+			Login = "Admin the first",
+			PasswordHash = _passwordHasher.HashPassword("Admin the first", "Password of Admin the first"),
+			AccountName = "Admin the first",
 			Approved = true
 		};
 
@@ -1001,9 +956,9 @@ public class AdminService: IAdminService
 		return newAdmin;
 	}
 
-	public async Task<FileResponseDTO> GetIconAsync(string token, Guid fileId)
+	public async Task<FileResponseDTO> GetIconAsync(Guid adminId, Guid fileId)
 	{
-		await GetAdminAsync(token);
+		await GetAdminAsync(adminId);
 
 		var file = await _hitsContext.File.FirstOrDefaultAsync(f => f.Id == fileId);
 		if (file == null)
@@ -1043,9 +998,9 @@ public class AdminService: IAdminService
 		};
 	}
 
-	public async Task<OperationsListDTO> GetOperationHistoryAsync(string token, int num, int page)
+	public async Task<OperationsListDTO> GetOperationHistoryAsync(Guid adminId, int num, int page)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (num < 1)
 		{
@@ -1104,9 +1059,9 @@ public class AdminService: IAdminService
 		return operationsList;
 	}
 
-	public async Task ChangeUserPasswordAsync(string token, Guid userId, string newPassword)
+	public async Task ChangeUserPasswordAsync(Guid adminId, Guid userId, string newPassword)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
 
@@ -1129,9 +1084,9 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task<ServersAdminListDTO> GetServersListAsync(string token, int num, int page, string? name)
+	public async Task<ServersAdminListDTO> GetServersListAsync(Guid adminId, int num, int page, string? name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (num < 1)
 		{
@@ -1167,7 +1122,6 @@ public class AdminService: IAdminService
 			.Include(s => s.Subscribtions)
 			.Include(s => s.IconFile)
 			.Where(s => (name == null || s.Name.Contains(name)))
-			.OrderByDescending(s => s.ServerCreateDate)
 			.Skip((page - 1) * num)
 			.Take(num)
 			.Select(s => new ServerItemDTO
@@ -1208,9 +1162,9 @@ public class AdminService: IAdminService
 		return serversList;
 	}
 
-	public async Task<ServerAdminInfoDTO> GetServerDataAsync(string token, Guid ServerId)
+	public async Task<ServerAdminInfoDTO> GetServerDataAsync(Guid adminId, Guid ServerId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.Include(s => s.IconFile)
@@ -1299,7 +1253,9 @@ public class AdminService: IAdminService
 					CanIgnoreMaxCount = r.ServerCanIgnoreMaxCount,
 					CanCreateRoles = r.ServerCanCreateRoles,
 					CanCreateLessons = r.ServerCanCreateLessons,
-					CanCheckAttendance = r.ServerCanCheckAttendance
+					CanCheckAttendance = r.ServerCanCheckAttendance,
+					CanUseInvitations = r.ServerCanUseInvitations,
+					CanCheckGrades = r.ServerCanCheckGrades
 				},
 				ChannelCanSee = r.ChannelCanSee
 					.Where(c => !(c.Channel is TextChannelDbModel) || ((TextChannelDbModel)c.Channel).DeleteTime == null)
@@ -1460,9 +1416,9 @@ public class AdminService: IAdminService
 
 
 
-	public async Task AddUserAsync(string token, string Mail, string Name, string Password, IFormFile? iconFile)
+	public async Task AddUserAsync(Guid adminId, string Mail, string Name, string Password, IFormFile? iconFile)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == Mail) != null)
 		{
@@ -1495,7 +1451,8 @@ public class AdminService: IAdminService
 			FriendshipApplication = true,
 			NonFriendMessage = true,
 			NotificationLifeTime = 4,
-			SystemRoles = new List<SystemRoleDbModel>()
+			SystemRoles = new List<SystemRoleDbModel>(),
+			IsUser = true
 		};
 		newUser.SystemRoles.Add(studentRole);
 
@@ -1576,9 +1533,9 @@ public class AdminService: IAdminService
 			_hitsContext.SaveChanges();
 		}
 	}
-	public async Task ChangeUserIconAdminAsync(string token, Guid userId, IFormFile iconFile)
+	public async Task ChangeUserIconAdminAsync(Guid adminId, Guid userId, IFormFile iconFile)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
 		if (user == null)
 		{
@@ -1665,9 +1622,9 @@ public class AdminService: IAdminService
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
 	}
-	public async Task DeleteUserIconAdminAsync(string token, Guid userId)
+	public async Task DeleteUserIconAdminAsync(Guid adminId, Guid userId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == userId);
 		if (user == null)
 		{
@@ -1696,9 +1653,9 @@ public class AdminService: IAdminService
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
 	}
-	public async Task ChangeUserDataAsync(string token, Guid UserId, string? Mail, string? Name)
+	public async Task ChangeUserDataAsync(Guid adminId, Guid UserId, string? Mail, string? Name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		if (await _hitsContext.User.FirstOrDefaultAsync(u => u.Mail == Mail) != null)
 		{
@@ -1724,9 +1681,9 @@ public class AdminService: IAdminService
 		_hitsContext.User.Update(user);
 		await _hitsContext.SaveChangesAsync();
 	}
-	public async Task DeleteUserAsync(string token, Guid UserId)
+	public async Task DeleteUserAsync(Guid adminId, Guid UserId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var user = await _hitsContext.User.FirstOrDefaultAsync(u => u.Id == UserId);
 		if (user == null)
@@ -1739,9 +1696,9 @@ public class AdminService: IAdminService
 	}
 
 
-	public async Task ChangeServerDataAsync(string token, Guid serverId, string? serverName, ServerTypeEnum? serverType, bool? serverClosed, Guid? newCreatorId)
+	public async Task ChangeServerDataAsync(Guid adminId, Guid serverId, string? serverName, ServerTypeEnum? serverType, bool? serverClosed, Guid? newCreatorId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -1807,8 +1764,16 @@ public class AdminService: IAdminService
 			};
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(removedCreatorRole, alertedUsers, "Role removed from user");
-				await _webSocketManager.BroadcastMessageAsync(newAdminRole, alertedUsers, "Role added to user");
+				await _realtimeService.SendToServer(
+					server.Id, 
+					removedCreatorRole, 
+					"Role removed from user"
+				);
+				await _realtimeService.SendToServer(
+					server.Id, 
+					newAdminRole, 
+					"Role added to user"
+				);
 			}
 			foreach (var sr in newCreator.SubscribeRoles)
 			{
@@ -1820,7 +1785,11 @@ public class AdminService: IAdminService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(removedNewCreatorRole, alertedUsers, "Role removed from user");
+					await _realtimeService.SendToServer(
+						server.Id, 
+						removedNewCreatorRole, 
+						"Role removed from user"
+					);
 				}
 			}
 			newCreator.SubscribeRoles.Clear();
@@ -1833,7 +1802,11 @@ public class AdminService: IAdminService
 			};
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(newCreatorRole, alertedUsers, "Role added to user");
+				await _realtimeService.SendToServer(
+					server.Id, 
+					newCreatorRole, 
+					"Role added to user"
+				);
 			}
 			_hitsContext.UserServer.Update(oldCreator);
 			_hitsContext.UserServer.Update(newCreator);
@@ -1841,9 +1814,9 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task ChangeServerIconAdminAsync(string token, Guid serverId, IFormFile iconFile)
+	public async Task ChangeServerIconAdminAsync(Guid adminId, Guid serverId, IFormFile iconFile)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -1951,13 +1924,17 @@ public class AdminService: IAdminService
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Any())
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeIconDto, alertedUsers, "New icon on server");
+			await _realtimeService.SendToServer(
+				server.Id, 
+				changeIconDto, 
+				"New icon on server"
+			);
 		}
 	}
 
-	public async Task DeleteServerIconAdminAsync(string token, Guid serverId)
+	public async Task DeleteServerIconAdminAsync(Guid adminId, Guid serverId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -1996,13 +1973,17 @@ public class AdminService: IAdminService
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Any())
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeIconDto, alertedUsers, "Server icon deleted");
+			await _realtimeService.SendToServer(
+				server.Id, 
+				changeIconDto, 
+				"Server icon deleted"
+			);
 		}
 	}
 
-	public async Task DeleteServerAdminAsync(Guid serverId, string token)
+	public async Task DeleteServerAdminAsync(Guid serverId, Guid adminId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2073,13 +2054,17 @@ public class AdminService: IAdminService
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(serverDelete, alertedUsers, "Server deleted");
+			await _realtimeService.SendToServer(
+				server.Id,
+				serverDelete, 
+				"Server deleted"
+			);
 		}
 	}
 
-	public async Task<RolesItemDTO> CreateRoleAdminAsync(string token, Guid serverId, string roleName, string color)
+	public async Task<RolesItemDTO> CreateRoleAdminAsync(Guid adminId, Guid serverId, string roleName, string color)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2093,6 +2078,16 @@ public class AdminService: IAdminService
 			throw new CustomException("Invalid color format", "CreateRoleAdminAsync", "Color", 400, "Неверный формат цвета. Используйте шестизначный HEX в формате #RRGGBB", "Создание роли админом");
 		}
 
+		var looserRole = await _hitsContext.Role
+			.FirstOrDefaultAsync(r =>
+				r.ServerId == serverId
+				&& r.Role == RoleEnum.Uncertain
+			);
+		if (looserRole == null)
+		{
+			throw new CustomException("Uncertain role not found", "Uncertain role", "Role", 404, "Неопределенная роль не найдена", "Создание роли админом");
+		}
+
 		var newRole = new RoleDbModel()
 		{
 			Name = roleName,
@@ -2100,6 +2095,7 @@ public class AdminService: IAdminService
 			ServerId = server.Id,
 			Color = color,
 			Tag = Regex.Replace(Transliteration.CyrillicToLatin(roleName, Language.Russian), "[^a-zA-Z0-9]", "").ToLower(),
+			Position = looserRole.Position,
 			ServerCanChangeRole = false,
 			ServerCanWorkChannels = false,
 			ServerCanDeleteUsers = false,
@@ -2109,6 +2105,8 @@ public class AdminService: IAdminService
 			ServerCanCreateRoles = false,
 			ServerCanCreateLessons = false,
 			ServerCanCheckAttendance = false,
+			ServerCanUseInvitations = false,
+			ServerCanCheckGrades = false,
 			ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 			ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 			ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
@@ -2116,8 +2114,10 @@ public class AdminService: IAdminService
 			ChannelCanUse = new List<ChannelCanUseDbModel>(),
 			ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
 		};
+		looserRole.Position++;
 
 		await _hitsContext.Role.AddAsync(newRole);
+		_hitsContext.Role.Update(looserRole);
 		await _hitsContext.SaveChangesAsync();
 
 		var roleResponse = new RolesItemDTO
@@ -2127,21 +2127,26 @@ public class AdminService: IAdminService
 			Name = newRole.Name,
 			Tag = newRole.Tag,
 			Color = newRole.Color,
-			Type = newRole.Role
+			Type = newRole.Role,
+			Position = newRole.Position
 		};
 
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "New role");
+			await _realtimeService.SendToServer(
+				server.Id, 
+				roleResponse, 
+				"New role"
+			);
 		}
 
 		return roleResponse;
 	}
 
-	public async Task DeleteRoleAdminAsync(string token, Guid serverId, Guid roleId)
+	public async Task DeleteRoleAdminAsync(Guid adminId, Guid serverId, Guid roleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2247,12 +2252,16 @@ public class AdminService: IAdminService
 					await _hitsContext.SubscribeRole.AddAsync(new SubscribeRoleDbModel { UserServerId = user.Id, RoleId = uncertainRole.Id });
 					await _hitsContext.SaveChangesAsync();
 
-					await _webSocketManager.BroadcastMessageAsync(new NewUserRoleResponseDTO
-					{
-						ServerId = serverId,
-						UserId = user.UserId,
-						RoleId = uncertainRole.Id,
-					}, alertedUsers, "Role added to user");
+					await _realtimeService.SendToServer(
+						server.Id,
+						new NewUserRoleResponseDTO
+						{
+							ServerId = serverId,
+							UserId = user.UserId,
+							RoleId = uncertainRole.Id,
+						}, 
+						"Role added to user"
+					);
 
 					var lastReads = await _hitsContext.LastReadChannelMessage
 						.Where(lrcm => lrcm.UserId == user.UserId)
@@ -2281,12 +2290,16 @@ public class AdminService: IAdminService
 				_hitsContext.SubscribeRole.Remove(subRole);
 				await _hitsContext.SaveChangesAsync();
 
-				await _webSocketManager.BroadcastMessageAsync(new NewUserRoleResponseDTO
-				{
-					ServerId = serverId,
-					UserId = user.UserId,
-					RoleId = role.Id,
-				}, alertedUsers, "Role removed from user");
+				await _realtimeService.SendToServer(
+					server.Id,
+					new NewUserRoleResponseDTO
+					{
+						ServerId = serverId,
+						UserId = user.UserId,
+						RoleId = role.Id,
+					},
+					"Role removed from user"
+				);
 			}
 		}
 
@@ -2301,13 +2314,19 @@ public class AdminService: IAdminService
 
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "Deleted role");
+			await _realtimeService.SendToServer(
+				server.Id,
+				roleResponse, 
+				"Deleted role"
+			);
 		}
 	}
 
-	public async Task UpdateRoleAsync(string token, Guid serverId, Guid roleId, string name, string color)
+	public async Task UpdateRoleAsync(Guid adminId, Guid serverId, Guid roleId, string name, string color, int position)
 	{
-		var admin = await GetAdminAsync(token);
+		using var transaction = await _hitsContext.Database.BeginTransactionAsync();
+
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2337,6 +2356,39 @@ public class AdminService: IAdminService
 		{
 			role.Name = name;
 			role.Tag = Regex.Replace(Transliteration.CyrillicToLatin(name, Language.Russian), "[^a-zA-Z0-9]", "").ToLower();
+			if (role.Position != position)
+			{
+				var maxPosition = await _hitsContext.Role
+					.Where(r => r.ServerId == serverId)
+					.MaxAsync(r => (int?)r.Position) ?? 0;
+
+				if (position < 1 || position > maxPosition)
+				{
+					throw new CustomException("Invalid position", "UpdateRoleAsync", "Position", 400, $"Позиция должна быть от 1 до {maxPosition}", "Обновление роли");
+				}
+				var oldPosition = role.Position;
+
+				if (position < oldPosition)
+				{
+					await _hitsContext.Role
+						.Where(r => r.ServerId == serverId &&
+									r.Position >= position &&
+									r.Position < oldPosition)
+						.ExecuteUpdateAsync(s => s
+							.SetProperty(r => r.Position, r => r.Position + 1));
+				}
+				else
+				{
+					await _hitsContext.Role
+						.Where(r => r.ServerId == serverId &&
+									r.Position <= position &&
+									r.Position > oldPosition)
+						.ExecuteUpdateAsync(s => s
+							.SetProperty(r => r.Position, r => r.Position - 1));
+				}
+
+				role.Position = position;
+			}
 		}
 		role.Color = color;
 
@@ -2350,19 +2402,26 @@ public class AdminService: IAdminService
 			Name = role.Name,
 			Tag = role.Tag,
 			Color = role.Color,
-			Type = role.Role
+			Type = role.Role,
+			Position = role.Position
 		};
+
+		await transaction.CommitAsync();
 
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "Updated role");
+			await _realtimeService.SendToServer(
+				server.Id,
+				roleResponse, 
+				"Updated role"
+			);
 		}
 	}
 
-	public async Task ChangeRoleSettingsAdminAsync(string token, Guid serverId, Guid roleId, SettingsEnum setting, bool settingsData)
+	public async Task ChangeRoleSettingsAdminAsync(Guid adminId, Guid serverId, Guid roleId, SettingsEnum setting, bool settingsData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2549,7 +2608,8 @@ public class AdminService: IAdminService
 				Name = role.Name,
 				Tag = role.Tag,
 				Color = role.Color,
-				Type = role.Role
+				Type = role.Role,
+				Position = role.Position
 			},
 			Settings = new SettingsDTO
 			{
@@ -2561,20 +2621,26 @@ public class AdminService: IAdminService
 				CanIgnoreMaxCount = role.ServerCanIgnoreMaxCount,
 				CanCreateRoles = role.ServerCanCreateRoles,
 				CanCreateLessons = role.ServerCanCreateLessons,
-				CanCheckAttendance = role.ServerCanCheckAttendance
+				CanCheckAttendance = role.ServerCanCheckAttendance,
+				CanUseInvitations = role.ServerCanUseInvitations,
+				CanCheckGrades = role.ServerCanCheckGrades
 			}
 		};
 
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(roleResponse, alertedUsers, "Updated role settings");
+			await _realtimeService.SendToServer(
+				server.Id,
+				roleResponse,
+				"Updated role settings"
+			);
 		}
 	}
 
-	public async Task DeleteUserFromServerAdminAsync(string token, Guid serverId, Guid userId)
+	public async Task DeleteUserFromServerAdminAsync(Guid adminId, Guid serverId, Guid userId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2615,7 +2681,11 @@ public class AdminService: IAdminService
 		};
 		await _hitsContext.SaveChangesAsync();
 
-		await _webSocketManager.BroadcastMessageAsync(newRemovedUserResponse, new List<Guid> { userId }, "You removed from server");
+		await _realtimeService.SendToUser(
+			userId,
+			newRemovedUserResponse, 
+			"You removed from server"
+		);
 
 		var newUnsubscriberResponse = new UnsubscribeResponseDTO
 		{
@@ -2625,7 +2695,11 @@ public class AdminService: IAdminService
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+			await _realtimeService.SendToServer(
+				server.Id,
+				newUnsubscriberResponse, 
+				"User unsubscribe"
+			);
 		}
 
 		await _hitsContext.Notifications.AddAsync(new NotificationDbModel
@@ -2638,9 +2712,9 @@ public class AdminService: IAdminService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task ChangeUserNameAdminAsync(Guid serverId, string token, Guid userId, string name)
+	public async Task ChangeUserNameAdminAsync(Guid serverId, Guid adminId, Guid userId, string name)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2677,13 +2751,17 @@ public class AdminService: IAdminService
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeServerName, alertedUsers, "New users name on server");
+			await _realtimeService.SendToServer(
+				server.Id,
+				changeServerName,
+				"New users name on server"
+			);
 		}
 	}
 
-	public async Task AddRoleToUserAdminAsync(string token, Guid serverId, Guid userId, Guid roleId)
+	public async Task AddRoleToUserAdminAsync(Guid adminId, Guid serverId, Guid userId, Guid roleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2752,7 +2830,11 @@ public class AdminService: IAdminService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+					await _realtimeService.SendToServer(
+						server.Id,
+						oldUserRole, 
+						"Role removed from user"
+					);
 				}
 			}
 		}
@@ -2787,7 +2869,11 @@ public class AdminService: IAdminService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+					await _realtimeService.SendToServer(
+						server.Id,
+						oldUserRole,
+						"Role removed from user"
+					);
 				}
 			}
 		}
@@ -2838,13 +2924,17 @@ public class AdminService: IAdminService
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role added to user");
+			await _realtimeService.SendToServer(
+				server.Id,
+				newUserRole,
+				"Role added to user"
+			);
 		}
 	}
 
-	public async Task RemoveRoleFromUserAdminAsync(string token, Guid serverId, Guid userId, Guid roleId)
+	public async Task RemoveRoleFromUserAdminAsync(Guid adminId, Guid serverId, Guid userId, Guid roleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2904,7 +2994,11 @@ public class AdminService: IAdminService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role added to user");
+					await _realtimeService.SendToServer(
+						server.Id,
+						newUserRole, 
+						"Role added to user"
+					);
 				}
 			}
 		}
@@ -2942,13 +3036,17 @@ public class AdminService: IAdminService
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+			await _realtimeService.SendToServer(
+				server.Id,
+				oldUserRole, 
+				"Role removed from user"
+			);
 		}
 	}
 
-	public async Task CreateChannelAdminAsync(Guid serverId, string token, string name, ChannelTypeEnum channelType, int? maxCount)
+	public async Task CreateChannelAdminAsync(Guid serverId, Guid adminId, string name, ChannelTypeEnum channelType, int? maxCount)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -2972,7 +3070,8 @@ public class AdminService: IAdminService
 					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 					Messages = new List<ChannelMessageDbModel>(),
 					ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
-					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>()
+					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
+					Position = 0
 				};
 
 				channelId = newTextChannel.Id;
@@ -3024,7 +3123,8 @@ public class AdminService: IAdminService
 					ServerId = serverId,
 					MaxCount = (int)(maxCount == null ? 999 : maxCount),
 					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
-					ChannelCanJoin = new List<ChannelCanJoinDbModel>()
+					ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
+					Position = 0
 				};
 
 				channelId = newVoiceChannel.Id;
@@ -3056,7 +3156,8 @@ public class AdminService: IAdminService
 					MaxCount = (int)(maxCount == null ? 999 : maxCount),
 					ChannelCanSee = new List<ChannelCanSeeDbModel>(),
 					ChannelCanJoin = new List<ChannelCanJoinDbModel>(),
-					Pairs = new List<PairDbModel>()
+					Pairs = new List<PairDbModel>(),
+					Position = 0
 				};
 
 				channelId = newPairChannel.Id;
@@ -3085,8 +3186,8 @@ public class AdminService: IAdminService
 					Messages = new List<ChannelMessageDbModel>(),
 					ChannelCanWrite = new List<ChannelCanWriteDbModel>(),
 					ChannelNotificated = new List<ChannelNotificatedDbModel>(),
-
-					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>()
+					ChannelCanWriteSub = new List<ChannelCanWriteSubDbModel>(),
+					Position = 0
 				};
 
 				channelId = newNotificationChannel.Id;
@@ -3140,18 +3241,23 @@ public class AdminService: IAdminService
 			ServerId = serverId,
 			ChannelId = channelId,
 			ChannelName = channelName,
-			ChannelType = channelType
+			ChannelType = channelType,
+			Position = 0
 		};
 		var alertedUsers = await _hitsContext.UserServer.Where(us => us.ServerId == server.Id).Select(us => us.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(newChannelResponse, alertedUsers, "New channel");
+			await _realtimeService.SendToServer(
+				server.Id,
+				newChannelResponse, 
+				"New channel"
+			);
 		}
 	}
 
-	public async Task DeleteChannelAdminAsync(Guid chnnelId, string token)
+	public async Task DeleteChannelAdminAsync(Guid chnnelId, Guid adminId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == chnnelId && ((TextChannelDbModel)c).DeleteTime == null);
 		if (channel == null)
 		{
@@ -3177,11 +3283,20 @@ public class AdminService: IAdminService
 						ServerId = channel.ServerId,
 						isEnter = false,
 						UserId = userId,
-						ChannelId = channel.Id
+						ChannelId = channel.Id,
+						MuteStatus = 0
 					};
 
-					await _webSocketManager.BroadcastMessageAsync(removedUser, alertedUsers, "User removed from voice channel");
-					await _webSocketManager.BroadcastMessageAsync(removedUser, new List<Guid> { userId }, "You removed from voice channel");
+					await _realtimeService.SendToServer(
+						channel.ServerId,
+						removedUser, 
+						"User removed from voice channel"
+					);
+					await _realtimeService.SendToUser(
+						userId,
+						removedUser, 
+						"You removed from voice channel"
+					);
 				}
 			}
 
@@ -3202,17 +3317,22 @@ public class AdminService: IAdminService
 			ServerId = channel.ServerId,
 			ChannelId = channel.Id,
 			ChannelName = channel.Name,
-			ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Notification)
+			ChannelType = channel is VoiceChannelDbModel ? ChannelTypeEnum.Voice : (channel is TextChannelDbModel ? ChannelTypeEnum.Text : ChannelTypeEnum.Notification),
+			Position = 0
 		};
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(deletedChannelResponse, alertedUsers, "Channel deleted");
+			await _realtimeService.SendToServer(
+				channel.ServerId,
+				deletedChannelResponse, 
+				"Channel deleted"
+			);
 		}
 	}
 
-	public async Task ChnageChannnelNameAdminAsync(string token, Guid channelId, string name, int? number)
+	public async Task ChnageChannnelNameAdminAsync(Guid adminId, Guid channelId, string name, int? number)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _hitsContext.Channel.FirstOrDefaultAsync(c => c.Id == channelId && ((TextChannelDbModel)c).DeleteTime == null);
 		if (channel == null)
 		{
@@ -3244,7 +3364,11 @@ public class AdminService: IAdminService
 			.ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeChannelName, alertedUsers, "Change channel name");
+			await _realtimeService.SendToServer(
+				channel.ServerId,
+				changeChannelName, 
+				"Change channel name"
+			);
 		}
 		if (channelType == ChannelTypeEnum.Voice || channelType == ChannelTypeEnum.Pair)
 		{
@@ -3254,20 +3378,20 @@ public class AdminService: IAdminService
 				VoiceChannelId = channel.Id,
 				MaxCount = (int)number
 			};
-			var alertedUsersSec = await _hitsContext.UserServer
-				.Where(us => us.ServerId == channel.ServerId)
-				.Select(us => us.UserId)
-				.ToListAsync();
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(changeMaxCount, alertedUsersSec, "Change max count");
+				await _realtimeService.SendToServer(
+					channel.ServerId,
+					changeMaxCount, 
+					"Change max count"
+				);
 			}
 		}
 	}
 
-	public async Task ChangeVoiceChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
+	public async Task ChangeVoiceChannelSettingsAdminAsync(Guid adminId, ChannelRoleDTO settingsData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _channelService.CheckVoiceChannelExistAsync(settingsData.ChannelId, false);
 
 		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == settingsData.RoleId && r.ServerId == channel.ServerId);
@@ -3360,13 +3484,17 @@ public class AdminService: IAdminService
 			.ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Voice channel settings edited");
+			await _realtimeService.SendToServer(
+				channel.ServerId,
+				changedSettingsresponse, 
+				"Voice channel settings edited"
+			);
 		}
 	}
 
-	public async Task ChangeTextChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
+	public async Task ChangeTextChannelSettingsAdminAsync(Guid adminId, ChannelRoleDTO settingsData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _channelService.CheckTextChannelExistAsync(settingsData.ChannelId);
 
 		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == settingsData.RoleId && r.ServerId == channel.ServerId);
@@ -3586,13 +3714,17 @@ public class AdminService: IAdminService
 			.ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Text channel settings edited");
+			await _realtimeService.SendToServer(
+				channel.ServerId,
+				changedSettingsresponse, 
+				"Text channel settings edited"
+			);
 		}
 	}
 
-	public async Task ChangeNotificationChannelSettingsAdminAsync(string token, ChannelRoleDTO settingsData)
+	public async Task ChangeNotificationChannelSettingsAdminAsync(Guid adminId, ChannelRoleDTO settingsData)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 		var channel = await _channelService.CheckNotificationChannelExistAsync(settingsData.ChannelId);
 
 		var role = await _hitsContext.Role.FirstOrDefaultAsync(r => r.Id == settingsData.RoleId && r.ServerId == channel.ServerId);
@@ -3791,13 +3923,17 @@ public class AdminService: IAdminService
 			.ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			await _webSocketManager.BroadcastMessageAsync(changedSettingsresponse, alertedUsers, "Notification channel settings edited");
+			await _realtimeService.SendToServer(
+				channel.ServerId,
+				changedSettingsresponse,
+				"Notification channel settings edited"
+			);
 		}
 	}
 
-	public async Task<ServerPresetItemDTO> CreatePresetAdminAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)
+	public async Task<ServerPresetItemDTO> CreatePresetAdminAsync(Guid adminId, Guid serverId, Guid serverRoleId, Guid systemRoleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -3866,7 +4002,8 @@ public class AdminService: IAdminService
 						UserServerName = user.AccountName,
 						IsBanned = false,
 						NonNotifiable = false,
-						SubscribeRoles = new List<SubscribeRoleDbModel>()
+						SubscribeRoles = new List<SubscribeRoleDbModel>(),
+						JoinTime = DateTime.UtcNow,
 					};
 					newSub.SubscribeRoles.Add(new SubscribeRoleDbModel
 					{
@@ -3940,7 +4077,11 @@ public class AdminService: IAdminService
 						foreach (var alertedUser in alertedUsers)
 						{
 							newSubscriberResponse.isFriend = friendsSet.Contains(alertedUser);
-							await _webSocketManager.BroadcastMessageAsync(newSubscriberResponse, new List<Guid> { alertedUser }, "New user on server");
+							await _realtimeService.SendToUser(
+								alertedUser,
+								newSubscriberResponse, 
+								"New user on server"
+							);
 						}
 					}
 				}
@@ -3988,7 +4129,11 @@ public class AdminService: IAdminService
 					};
 					if (alertedUsers != null && alertedUsers.Count() > 0)
 					{
-						await _webSocketManager.BroadcastMessageAsync(newUserRole, alertedUsers, "Role added to user");
+						await _realtimeService.SendToServer(
+							server.Id,
+							newUserRole, 
+							"Role added to user"
+						);
 					}
 				}
 			}
@@ -4005,9 +4150,9 @@ public class AdminService: IAdminService
 		return response;
 	}
 
-	public async Task DeletePresetAdminAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId)
+	public async Task DeletePresetAdminAsync(Guid adminId, Guid serverId, Guid serverRoleId, Guid systemRoleId)
 	{
-		var admin = await GetAdminAsync(token);
+		var admin = await GetAdminAsync(adminId);
 
 		var server = await _hitsContext.Server
 			.FirstOrDefaultAsync(s => s.Id == serverId);
@@ -4072,7 +4217,11 @@ public class AdminService: IAdminService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(newUnsubscriberResponse, alertedUsers, "User unsubscribe");
+					await _realtimeService.SendToServer(
+						server.Id,
+						newUnsubscriberResponse, 
+						"User unsubscribe"
+					);
 				}
 			}
 			else
@@ -4112,7 +4261,11 @@ public class AdminService: IAdminService
 				};
 				if (alertedUsers != null && alertedUsers.Count() > 0)
 				{
-					await _webSocketManager.BroadcastMessageAsync(oldUserRole, alertedUsers, "Role removed from user");
+					await _realtimeService.SendToServer(
+						server.Id,
+						oldUserRole, 
+						"Role removed from user"
+					);
 				}
 			}
 		}

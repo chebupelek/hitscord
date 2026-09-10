@@ -24,6 +24,10 @@ public class ServerApplicationDbModel
 	[ForeignKey(nameof(ServerId))]
 	public ServerDbModel Server { get; set; }
 
+	public Guid? InvitationId { get; set; }
+	[ForeignKey(nameof(InvitationId))]
+	public ServerInvitationDbModel? Invitation { get; set; }
+
 	public string? ServerUserName { get; set; }
 	public required DateTime CreatedAt { get; set; }
 }

@@ -16,19 +16,19 @@ public class ChannelMessageDbModel
     public required long Id { get; set; }
     public DateTime CreatedAt { get; set; }
 
-	public Guid AuthorId { get; set; }
+	public Guid? AuthorId { get; set; }
 	[ForeignKey(nameof(AuthorId))]
-	public UserDbModel Author { get; set; }
+	public UserDbModel? Author { get; set; }
 
-	public Guid? TextChannelId { get; set; }
+	public required Guid TextChannelId { get; set; }
 	[ForeignKey(nameof(TextChannelId))]
-	public TextChannelDbModel? TextChannel { get; set; }
-
-	public required Guid TextChannelIdDouble { get; set; }
+	public TextChannelDbModel TextChannel { get; set; }
 
 	public long? ReplyToMessageId { get; set; }
 
     public DateTime? DeleteTime { get; set; }
+
+	public ICollection<ChannelMessageReactionDbModel> Reactions { get; set; }
 
 	[NotMapped]
 	private string? _messageType;

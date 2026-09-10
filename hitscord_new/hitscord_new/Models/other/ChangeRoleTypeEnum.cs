@@ -2,10 +2,14 @@
 
 public enum ChangeRoleTypeEnum
 {
+	// Канальные права: изменяются для пары «роль — канал» через ChannelRoleDTO.
 	CanSee,
 	CanJoin,
 	CanWrite,
 	CanWriteSub,
 	CanUse,
-	Notificated
+	Notificated,
+	CanCreateTask,
+	CanJoinQueue,
+	CanTakeQueue
 }

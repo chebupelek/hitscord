@@ -19,10 +19,21 @@ public class NotificationService : INotificationService
 		_authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
 	}
 
-	public async Task<NotificationsListResponseDTO> GetNotificationsAsync(string token, int Page, int Size)
+	public async Task<NotificationsListResponseDTO> GetNotificationsAsync(Guid UserId, int Page, int Size)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
-		var notificationsCount = await _hitsContext.Notifications.Where(n => n.UserId == owner.Id).CountAsync();
+		var notificationsCount = await _hitsContext.Notifications.Where(n => n.UserId == UserId).CountAsync();
+		if (notificationsCount == 0)
+		{
+			return (
+				 new NotificationsListResponseDTO
+				 {
+					 Notifications = new List<NotificationResponseDTO>(),
+					 Page = Page,
+					 Size = Size,
+					 Total = notificationsCount
+				 }
+			);
+		}
 		if (Page < 1 || Size < 1 || ((Page - 1) * Size) + 1 > notificationsCount)
 		{
 			throw new CustomException($"Pagination error", "Get user notifications", "pagination", 400, $"Проблема с пагинацией", "Получение уведомлений пользователя");
@@ -30,7 +41,7 @@ public class NotificationService : INotificationService
 		var notificationsList = new NotificationsListResponseDTO
 		{
 			Notifications = await _hitsContext.Notifications
-				.Where(n => n.UserId == owner.Id)
+				.Where(n => n.UserId == UserId)
 				.OrderByDescending(n => n.CreatedAt)
 				.Skip((Page - 1) * Size)
 				.Take(Size)
@@ -53,10 +64,9 @@ public class NotificationService : INotificationService
 		return notificationsList;
 	}
 
-	public async Task DeleteNotificationAsync(string token, Guid NotificationId)
+	public async Task DeleteNotificationAsync(Guid UserId, Guid NotificationId)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
-		var notification = await _hitsContext.Notifications.FirstOrDefaultAsync(n => n.Id == NotificationId && n.UserId == owner.Id);
+		var notification = await _hitsContext.Notifications.FirstOrDefaultAsync(n => n.Id == NotificationId && n.UserId == UserId);
 		if (notification == null)
 		{
 			throw new CustomException($"Notification not found", "Delete notification", "NotificationId", 404, $"Уведомление не найдено", "Удаление уведомления");
@@ -65,10 +75,9 @@ public class NotificationService : INotificationService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task ReadNotificationAsync(string token, Guid NotificationId)
+	public async Task ReadNotificationAsync(Guid UserId, Guid NotificationId)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
-		var notification = await _hitsContext.Notifications.FirstOrDefaultAsync(n => n.Id == NotificationId && n.UserId == owner.Id);
+		var notification = await _hitsContext.Notifications.FirstOrDefaultAsync(n => n.Id == NotificationId && n.UserId == UserId);
 		if (notification == null)
 		{
 			throw new CustomException("Notification not found", "Read notification", "NotificationId", 404, "Уведомление не найдено", "Прочитать уведомления");

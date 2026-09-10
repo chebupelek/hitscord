@@ -4,6 +4,6 @@ public class ClassicMessageResponceDTO : MessageResponceDTO
 {
     public string? Text { get; set; }
     public DateTime? ModifiedAt { get; set; }
-    public MessageSubChannelResponceDTO? NestedChannel { get; set; }
+    public bool NestedChannel { get; set; }
 	public List<FileMetaResponseDTO>? Files { get; set; }
 }

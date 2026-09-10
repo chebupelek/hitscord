@@ -9,34 +9,41 @@ public interface IServerService
     Task<ServerDbModel> CheckServerExistAsync(Guid serverId, bool includeChannels);
     Task<ServerDbModel> GetServerFullModelAsync(Guid serverId);
 
-    Task<ServerIdDTO> CreateServerAsync(string token, string severName, ServerTypeEnum? type);
-    Task SubscribeAsync(Guid serverId, string token, string? userName);
-    Task UnsubscribeAsync(Guid serverId, string token);
-    Task UnsubscribeForCreatorAsync(Guid serverId, string token, Guid newCreatorId);
-    Task DeleteServerAsync(Guid serverId, string token);
-    Task<ServersListDTO> GetServerListAsync(string token);
-    Task AddRoleToUserAsync(string token, Guid serverId, Guid userId, Guid roleId);
-	Task RemoveRoleFromUserAsync(string token, Guid serverId, Guid userId, Guid roleId);
-	Task<ServerInfoDTO> GetServerInfoAsync(string token, Guid serverId);
-    Task DeleteUserFromServerAsync(string token, Guid serverId, Guid userId, string? banReason);
-    Task ChangeServerNameAsync(Guid serverId, string token, string name);
-    Task ChangeUserNameAsync(Guid serverId, string token, string name);
-    Task ChangeNonNotifiableServerAsync(string token, Guid serverId);
-    Task<BanListDTO> GetBannedListAsync(string token, Guid serverId, int page, int size);
+    Task RedisUpdateFullServerAsync();
 
-	Task UnBanUser(string token, Guid serverId, Guid bannedId);
-    Task ChangeServerIconAsync(string token, Guid serverId, IFormFile iconFile);
-    Task DeleteServerIconAsync(string token, Guid serverId);
-	Task ChangeServerClosedAsync(string token, Guid serverId, bool isClosed, bool? isApproved);
+	Task<ServerIdDTO> CreateServerAsync(Guid UserId, string severName, ServerTypeEnum? type);
+	Task SubscribeAsync(Guid UserId, string invitationToken, string? userName);
+    Task UnsubscribeAsync(Guid serverId, Guid UserId);
+    Task UnsubscribeForCreatorAsync(Guid serverId, Guid UserId, Guid newCreatorId);
+    Task DeleteServerAsync(Guid serverId, Guid UserId);
+    Task<ServersListDTO> GetServerListAsync(Guid UserId);
+    Task AddRoleToUserAsync(Guid UserId, Guid serverId, Guid userId, Guid roleId);
+	Task RemoveRoleFromUserAsync(Guid UserId, Guid serverId, Guid userId, Guid roleId);
+	Task<ServerInfoDTO> GetServerInfoAsync(Guid UserId, Guid serverId);
+    Task DeleteUserFromServerAsync(Guid UserId, Guid serverId, Guid userId, string? banReason);
+    Task ChangeServerNameAsync(Guid serverId, Guid UserId, string name);
+    Task ChangeUserNameAsync(Guid serverId, Guid UserId, string name);
+    Task ChangeNonNotifiableServerAsync(Guid UserId, Guid serverId);
+    Task<BanListDTO> GetBannedListAsync(Guid UserId, Guid serverId, int page, int size);
 
-    Task ApproveApplicationAsync(string token, Guid applicationId);
-    Task RemoveApplicationServerAsync(string token, Guid applicationId);
-    Task RemoveApplicationUserAsync(string token, Guid applicationId);
-    Task<ServerApplicationsListResponseDTO> GetServerApplicationsAsync(string token, Guid serverId, int page, int size);
-    Task<UserApplicationsListResponseDTO> GetUserApplicationsAsync(string token, int page, int size);
+	Task UnBanUser(Guid UserId, Guid serverId, Guid bannedId);
+    Task ChangeServerIconAsync(Guid UserId, Guid serverId, IFormFile iconFile);
+    Task DeleteServerIconAsync(Guid UserId, Guid serverId);
+	Task ChangeServerClosedAsync(Guid UserId, Guid serverId, bool isClosed, bool? isApproved);
 
-    Task<ServerPresetListResponseDTO> GetServerPresetsAsync(string token, Guid serverId);
-    Task<SystemRolesFullListNoneChildsDTO> RolesFullListAsync(string token, Guid serverId);
-    Task<ServerPresetItemDTO> CreatePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
-    Task DeletePresetAsync(string token, Guid serverId, Guid serverRoleId, Guid systemRoleId);
+    Task ApproveApplicationAsync(Guid UserId, Guid applicationId);
+    Task RemoveApplicationServerAsync(Guid UserId, Guid applicationId);
+    Task RemoveApplicationUserAsync(Guid UserId, Guid applicationId);
+    Task<ServerApplicationsListResponseDTO> GetServerApplicationsAsync(Guid UserId, Guid serverId, int page, int size);
+    Task<UserApplicationsListResponseDTO> GetUserApplicationsAsync(Guid UserId, int page, int size);
+
+    Task<ServerPresetListResponseDTO> GetServerPresetsAsync(Guid UserId, Guid serverId);
+    Task<SystemRolesFullListNoneChildsDTO> RolesFullListAsync(Guid UserId, Guid serverId);
+    Task<ServerPresetItemDTO> CreatePresetAsync(Guid UserId, Guid serverId, Guid serverRoleId, Guid systemRoleId);
+    Task DeletePresetAsync(Guid UserId, Guid serverId, Guid serverRoleId, Guid systemRoleId);
+
+
+    Task<ServerInvitationResponseDTO> CreateInvitationToken(Guid UserId, Guid serverId, DateTime? expiresAt);
+    Task<InvitationDataResponseDTO> GetInvitationTokensDataAsync(Guid UserId, Guid serverId);
+    Task RevokeTokenAsync(Guid UserId, Guid serverId, Guid invitationId);
 }

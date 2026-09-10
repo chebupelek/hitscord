@@ -9,27 +9,28 @@ using hitscord.Services;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Роли")]
 [Route("roles")]
 public class RolesController : ControllerBase
 {
     private readonly IRolesService _roleService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+	private readonly ICurrentUserService _currentUser;
 
-    public RolesController(IRolesService roleService, IHttpContextAccessor httpContextAccessor)
+	public RolesController(IRolesService roleService, ICurrentUserService currentUser)
     {
 		_roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-    }
+		_currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+	}
 
     [Authorize]
     [HttpPost]
     [Route("create")]
-    public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequestDTO data)
-    {
+	public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequestDTO data)
+	{
+		// Сервис проверяет CanCreateRole и создаёт роль в указанном сервере.
         try
         {
-            var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var role = await _roleService.CreateRoleAsync(jwtToken, data.ServerId, data.Name, data.Color);
+			var role = await _roleService.CreateRoleAsync(_currentUser.UserId, data.ServerId, data.Name, data.Color);
             return Ok(role);
         }
         catch (CustomException ex)
@@ -47,10 +48,10 @@ public class RolesController : ControllerBase
 	[Route("delete")]
 	public async Task<IActionResult> DeleteRole([FromBody] DeleteRoleRequestDTO data)
 	{
+		// При удалении сервис пересчитывает доступ пользователей, если роль была последней дающей доступ.
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _roleService.DeleteRoleAsync(jwtToken, data.ServerId, data.RoleId);
+			await _roleService.DeleteRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -68,10 +69,10 @@ public class RolesController : ControllerBase
 	[Route("update")]
 	public async Task<IActionResult> UpdateRole([FromBody] UpdateRoleRequestDTO data)
 	{
+		// Позиция роли участвует в иерархии: нельзя менять роль выше собственных полномочий.
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _roleService.UpdateRoleAsync(jwtToken, data.ServerId, data.RoleId, data.Name, data.Color);
+			await _roleService.UpdateRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Name, data.Color, data.Position);
 			return Ok();
 		}
 		catch (CustomException ex)
@@ -89,10 +90,10 @@ public class RolesController : ControllerBase
 	[Route("list")]
 	public async Task<IActionResult> GetServerRoles([FromQuery] Guid serverId)
 	{
+		// Возвращается список ролей и их серверные/канальные разрешения.
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			var roles = await _roleService.GetServerRolesAsync(jwtToken, serverId);
+			var roles = await _roleService.GetServerRolesAsync(_currentUser.UserId, serverId);
 			return Ok(roles);
 		}
 		catch (CustomException ex)
@@ -110,10 +111,10 @@ public class RolesController : ControllerBase
 	[Route("settings")]
 	public async Task<IActionResult> ChangeSettings([FromBody] UpdateRoleSettingsRequestDTO data)
 	{
+		// `Add` включает или выключает одно серверное разрешение из SettingsEnum.
 		try
 		{
-			var jwtToken = _httpContextAccessor.HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-			await _roleService.ChangeRoleSettingsAsync(jwtToken, data.ServerId, data.RoleId, data.Setting, data.Add);
+			await _roleService.ChangeRoleSettingsAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Setting, data.Add);
 			return Ok();
 		}
 		catch (CustomException ex)

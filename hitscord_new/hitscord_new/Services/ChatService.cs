@@ -8,8 +8,8 @@ using hitscord.Models.other;
 using hitscord.Models.request;
 using hitscord.Models.response;
 using hitscord.nClamUtil;
+using hitscord.SignalR;
 using hitscord.Utils;
-using hitscord.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using nClam;
 using System.Data;
@@ -22,19 +22,17 @@ public class ChatService : IChatService
 {
     private readonly HitsContext _hitsContext;
     private readonly IAuthorizationService _authorizationService;
-	private readonly WebSocketsManager _webSocketManager;
-	private readonly IFileService _fileService;
+	private readonly IRealtimeService _realtimeService;
 	private readonly nClamService _clamService;
 	private readonly MinioService _minioService;
 	//private readonly ILogger<ChatService> _logger;
 
-	public ChatService(/*ILogger<ChatService> logger, */HitsContext hitsContext, IAuthorizationService authorizationService, WebSocketsManager webSocketManager, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
+	public ChatService(/*ILogger<ChatService> logger, */HitsContext hitsContext, IAuthorizationService authorizationService, IRealtimeService realtimeService, IFileService fileService, INotificationService notificationsService, nClamService clamService, MinioService minioService)
 	{
 		//_logger = logger;
 		_hitsContext = hitsContext ?? throw new ArgumentNullException(nameof(hitsContext));
         _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
-		_webSocketManager = webSocketManager ?? throw new ArgumentNullException(nameof(webSocketManager));
-		_fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
+		_realtimeService = realtimeService ?? throw new ArgumentNullException(nameof(realtimeService));
 		_clamService = clamService ?? throw new ArgumentNullException(nameof(clamService));
 		_minioService = minioService ?? throw new ArgumentNullException(nameof(minioService));
 	}
@@ -75,9 +73,280 @@ public class ChatService : IChatService
 		};
 	}
 
-	public async Task<ChatInfoDTO> CreateChatAsync(string token, string userTag)
+	private async Task<MessageResponceDTO?> MapMessageAsync(ChatMessageDbModel message, Guid userId, Guid chatId)
+	{
+		if (message == null)
+			return null;
+
+		var reply = message.ReplyToMessageId != null
+			? await _hitsContext.ChatMessage
+				.FirstOrDefaultAsync(m => m.Id == message.ReplyToMessageId)
+			: null;
+
+		switch (message)
+		{
+			case ClassicChatMessageDbModel classic:
+				return new ClassicMessageResponceDTO
+				{
+					MessageType = classic.MessageType,
+					ServerId = null,
+					ChannelId = chatId,
+					Id = classic.Id,
+					AuthorId = classic.Author.Id,
+					CreatedAt = classic.CreatedAt,
+					Text = classic.Text,
+					ModifiedAt = classic.UpdatedAt,
+					ReplyToMessage = reply != null
+						? MapReplyToMessage(reply)
+						: null,
+					NestedChannel = false,
+					Files = classic.Files.Select(f => new FileMetaResponseDTO
+					{
+						FileId = f.Id,
+						FileName = f.Name,
+						FileType = f.Type,
+						FileSize = f.Size,
+						Deleted = f.Deleted
+					}).ToList(),
+					Reactions = classic.Reactions.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					taggedUsers = classic.TaggedUsers
+				};
+
+			case ChatVoteDbModel vote:
+
+				var variantIds = vote.Variants.Select(v => v.Id).ToList();
+
+				var votesByVariantId = await _hitsContext.ChatVariantUser
+					.Where(v => variantIds.Contains(v.VariantId))
+					.GroupBy(v => v.VariantId)
+					.ToDictionaryAsync(g => g.Key, g => g.ToList());
+
+				var allVotes = votesByVariantId
+					.SelectMany(x => x.Value)
+					.ToList();
+
+				return new VoteResponceDTO
+				{
+					MessageType = vote.MessageType,
+					ServerId = null,
+					ChannelId = chatId,
+					Id = vote.Id,
+					AuthorId = vote.Author.Id,
+					CreatedAt = vote.CreatedAt,
+					ReplyToMessage = reply != null
+						? MapReplyToMessage(reply)
+						: null,
+					Title = vote.Title,
+					Content = vote.Content,
+					IsAnonimous = vote.IsAnonimous,
+					Multiple = vote.Multiple,
+					Deadline = vote.Deadline,
+					TotalUsers = allVotes
+						.Select(v => v.UserId)
+						.Distinct()
+						.Count(),
+					Variants = vote.Variants
+						.Select(variant =>
+						{
+							var votes = votesByVariantId.TryGetValue(
+								variant.Id,
+								out var list)
+								? list
+								: new List<ChatVariantUserDbModel>();
+
+							return new VoteVariantResponseDTO
+							{
+								Id = variant.Id,
+								Number = variant.Number,
+								Content = variant.Content,
+								TotalVotes = votes.Count,
+								VotedUserIds = vote.IsAnonimous
+									? votes.Any(v => v.UserId == userId)
+										? new List<Guid> { userId }
+										: new List<Guid>()
+									: votes.Select(v => v.UserId).ToList()
+							};
+						})
+						.OrderBy(v => v.Number)
+						.ToList(),
+					Reactions = vote.Reactions.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					taggedUsers = vote.TaggedUsers
+				};
+		}
+
+		return null;
+	}
+
+	private MessageResponceDTO? MapMessage(ChatMessageDbModel message, Guid userId, Guid chatId, Dictionary<long, ChatMessageDbModel> replies, Dictionary<Guid, List<ChatVariantUserDbModel>> votesByVariantId)
+	{
+		switch (message)
+		{
+			case ClassicChatMessageDbModel classic:
+				return new ClassicMessageResponceDTO
+				{
+					MessageType = classic.MessageType,
+					ServerId = null,
+					ChannelId = chatId,
+					Id = classic.Id,
+					AuthorId = classic.Author.Id,
+					CreatedAt = classic.CreatedAt,
+					Text = classic.Text,
+					ModifiedAt = classic.UpdatedAt,
+					ReplyToMessage =
+						classic.ReplyToMessageId.HasValue &&
+						replies.TryGetValue(classic.ReplyToMessageId.Value, out var replyClassic)
+							? MapReplyToMessage(replyClassic)
+							: null,
+					NestedChannel = false,
+					Files = classic.Files.Select(f => new FileMetaResponseDTO
+					{
+						FileId = f.Id,
+						FileName = f.Name,
+						FileType = f.Type,
+						FileSize = f.Size,
+						Deleted = f.Deleted
+					}).ToList(),
+					Reactions = classic.Reactions.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					taggedUsers = classic.TaggedUsers
+				};
+
+			case ChatVoteDbModel vote:
+
+				var voteVariantIds = vote.Variants
+					.Select(v => v.Id)
+					.ToList();
+
+				var allVotes = votesByVariantId
+					.Where(x => voteVariantIds.Contains(x.Key))
+					.SelectMany(x => x.Value)
+					.ToList();
+
+				return new VoteResponceDTO
+				{
+					MessageType = vote.MessageType,
+					ServerId = null,
+					ChannelId = chatId,
+					Id = vote.Id,
+					AuthorId = vote.Author.Id,
+					CreatedAt = vote.CreatedAt,
+					ReplyToMessage =
+						vote.ReplyToMessageId.HasValue &&
+						replies.TryGetValue(vote.ReplyToMessageId.Value, out var replyVote)
+							? MapReplyToMessage(replyVote)
+							: null,
+					Title = vote.Title,
+					Content = vote.Content,
+					IsAnonimous = vote.IsAnonimous,
+					Multiple = vote.Multiple,
+					Deadline = vote.Deadline,
+					TotalUsers = allVotes
+						.Select(v => v.UserId)
+						.Distinct()
+						.Count(),
+					Variants = vote.Variants
+						.Select(variant =>
+						{
+							var votes = votesByVariantId.TryGetValue(
+								variant.Id,
+								out var list)
+								? list
+								: new List<ChatVariantUserDbModel>();
+
+							return new VoteVariantResponseDTO
+							{
+								Id = variant.Id,
+								Number = variant.Number,
+								Content = variant.Content,
+								TotalVotes = votes.Count,
+								VotedUserIds = vote.IsAnonimous
+									? votes.Any(v => v.UserId == userId)
+										? new List<Guid> { userId }
+										: new List<Guid>()
+									: votes.Select(v => v.UserId).ToList()
+							};
+						})
+						.OrderBy(v => v.Number)
+						.ToList(),
+					Reactions = vote.Reactions.Select(r => new MessageReactionShortDTO
+					{
+						Id = r.Id,
+						AuthorId = r.AuthorId,
+						CreatedAt = r.CreatedAt,
+						ReactionCode = r.ReactionCode
+					}).ToList(),
+					taggedUsers = vote.TaggedUsers
+				};
+		}
+
+		return null;
+	}
+
+	private async Task<UserChatResponseDTO> MapChatUserAsync(UserDbModel user, Guid chatId, Guid currentUserId)
+	{
+		var friendsIds = await _hitsContext.Friendship
+			.Where(f => f.UserIdFrom == currentUserId ||
+						f.UserIdTo == currentUserId)
+			.Select(f => f.UserIdFrom == currentUserId
+				? f.UserIdTo
+				: f.UserIdFrom)
+			.ToListAsync();
+
+		return new UserChatResponseDTO
+		{
+			ChatId = chatId,
+			UserId = user.Id,
+			UserName = user.AccountName,
+			UserTag = user.AccountTag,
+
+			Icon = user.IconFile == null
+				? null
+				: new FileMetaResponseDTO
+				{
+					FileId = user.IconFile.Id,
+					FileName = user.IconFile.Name,
+					FileType = user.IconFile.Type,
+					FileSize = user.IconFile.Size,
+					Deleted = user.IconFile.Deleted
+				},
+
+			Notifiable = user.Notifiable,
+			NonFriendMessage = user.NonFriendMessage,
+			FriendshipApplication = user.FriendshipApplication,
+
+			isFriend = friendsIds.Contains(user.Id),
+
+			SystemRoles = user.SystemRoles
+				.Select(sr => new SystemRoleShortItemDTO
+				{
+					Id = null,
+					Name = sr.Name,
+					Type = sr.Type
+				})
+				.ToList()
+		};
+	}
+
+	public async Task<ChatInfoDTO> CreateChatAsync(Guid OwnerId, string userTag)
     {
-		var owner = await _authorizationService.GetUserAsync(token);
+		var owner = await _authorizationService.GetUserAsync(OwnerId);
 		var user = await _authorizationService.GetUserByTagAsync(userTag);
 		if (owner.Id == user.Id)
 		{
@@ -107,7 +376,8 @@ public class ChatService : IChatService
 		_hitsContext.LastReadChatMessage.AddRange(lastRead);
 		await _hitsContext.SaveChangesAsync();
 
-		await _webSocketManager.BroadcastMessageAsync(
+		await _realtimeService.SendToUser(
+			user.Id,
 			new ChatListItemDTO { 
 				ChatId = newChat.Id, 
 				ChatName = newChat.Name,
@@ -115,7 +385,8 @@ public class ChatService : IChatService
 				NonReadedTaggedCount = 0,
 				LastReadedMessageId = 0
 			}, 
-			new List<Guid> { user.Id }, "You have been added into a chat");
+			"You have been added into a chat"
+		);
 
 		await _hitsContext.Notifications.AddAsync(new NotificationDbModel
 		{
@@ -166,7 +437,11 @@ public class ChatService : IChatService
 				}
 			}
 		};
-		await _webSocketManager.BroadcastMessageAsync(chatInfoOwner, new List<Guid> { user.Id }, "You have been added into a chat");
+		await _realtimeService.SendToUser(
+			user.Id,
+			chatInfoOwner,
+			"You have been added into a chat"
+		);
 
 		var chatInfoUser = new ChatInfoDTO
 		{
@@ -211,11 +486,10 @@ public class ChatService : IChatService
 		return chatInfoUser;
 	}
 
-	public async Task ChangeChatNameAsync(string token, Guid chatId, string newName)
+	public async Task ChangeChatNameAsync(Guid UserId, Guid chatId, string newName)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		var chat = await CheckChatExist(chatId);
-		if ((await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == owner.Id)) == null)
+		if ((await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == UserId)) == null)
 		{
 			throw new CustomException("User not in this chat", "ChangeChatName", "ChatId", 401, "Пользователь не находится в этом чате", "Изменение имени чата");
 		}
@@ -233,62 +507,137 @@ public class ChatService : IChatService
 		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Count() > 0)
 		{
-			//заменить дбшную модель
-			await _webSocketManager.BroadcastMessageAsync(response, alertedUsers, "New chat name");
+			await _realtimeService.SendToChat(
+				chat.Id,
+				response, 
+				"New chat name"
+			);
 		}
 	}
 
-	public async Task<ChatListDTO> GetChatsListAsync(string token)
+	public async Task<ChatListDTO> GetChatsListAsync(Guid userId)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
-
 		var lastReads = await _hitsContext.LastReadChatMessage
-			.Include(lr => lr.Chat)
-				.ThenInclude(c => c.Users)
-			.Where(lr => lr.UserId == owner.Id && lr.Chat.Users.Any(u => u.UserId == owner.Id))
+			.Where(lr => lr.UserId == userId)
 			.ToListAsync();
 
-		var lastReadsDict = lastReads.ToDictionary(lr => lr.ChatId, lr => lr.LastReadedMessageId);
-
+		var lastReadsDict = lastReads.ToDictionary(
+			lr => lr.ChatId,
+			lr => lr.LastReadedMessageId);
 
 		var chats = await _hitsContext.Chat
-			.Include(c => c.Users).ThenInclude(uc => uc.User)
+			.Include(c => c.Users)
 			.Include(c => c.Messages)
 			.Include(c => c.IconFile)
-			.Where(c => c.Users.Any(u => u.UserId == owner.Id))
+			.Where(c => c.Users.Any(u => u.UserId == userId))
 			.ToListAsync();
 
-		var chatListItems = chats.Select(c =>
+		var lastMessageIds = lastReads
+			.Select(x => x.LastReadedMessageId)
+			.Where(x => x > 0)
+			.Distinct()
+			.ToList();
+
+		var lastMessages = await _hitsContext.ChatMessage
+			.Include(m => m.Author)
+			.Include(m => (m as ChatVoteDbModel)!.Variants)
+			.Include(m => (m as ClassicChatMessageDbModel)!.Files)
+			.Include(m => m.Reactions)
+			.Where(m => lastMessageIds.Contains(m.Id))
+			.ToListAsync();
+
+		var lastMessagesDict = lastMessages.ToDictionary(m => m.Id);
+
+		var replyIds = lastMessages
+			.Where(m => m.ReplyToMessageId.HasValue)
+			.Select(m => m.ReplyToMessageId!.Value)
+			.Distinct()
+			.ToList();
+
+		var replies = await _hitsContext.ChatMessage
+			.Where(m => replyIds.Contains(m.Id))
+			.ToDictionaryAsync(m => m.Id);
+
+		var variantIds = lastMessages
+			.OfType<ChatVoteDbModel>()
+			.SelectMany(v => v.Variants)
+			.Select(v => v.Id)
+			.ToList();
+
+		var votesByVariantId = await _hitsContext.ChatVariantUser
+			.Where(v => variantIds.Contains(v.VariantId))
+			.GroupBy(v => v.VariantId)
+			.ToDictionaryAsync(
+				g => g.Key,
+				g => g.ToList());
+
+		var result = new List<ChatListItemDTO>();
+
+		foreach (var chat in chats)
 		{
-			var lastReadId = lastReadsDict.ContainsKey(c.Id) ? lastReadsDict[c.Id] : 0;
-			var nonReadedMessages = c.Messages.Where(m => m.Id > lastReadId && m.DeleteTime == null).ToList();
+			var lastReadId = lastReadsDict.TryGetValue(chat.Id, out var id)
+				? id
+				: 0;
 
-			return new ChatListItemDTO
+			var nonReadedMessages = chat.Messages
+				.Where(m => m.Id > lastReadId && m.DeleteTime == null)
+				.ToList();
+
+			MessageResponceDTO? lastReadMessage = null;
+			UserDbModel? author = null;
+
+			if (lastMessagesDict.TryGetValue(lastReadId, out var message))
 			{
-				ChatId = c.Id,
-				ChatName = c.Name,
-				NonReadedCount = nonReadedMessages.Count,
-				NonReadedTaggedCount = nonReadedMessages.Count(m => m.TaggedUsers.Contains(owner.Id)),
-				LastReadedMessageId = lastReadId,
-				Icon = c.IconFile != null ? new FileMetaResponseDTO
-				{
-					FileId = c.IconFile.Id,
-					FileName = c.IconFile.Name,
-					FileType = c.IconFile.Type,
-					FileSize = c.IconFile.Size,
-					Deleted = false
-				} : null
-			};
-		}).ToList();
+				lastReadMessage = MapMessage(
+					message,
+					userId,
+					chat.Id,
+					replies,
+					votesByVariantId);
 
-		return new ChatListDTO { ChatsList = chatListItems };
+				author = await _hitsContext.User
+					.Include(u => u.IconFile)
+					.Include(u => u.SystemRoles)
+					.FirstAsync(u => u.Id == message.AuthorId);
+			}
+
+
+			result.Add(new ChatListItemDTO
+			{
+				ChatId = chat.Id,
+				ChatName = chat.Name,
+				NonReadedCount = nonReadedMessages.Count,
+				NonReadedTaggedCount = nonReadedMessages.Count(
+					m => m.TaggedUsers.Contains(userId)),
+				LastReadedMessageId = lastReadId,
+				LastReadedMessage = new LastReadMessageDTO
+				{
+					Message = lastReadMessage,
+					Author = await MapChatUserAsync(author, chat.Id, userId)
+				},
+				Icon = chat.IconFile == null
+					? null
+					: new FileMetaResponseDTO
+					{
+						FileId = chat.IconFile.Id,
+						FileName = chat.IconFile.Name,
+						FileType = chat.IconFile.Type,
+						FileSize = chat.IconFile.Size,
+						Deleted = false
+					}
+			});
+		}
+
+		return new ChatListDTO
+		{
+			ChatsList = result
+		};
 	}
 
-	public async Task<ChatInfoDTO> GetChatInfoAsync(string token, Guid chatId)
+	public async Task<ChatInfoDTO> GetChatInfoAsync(Guid UserId, Guid chatId)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		await CheckChatExist(chatId);
-		var userChat = await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == owner.Id);
+		var userChat = await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == UserId);
 		if (userChat == null)
 		{
 			throw new CustomException("User not in this chat", "GetChatInfo", "ChatId", 401, "Пользователь не находится в этом чате", "Получении информации о чате");
@@ -297,15 +646,15 @@ public class ChatService : IChatService
 		var lastRead = await _hitsContext.LastReadChatMessage
 			.Include(lr => lr.Chat)
 				.ThenInclude(c => c.Users)
-			.FirstOrDefaultAsync(lr => lr.UserId == owner.Id && lr.ChatId == chatId);
+			.FirstOrDefaultAsync(lr => lr.UserId == UserId && lr.ChatId == chatId);
 		if (lastRead == null)
 		{
 			throw new CustomException("Last read not found", "GetChatInfo", "Last read", 404, "Не найдена запись о последнем прочитанном сообщении", "Получении информации о чате");
 		}
 
 		var friendsIds = await _hitsContext.Friendship
-			.Where(f => f.UserIdFrom == owner.Id || f.UserIdTo == owner.Id)
-			.Select(f => f.UserIdFrom == owner.Id ? f.UserIdTo : f.UserIdFrom)
+			.Where(f => f.UserIdFrom == UserId || f.UserIdTo == UserId)
+			.Select(f => f.UserIdFrom == UserId ? f.UserIdTo : f.UserIdFrom)
 			.Distinct()
 			.ToListAsync();
 
@@ -324,6 +673,19 @@ public class ChatService : IChatService
 			throw new CustomException("Chat info not found", "GetChatInfo", "Chat info", 404, "Не найдена информация о чате", "Получении информации о чате");
 		}
 
+		ChatMessageDbModel? lastMessage = null;
+
+		if (lastRead.LastReadedMessageId > 0)
+		{
+			lastMessage = await _hitsContext.ChatMessage
+				.Include(m => m.Author)
+				.Include(m => (m as ChatVoteDbModel)!.Variants)
+				.Include(m => (m as ClassicChatMessageDbModel)!.Files)
+				.Include(m => m.Reactions)
+				.FirstOrDefaultAsync(m =>
+					m.Id == lastRead.LastReadedMessageId);
+		}
+
 		var chatResponse = new ChatInfoDTO
 		{
 			ChatId = chatInfo.Id,
@@ -332,9 +694,15 @@ public class ChatService : IChatService
 			NonReadedTaggedCount = chatInfo.Messages
 				.Where(m => m.Id > lastRead.LastReadedMessageId)
 				.Count(m =>
-					m.TaggedUsers.Contains(owner.Id)
+					m.TaggedUsers.Contains(UserId)
 				),
 			LastReadedMessageId = lastRead.LastReadedMessageId,
+			LastReadedMessage = lastMessage != null
+				? await MapMessageAsync(
+					lastMessage,
+					UserId,
+					chatInfo.Id)
+				: null,
 			NonNotifiable = userChat.NonNotifiable,
 			Icon = chatInfo.IconFile != null ? new FileMetaResponseDTO
 			{
@@ -377,17 +745,17 @@ public class ChatService : IChatService
 		return chatResponse;
 	}
 
-	public async Task AddUserAsync(string token, string userTag, Guid chatId)
+	public async Task AddUserAsync(Guid OwnerId, string userTag, Guid chatId)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
+		var owner = await _authorizationService.GetUserAsync(OwnerId);
 		var user = await _authorizationService.GetUserByTagAsync(userTag);
-		if (owner.Id == user.Id)
+		if (OwnerId == user.Id)
 		{
 			throw new CustomException("User cant add himself in chat", "AddUserAsync", "UserTag", 400, "Нельзя добавлять в чат себя самого", "Добавление пользователя в чат");
 		}
 		var chat = await CheckChatExist(chatId);
 		var chatUsers = await _hitsContext.UserChat.Where(uc => uc.ChatId == chatId).Select(uc => uc.UserId).ToListAsync();
-		if (!(chatUsers.Contains(owner.Id)))
+		if (!(chatUsers.Contains(OwnerId)))
 		{
 			throw new CustomException("User not in this chat", "AddUserAsync", "ChatId", 401, "Пользователь не находится в этом чате", "Добавление пользователя в чат");
 		}
@@ -396,7 +764,7 @@ public class ChatService : IChatService
 			throw new CustomException("User alredy in this chat", "AddUserAsync", "ChatId", 401, "Пользователь уже в чате", "Добавление пользователя в чат");
 		}
 
-		var areUserFriends = await _hitsContext.Friendship.FirstOrDefaultAsync(f => (f.UserIdFrom == owner.Id && f.UserIdTo == user.Id) || (f.UserIdTo == owner.Id && f.UserIdFrom == user.Id)) != null;
+		var areUserFriends = await _hitsContext.Friendship.FirstOrDefaultAsync(f => (f.UserIdFrom == OwnerId && f.UserIdTo == user.Id) || (f.UserIdTo == OwnerId && f.UserIdFrom == user.Id)) != null;
 		if (!areUserFriends && user.NonFriendMessage == true)
 		{
 			throw new CustomException("Owner cant add this user in chat", "AddUserAsync", "UserTag", 401, "Нельзя добавлять в чат этого пользователя", "Добавление пользователя в чат");
@@ -454,7 +822,11 @@ public class ChatService : IChatService
 			foreach (var alertedUser in alertedUsers)
 			{
 				userResponse.isFriend = friendsIds.Contains(alertedUser);
-				await _webSocketManager.BroadcastMessageAsync(userResponse, new List<Guid> { alertedUser }, "New user in chat");
+				await _realtimeService.SendToUser(
+					alertedUser,
+					userResponse, 
+					"New user in chat"
+				);
 			}
 		}
 
@@ -502,7 +874,10 @@ public class ChatService : IChatService
 				})
 				.ToList()
 		};
-		await _webSocketManager.BroadcastMessageAsync(chatInfo, new List<Guid>() { user.Id }, "You added to chat");
+		await _realtimeService.SendToUser(
+			user.Id,
+			chatInfo,
+			"You added to chat");
 
 		await _hitsContext.Notifications.AddAsync(new NotificationDbModel
 		{
@@ -515,9 +890,9 @@ public class ChatService : IChatService
 		await _hitsContext.SaveChangesAsync();
 	}
 
-	public async Task RemoveUserAsync(string token, Guid chatId)
+	public async Task RemoveUserAsync(Guid UserId, Guid chatId)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
+		var owner = await _authorizationService.GetUserAsync(UserId);
 		var chat = await CheckChatExist(chatId);
 
 		var chatUser = await _hitsContext.UserChat.FirstOrDefaultAsync(uc => uc.UserId == owner.Id && uc.ChatId == chat.Id);
@@ -595,16 +970,19 @@ public class ChatService : IChatService
 			var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 			if (alertedUsers != null && alertedUsers.Count() > 0)
 			{
-				await _webSocketManager.BroadcastMessageAsync(userResponse, alertedUsers, "User removed from chat");
+				await _realtimeService.SendToChat(
+					chat.Id,
+					userResponse, 
+					"User removed from chat"
+				);
 			}
 		}
 	}
 
-	public async Task<MessageListResponseDTO> GetChatMessagesAsync(string token, Guid chatId, int number, long fromMessageId, bool down)
+	public async Task<MessageListResponseDTO> GetChatMessagesAsync(Guid UserId, Guid chatId, int number, long fromMessageId, bool down)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		var chat = await CheckChatExist(chatId);
-		if ((await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == owner.Id)) == null)
+		if ((await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == UserId)) == null)
 			{
 			throw new CustomException("User not in this chat", "GetChatMessagesAsync", "ChatId", 401, "Пользователь не находится в этом чате", "Получение сообщений из чата");
 		}
@@ -617,6 +995,7 @@ public class ChatService : IChatService
 				.Include(m => m.Author)
 				.Include(m => (m as ChatVoteDbModel)!.Variants!)
 				.Include(m => (m as ClassicChatMessageDbModel)!.Files)
+				.Include(m => m.Reactions)
 				.Where(m => m.ChatId == chat.Id && m.DeleteTime == null && m.Id >= fromMessageId)
 				.OrderBy(m => m.Id)
 				.Take(number)
@@ -626,6 +1005,7 @@ public class ChatService : IChatService
 				.Include(m => m.Author)
 				.Include(m => (m as ChatVoteDbModel)!.Variants!)
 				.Include(m => (m as ClassicChatMessageDbModel)!.Files)
+				.Include(m => m.Reactions)
 				.Where(m => m.ChatId == chat.Id && m.DeleteTime == null && m.Id <= fromMessageId)
 				.OrderByDescending(m => m.Id)
 				.Take(number)
@@ -649,9 +1029,14 @@ public class ChatService : IChatService
 			.ToDictionaryAsync(g => g.Key, g => g.ToList());
 
 		var maxId = messagesFresh.Any() ? messagesFresh.Max(m => m.Id) : 0;
+		var minId = messagesFresh.Any() ? messagesFresh.Min(m => m.Id) : 0;
 
-		var remainingCount = await _hitsContext.ChatMessage
+		var remainingCount = down ? await _hitsContext.ChatMessage
 			.Where(m => m.ChatId == chat.Id && m.DeleteTime == null && m.Id > maxId)
+			.CountAsync()
+			:
+			await _hitsContext.ChatMessage
+			.Where(m => m.ChatId == chat.Id && m.DeleteTime == null && m.Id < minId)
 			.CountAsync();
 
 		var messages = new MessageListResponseDTO
@@ -683,7 +1068,7 @@ public class ChatService : IChatService
 						ReplyToMessage = repliesFresh.FirstOrDefault(rf => rf.Id == message.ReplyToMessageId) is { } replyClassicMessage
 							? MapReplyToMessage(replyClassicMessage)
 							: null,
-						NestedChannel = null,
+						NestedChannel = false,
 						Files = classic.Files.Select(f => new FileMetaResponseDTO
 						{
 							FileId = f.Id,
@@ -693,7 +1078,14 @@ public class ChatService : IChatService
 							Deleted = f.Deleted
 						})
 						.ToList(),
-						isTagged = message.TaggedUsers.Contains(owner.Id)
+						Reactions = classic.Reactions.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						}).ToList(),
+						taggedUsers = classic.TaggedUsers,
 					};
 					break;
 
@@ -738,13 +1130,20 @@ public class ChatService : IChatService
 									Content = variant.Content,
 									TotalVotes = votes.Count,
 									VotedUserIds = vote.IsAnonimous
-									? (votes.Any(v => v.UserId == owner.Id) ? new List<Guid> { owner.Id } : new List<Guid>())
+									? (votes.Any(v => v.UserId == UserId) ? new List<Guid> { UserId } : new List<Guid>())
 										: votes.Select(v => v.UserId).ToList()
 								};
 							})
 							.OrderBy(variant => variant.Number)
 							.ToList(),
-						isTagged = false
+						Reactions = vote.Reactions.Select(r => new MessageReactionShortDTO
+						{
+							Id = r.Id,
+							AuthorId = r.AuthorId,
+							CreatedAt = r.CreatedAt,
+							ReactionCode = r.ReactionCode
+						}).ToList(),
+						taggedUsers = vote.TaggedUsers,
 					};
 					break;
 
@@ -758,12 +1157,11 @@ public class ChatService : IChatService
 		return messages;
 	}
 
-	public async Task ChangeChatIconAsync(string token, Guid chatId, IFormFile iconFile)
+	public async Task ChangeChatIconAsync(Guid UserId, Guid chatId, IFormFile iconFile)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		var chat = await CheckChatExist(chatId);
 
-		if ((await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == owner.Id)) == null)
+		if ((await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == UserId)) == null)
 		{
 			throw new CustomException("User not in this chat", "ChangeChatIconAsync", "ChatId", 401, "Пользователь не находится в этом чате", "Изменение иконки чата");
 		}
@@ -836,7 +1234,7 @@ public class ChatService : IChatService
 			Name = originalFileName,
 			Type = iconFile.ContentType,
 			Size = iconFile.Length,
-			Creator = owner.Id,
+			Creator = UserId,
 			IsApproved = true,
 			CreatedAt = DateTime.UtcNow,
 			Deleted = false,
@@ -865,16 +1263,19 @@ public class ChatService : IChatService
 		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Any())
 		{
-			await _webSocketManager.BroadcastMessageAsync(changeIconDto, alertedUsers, "New icon on chat");
+			await _realtimeService.SendToChat(
+				chat.Id,
+				changeIconDto, 
+				"New icon on chat"
+			);
 		}
 	}
 
-	public async Task DeleteChatIconAsync(string token, Guid chatId)
+	public async Task DeleteChatIconAsync(Guid UserId, Guid chatId)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		var chat = await CheckChatExist(chatId);
 
-		if ((await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == owner.Id)) == null)
+		if ((await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == UserId)) == null)
 		{
 			throw new CustomException("User not in this chat", "DeleteChatIconAsync", "ChatId", 401, "Пользователь не находится в этом чате", "Удаление иконки чата");
 		}
@@ -907,15 +1308,18 @@ public class ChatService : IChatService
 		var alertedUsers = await _hitsContext.UserChat.Where(c => c.ChatId == chatId).Select(c => c.UserId).ToListAsync();
 		if (alertedUsers != null && alertedUsers.Any())
 		{
-			await _webSocketManager.BroadcastMessageAsync(chatIdResponse, alertedUsers, "Icon removed from chat");
+			await _realtimeService.SendToChat(
+				chat.Id,
+				chatIdResponse, 
+				"Icon removed from chat"
+			);
 		}
 	}
 
-	public async Task ChangeNonNotifiableChatAsync(string token, Guid chatId)
+	public async Task ChangeNonNotifiableChatAsync(Guid UserId, Guid chatId)
 	{
-		var owner = await _authorizationService.GetUserAsync(token);
 		var chat = await CheckChatExist(chatId);
-		var chatUser = await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == owner.Id);
+		var chatUser = await _hitsContext.UserChat.FirstOrDefaultAsync(c => c.ChatId == chatId && c.UserId == UserId);
 		if (chatUser == null)
 		{
 			throw new CustomException("User not in this chat", "Change nonNotifiable chat", "ChatId", 401, "Пользователь не находится в этом чате", "Изменение уведомляемости чата");

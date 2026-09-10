@@ -1,4 +1,6 @@
-﻿namespace hitscord.Models.response;
+﻿using hitscord.Models.other;
+
+namespace hitscord.Models.response;
 
 public class UserVoiceChannelResponseDTO
 {
@@ -6,4 +8,5 @@ public class UserVoiceChannelResponseDTO
     public required bool isEnter {  get; set; }
     public required Guid UserId { get; set; }
     public required Guid ChannelId { get; set; }
+    public required MuteStatusEnum MuteStatus { get; set; }
 }

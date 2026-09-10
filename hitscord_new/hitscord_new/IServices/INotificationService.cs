@@ -5,7 +5,7 @@ namespace hitscord.IServices;
 
 public interface INotificationService
 {
-	Task<NotificationsListResponseDTO> GetNotificationsAsync(string token, int Page, int Size);
-	Task DeleteNotificationAsync(string token, Guid NotificationId);
-	Task ReadNotificationAsync(string token, Guid NotificationId);
+	Task<NotificationsListResponseDTO> GetNotificationsAsync(Guid UserId, int Page, int Size);
+	Task DeleteNotificationAsync(Guid UserId, Guid NotificationId);
+	Task ReadNotificationAsync(Guid UserId, Guid NotificationId);
 }

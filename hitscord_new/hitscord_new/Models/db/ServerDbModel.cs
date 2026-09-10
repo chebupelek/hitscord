@@ -9,8 +9,7 @@ public class ServerDbModel
     public ServerDbModel()
     {
         Id = Guid.NewGuid();
-		ServerCreateDate = DateTime.UtcNow;
-	}
+    }
 
     [Key]
     public Guid Id { get; set; }
@@ -21,11 +20,12 @@ public class ServerDbModel
     public required string Name { get; set; }
     public ICollection<RoleDbModel> Roles { get; set; }
     public ICollection<ChannelDbModel> Channels { get; set; }
+	public ICollection<ChannelGroupDbModel> Groups { get; set; }
 	public ICollection<UserServerDbModel> Subscribtions { get; set; }
+	public ICollection<ServerInvitationDbModel> Invitations { get; set; }
 	public Guid? IconFileId { get; set; }
 	[ForeignKey(nameof(IconFileId))]
 	public FileDbModel? IconFile { get; set; }
 	public required bool IsClosed { get; set; }
     public required ServerTypeEnum ServerType { get; set; }
-	public DateTime ServerCreateDate { get; set; }
 }

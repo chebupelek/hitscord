@@ -15,5 +15,26 @@ public class ServerInfoDTO
 	public required SettingsDTO Permissions { get; set; }
 	public required bool IsNotifiable { get; set; }
 	public required List<ServerUserDTO> Users { get; set; }
-	public required ChannelListDTO Channels { get; set; }
+	public required List<ChannelGroupResponseDTO> ChannelGroups { get; set; }
+}
+
+public class ChannelGroupResponseDTO
+{
+	public Guid? GroupId { get; set; }
+	public string? GroupName { get; set; }
+	public required int Position { get; set; }
+
+	public required List<ChannelWrapperDTO> Channels { get; set; }
+}
+
+public class ChannelWrapperDTO
+{
+	public required int Position { get; set; }
+	public required string Type { get; set; }
+	public TextChannelResponseDTO? TextChannel { get; set; }
+	public VoiceChannelResponseDTO? VoiceChannel { get; set; }
+	public NotificationChannelResponseDTO? NotificationChannel { get; set; }
+	public VoiceChannelResponseDTO? PairVoiceChannel { get; set; }
+	public TextQueueChannelResponseDTO? QueueChannel { get; set; }
+	public TextLessonChannelResponseDTO? LessonChannel { get; set; }
 }

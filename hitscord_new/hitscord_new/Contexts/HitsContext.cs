@@ -9,25 +9,33 @@ namespace hitscord.Contexts
     {
         public HitsContext(DbContextOptions<HitsContext> options) : base(options) { }
         public DbSet<UserDbModel> User { get; set; }
-        public DbSet<ServerDbModel> Server { get; set; }
+		public DbSet<UserDeviceTokenDbModel> UserDeviceToken { get; set; }
+		public DbSet<ServerDbModel> Server { get; set; }
 		public DbSet<RoleDbModel> Role { get; set; }
         public DbSet<UserServerDbModel> UserServer { get; set; }
 		public DbSet<SubscribeRoleDbModel> SubscribeRole { get; set; }
 		public DbSet<ServerApplicationDbModel> ServerApplications { get; set; }
 		public DbSet<FriendshipApplicationDbModel> FriendshipApplication { get; set; }
 		public DbSet<FriendshipDbModel> Friendship { get; set; }
+		public DbSet<ChannelGroupDbModel> ChannelGroup { get; set; }
 		public DbSet<ChannelDbModel> Channel { get; set; }
-        public DbSet<TextChannelDbModel> TextChannel { get; set; }
+		public DbSet<TextChannelDbModel> TextChannel { get; set; }
         public DbSet<VoiceChannelDbModel> VoiceChannel { get; set; }
 		public DbSet<NotificationChannelDbModel> NotificationChannel { get; set; }
 		public DbSet<SubChannelDbModel> SubChannel { get; set; }
 		public DbSet<PairVoiceChannelDbModel> PairVoiceChannel { get; set; }
+		public DbSet<TextLessonChannelDbModel> TextLessonChannel { get; set; }
+		public DbSet<TextQueueChannelDbModel> TextQueueChannel { get; set; }
+		public DbSet<QueueTakeDbModel> QueueTake { get; set; }
+		public DbSet<QueueItemDbModel> QueueItem { get; set; }
 		public DbSet<UserVoiceChannelDbModel> UserVoiceChannel { get; set; }
+
 		public DbSet<ChannelMessageDbModel> ChannelMessage { get; set; }
 		public DbSet<ClassicChannelMessageDbModel> ClassicChannelMessage { get; set; }
 		public DbSet<ChannelVoteDbModel> ChannelVote { get; set; }
 		public DbSet<ChannelVoteVariantDbModel> ChannelVoteVariant { get; set; }
 		public DbSet<ChannelVariantUserDbModel> ChannelVariantUser { get; set; }
+		public DbSet<ChannelMessageReactionDbModel> ChannelMessageReaction { get; set; }
 
 		public DbSet<ChatDbModel> Chat { get; set; }
 		public DbSet<UserChatDbModel> UserChat { get; set; }
@@ -36,6 +44,11 @@ namespace hitscord.Contexts
 		public DbSet<ChatVoteDbModel> ChatVote { get; set; }
 		public DbSet<ChatVoteVariantDbModel> ChatVoteVariant { get; set; }
 		public DbSet<ChatVariantUserDbModel> ChatVariantUser { get; set; }
+		public DbSet<ChatMessageReactionDbModel> ChatMessageReaction { get; set; }
+
+		public DbSet<LessonChannelMessageDbModel> LessonChannelMessage { get; set; }
+		public DbSet<LessonChannelMessageTaskDbModel> LessonChannelMessageTask { get; set; }
+		public DbSet<LessonChannelMessageSolutionDbModel> LessonChannelMessageSolution { get; set; }
 
 		public DbSet<NonNotifiableChannelDbModel> NonNotifiableChannel { get; set; }
 		public DbSet<LastReadChannelMessageDbModel> LastReadChannelMessage { get; set; }
@@ -47,6 +60,9 @@ namespace hitscord.Contexts
 		public DbSet<ChannelNotificatedDbModel> ChannelNotificated { get; set; }
 		public DbSet<ChannelCanUseDbModel> ChannelCanUse { get; set; }
 		public DbSet<ChannelCanJoinDbModel> ChannelCanJoin { get; set; }
+		public DbSet<ChannelCanMakeTasksDbModel> ChannelCanMakeTasks { get; set; }
+		public DbSet<ChannelCanJoinQueueDbModel> ChannelCanJoinQueue { get; set; }
+		public DbSet<ChannelCanTakeFromQueueDbModel> ChannelCanTakeFromQueue { get; set; }
 
 		public DbSet<NotificationDbModel> Notifications { get; set; }
 
@@ -58,6 +74,8 @@ namespace hitscord.Contexts
 		public DbSet<SystemRoleDbModel> SystemRole { get; set; }
 		public DbSet<AdminDbModel> Admin { get; set; }
 		public DbSet<ServerPresetDbModel> Preset { get; set; }
+
+		public DbSet<ServerInvitationDbModel> Invitation { get; set; }
 
 		public DbSet<AdminOperationsHistoryDbModel> OperationsHistory { get; set; }
 
@@ -92,6 +110,11 @@ namespace hitscord.Contexts
 					.WithOne(f => f.Server)
 					.HasForeignKey<FileDbModel>(f => f.ServerId)
 					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasMany(s => s.Invitations)
+					.WithOne(s => s.Server)
+					.HasForeignKey(s => s.ServerId)
+					.OnDelete(DeleteBehavior.Cascade);
 			});
 
             modelBuilder.Entity<UserServerDbModel>(entity =>
@@ -105,6 +128,10 @@ namespace hitscord.Contexts
 					.WithMany(s => s.Subscribtions)
 					.HasForeignKey(e => e.ServerId)
 					.IsRequired();
+
+				entity.HasOne(i => i.Invitation)
+					.WithMany()
+					.HasForeignKey(i => i.InvitationId);
 			});
 
 			modelBuilder.Entity<SubscribeRoleDbModel>(entity =>
@@ -133,6 +160,10 @@ namespace hitscord.Contexts
 					.WithMany()
 					.HasForeignKey(sa => sa.ServerId)
 					.IsRequired();
+
+				entity.HasOne(sa => sa.Invitation)
+					.WithMany()
+					.HasForeignKey(sa => sa.InvitationId);
 			});
 
 			modelBuilder.Entity<FriendshipApplicationDbModel>(entity =>
@@ -167,6 +198,14 @@ namespace hitscord.Contexts
 					.IsUnique();
 			});
 
+			modelBuilder.Entity<ChannelGroupDbModel>(entity =>
+			{
+				entity.HasOne(g => g.Server)
+					.WithMany(s => s.Groups)
+					.HasForeignKey(f => f.ServerId)
+					.IsRequired();
+			});
+
 			modelBuilder.Entity<ChannelDbModel>(entity =>
             {
                 entity.HasDiscriminator<string>("ChannelType")
@@ -174,13 +213,28 @@ namespace hitscord.Contexts
                     .HasValue<VoiceChannelDbModel>("Voice")
                     .HasValue<NotificationChannelDbModel>("Notification")
 					.HasValue<SubChannelDbModel>("Sub")
-					.HasValue<PairVoiceChannelDbModel>("PairVoice");
+					.HasValue<PairVoiceChannelDbModel>("PairVoice")
+					.HasValue<TextLessonChannelDbModel>("LessonText")
+					.HasValue<TextQueueChannelDbModel>("Queue");
 
 				entity.HasOne(c => c.Server)
                     .WithMany(s => s.Channels)
                     .HasForeignKey(c => c.ServerId)
                     .IsRequired();
-            });
+
+				entity.HasOne(c => c.Group)
+					.WithMany(g => g.Channels)
+					.HasForeignKey(c => c.GroupId)
+					.IsRequired(false);
+			});
+
+			modelBuilder.Entity<QueueItemDbModel>(entity =>
+			{
+				entity.HasOne(q => q.Channel)
+					.WithMany(c => c.Queue)
+					.HasForeignKey(q => q.ChannelId)
+					.OnDelete(DeleteBehavior.Cascade);
+			});
 
 			modelBuilder.Entity<UserVoiceChannelDbModel>(entity =>
             {
@@ -188,8 +242,8 @@ namespace hitscord.Contexts
 
 
 				entity.HasOne(uvc => uvc.User)
-                    .WithOne()
-                    .HasForeignKey<UserVoiceChannelDbModel>(uvc => uvc.UserId)
+                    .WithMany()
+                    .HasForeignKey(uvc => uvc.UserId)
                     .IsRequired();
 
                 entity.HasOne(uvc => uvc.VoiceChannel)
@@ -224,13 +278,12 @@ namespace hitscord.Contexts
 
 				entity.HasOne(m => m.Author)
 					.WithMany()
-					.HasForeignKey(m => m.AuthorId)
-					.IsRequired();
+					.HasForeignKey(m => m.AuthorId);
 
 				entity.HasOne(m => m.TextChannel)
 					.WithMany(e => e.Messages)
 					.HasForeignKey(m => m.TextChannelId)
-					.OnDelete(DeleteBehavior.SetNull);
+					.OnDelete(DeleteBehavior.Cascade);
 			});
 
 			modelBuilder.Entity<ChannelVoteVariantDbModel>(entity =>
@@ -252,6 +305,58 @@ namespace hitscord.Contexts
 					.WithMany()
 					.HasForeignKey(vv => vv.UserId)
 					.IsRequired();
+			});
+
+			modelBuilder.Entity<ChannelMessageReactionDbModel>(entity =>
+			{
+				entity.HasOne(f => f.ChannelMessage)
+					.WithMany(cm => cm.Reactions)
+					.HasForeignKey(f => f.ChannelMessageId)
+					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(f => f.Author)
+					.WithMany()
+					.HasForeignKey(f => f.AuthorId)
+					.OnDelete(DeleteBehavior.SetNull);
+			});
+
+			modelBuilder.Entity<LessonChannelMessageDbModel>(entity =>
+			{
+				entity.HasIndex(cm => new { cm.Id, cm.TextLessonChannelId })
+					.IsUnique();
+
+				entity.HasDiscriminator<string>("MessageType")
+					.HasValue<LessonChannelMessageTaskDbModel>("Task")
+					.HasValue<LessonChannelMessageSolutionDbModel>("Solution");
+
+				entity.HasOne(m => m.Author)
+					.WithMany()
+					.HasForeignKey(m => m.AuthorId);
+
+				entity.HasOne(m => m.TextLessonChannel)
+					.WithMany(e => e.Messages)
+					.HasForeignKey(m => m.TextLessonChannelId)
+					.OnDelete(DeleteBehavior.Cascade);
+			});
+
+			modelBuilder.Entity<QueueTakeDbModel>(entity =>
+			{
+				entity.HasKey(x => new { x.TextQueueChannelId, x.TakerId, x.FromQueueId });
+
+				entity.HasOne(x => x.TextQueueChannel)
+					.WithMany(c => c.Takes)
+					.HasForeignKey(x => x.TextQueueChannelId)
+					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(x => x.Taker)
+					.WithMany()
+					.HasForeignKey(x => x.TakerId)
+					.OnDelete(DeleteBehavior.Restrict);
+
+				entity.HasOne(x => x.FromQueue)
+					.WithMany()
+					.HasForeignKey(x => x.FromQueueId)
+					.OnDelete(DeleteBehavior.Restrict);
 			});
 
 			modelBuilder.Entity<UserChatDbModel>(entity =>
@@ -280,13 +385,12 @@ namespace hitscord.Contexts
 
 				entity.HasOne(m => m.Author)
 					.WithMany()
-					.HasForeignKey(m => m.AuthorId)
-					.IsRequired();
+					.HasForeignKey(m => m.AuthorId);
 
 				entity.HasOne(m => m.Chat)
 					.WithMany(e => e.Messages)
 					.HasForeignKey(m => m.ChatId)
-					.OnDelete(DeleteBehavior.SetNull);
+					.OnDelete(DeleteBehavior.Cascade);
 			});
 
 			modelBuilder.Entity<ClassicChatMessageDbModel>(entity =>
@@ -305,7 +409,7 @@ namespace hitscord.Contexts
 					.OnDelete(DeleteBehavior.Cascade);
 			});
 
-			modelBuilder.Entity<ChannelVariantUserDbModel>(entity =>
+			modelBuilder.Entity<ChatVariantUserDbModel>(entity =>
 			{
 				entity.HasOne(va => va.Variant)
 					.WithMany(vv => vv.UsersVariants)
@@ -316,6 +420,19 @@ namespace hitscord.Contexts
 					.WithMany()
 					.HasForeignKey(vv => vv.UserId)
 					.IsRequired();
+			});
+
+			modelBuilder.Entity<ChatMessageReactionDbModel>(entity =>
+			{
+				entity.HasOne(f => f.ChatMessage)
+					.WithMany(cm => cm.Reactions)
+					.HasForeignKey(f => f.ChatMessageId)
+					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(f => f.Author)
+					.WithMany()
+					.HasForeignKey(f => f.AuthorId)
+					.OnDelete(DeleteBehavior.SetNull);
 			});
 
 			modelBuilder.Entity<NonNotifiableChannelDbModel>(entity =>
@@ -413,6 +530,51 @@ namespace hitscord.Contexts
 					.IsRequired();
 			});
 
+			modelBuilder.Entity<ChannelCanMakeTasksDbModel>(entity =>
+			{
+				entity.HasKey(e => new { e.RoleId, e.TextLessonChannelId });
+
+				entity.HasOne(e => e.Role)
+					.WithMany(e => e.ChannelCanMakeTasks)
+					.HasForeignKey(e => e.RoleId)
+					.IsRequired();
+
+				entity.HasOne(e => e.TextLessonChannel)
+					.WithMany(e => e.ChannelCanMakeTasks)
+					.HasForeignKey(e => e.TextLessonChannelId)
+					.IsRequired();
+			});
+
+			modelBuilder.Entity<ChannelCanJoinQueueDbModel>(entity =>
+			{
+				entity.HasKey(e => new { e.RoleId, e.TextQueueChannelId });
+
+				entity.HasOne(e => e.Role)
+					.WithMany(e => e.ChannelCanJoinQueue)
+					.HasForeignKey(e => e.RoleId)
+					.IsRequired();
+
+				entity.HasOne(e => e.TextQueueChannel)
+					.WithMany(e => e.ChannelCanJoinQueue)
+					.HasForeignKey(e => e.TextQueueChannelId)
+					.IsRequired();
+			});
+
+			modelBuilder.Entity<ChannelCanTakeFromQueueDbModel>(entity =>
+			{
+				entity.HasKey(e => new { e.RoleId, e.TextQueueChannelId });
+
+				entity.HasOne(e => e.Role)
+					.WithMany(e => e.ChannelCanTakeFromQueue)
+					.HasForeignKey(e => e.RoleId)
+					.IsRequired();
+
+				entity.HasOne(e => e.TextQueueChannel)
+					.WithMany(e => e.ChannelCanTakeFromQueue)
+					.HasForeignKey(e => e.TextQueueChannelId)
+					.IsRequired();
+			});
+
 			modelBuilder.Entity<NotificationDbModel>(entity =>
 			{
 				entity.HasOne(sa => sa.User)
@@ -496,11 +658,23 @@ namespace hitscord.Contexts
 					.WithMany(m => m.Files)
 					.HasForeignKey(f => f.ChatMessageRealId)
 					.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasOne(f => f.TaskMessage)
+					.WithMany(m => m.Files)
+					.HasForeignKey(f => f.TaskMessageRealId)
+					.OnDelete(DeleteBehavior.Cascade);
 			});
 
 			modelBuilder.Entity<ServerPresetDbModel>(entity =>
 			{
 				entity.HasKey(p => new { p.ServerRoleId, p.SystemRoleId });
+			});
+
+			modelBuilder.Entity<ServerInvitationDbModel>(entity =>
+			{
+				entity.HasOne(e => e.User)
+					.WithMany()
+					.HasForeignKey(e => e.UserId);
 			});
 
 			modelBuilder.Entity<AdminOperationsHistoryDbModel>(entity =>

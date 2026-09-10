@@ -1,4 +1,6 @@
-﻿namespace hitscord.Models.response;
+﻿using hitscord.Models.response;
+
+namespace hitscord_new.Models.response;
 
 public class ServersAdminListDTO
 {
