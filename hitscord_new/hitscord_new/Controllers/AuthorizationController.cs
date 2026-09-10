@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Авторизация и профиль")]
 [Route("auth")]
 public class AuthorizationController : ControllerBase
 {

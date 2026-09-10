@@ -3,6 +3,7 @@
 [Flags]
 public enum ServerRights
 {
+	// Битовая маска серверных прав; используется кешем для быстрых проверок в сервисах.
 	None = 0,
 	ChangeRole = 1 << 0,
 	WorkChannels = 1 << 1,

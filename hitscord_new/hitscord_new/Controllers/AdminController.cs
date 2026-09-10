@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Администрирование")]
 [Route("admin")]
 public class AdminController : ControllerBase
 {

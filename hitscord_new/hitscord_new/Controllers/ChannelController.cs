@@ -12,6 +12,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Каналы")]
 [Route("channel")]
 public class ChannelController : ControllerBase
 {

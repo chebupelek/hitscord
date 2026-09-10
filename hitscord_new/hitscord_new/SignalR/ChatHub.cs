@@ -34,6 +34,7 @@ public class ChatHub : Hub
 
 	public override async Task OnConnectedAsync()
 	{
+		// Личная группа нужна для адресных событий: уведомлений и изменений, относящихся к одному пользователю.
 		var userId = Context.UserIdentifier;
 
 		if (userId != null)
@@ -47,6 +48,7 @@ public class ChatHub : Hub
 
 	public async Task JoinChat(Guid chatId)
 	{
+		// Не доверяем идентификатору чата от клиента: сначала подтверждаем участие через БД.
 		var userIdString = Context.UserIdentifier;
 		if (!Guid.TryParse(userIdString, out var userId))
 		{
@@ -64,11 +66,13 @@ public class ChatHub : Hub
 
 	public async Task LeaveChat(Guid chatId)
 	{
+		// Выход из SignalR-группы не изменяет состав участников самого чата.
 		await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"chat:{chatId}");
 	}
 
 	public async Task JoinServer(Guid serverId)
 	{
+		// Для быстрой проверки членства используется актуальный Redis-кэш участников сервера.
 		var userIdString = Context.UserIdentifier;
 		if (!Guid.TryParse(userIdString, out var userId))
 		{
@@ -86,11 +90,13 @@ public class ChatHub : Hub
 
 	public async Task LeaveServer(Guid serverId)
 	{
+		// Покидается только группа рассылки; пользователь остаётся участником сервера.
 		await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"server:{serverId}");
 	}
 
 	public async Task JoinChannel(Guid channelId)
 	{
+		// В канал допускают только с правом See или Use; это предотвращает подписку на чужие события.
 		var userIdString = Context.UserIdentifier;
 		if (!Guid.TryParse(userIdString, out var userId))
 		{
@@ -108,6 +114,7 @@ public class ChatHub : Hub
 
 	public async Task LeaveChannel(Guid channelId)
 	{
+		// Покидается только группа рассылки; состав и настройки канала не меняются.
 		await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"channel:{channelId}");
 	}
 
@@ -115,6 +122,7 @@ public class ChatHub : Hub
 	//Channel
 	public async Task SendMessageChannel(CreateMessageSocketDTO dto)
 	{
+		// MessageService валидирует тип сообщения и права автора, затем сам рассылает нужное событие.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -141,6 +149,7 @@ public class ChatHub : Hub
 
 	public async Task DeleteMessageChannel(DeleteMessageSocketDTO dto)
 	{
+		// Имя события определяется сервисом: оно может зависеть от типа удаляемого сообщения.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -173,6 +182,7 @@ public class ChatHub : Hub
 
 	public async Task UpdateMessageChannel(UpdateMessageSocketDTO dto)
 	{
+		// Автор берётся из токена соединения, а не из DTO, чтобы его нельзя было подменить.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 		try
 		{
@@ -205,6 +215,7 @@ public class ChatHub : Hub
 	// Channel reaction
 	public async Task AddReactionChannel(AddReactionSocketDTO dto)
 	{
+		// Реакция рассылается только подписчикам группы данного канала.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -238,6 +249,7 @@ public class ChatHub : Hub
 
 	public async Task RemoveReactionChannel(RemoveReactionSocketDTO dto)
 	{
+		// Сервис проверяет, что реакция существует и доступна текущему пользователю.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -271,6 +283,7 @@ public class ChatHub : Hub
 	//Chat
 	public async Task SendMessageChat(CreateMessageSocketDTO dto)
 	{
+		// Для личного чата применяется отдельный путь MessageService с проверкой членства в чате.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -297,6 +310,7 @@ public class ChatHub : Hub
 
 	public async Task DeleteMessageChat(DeleteMessageSocketDTO dto)
 	{
+		// В DTO используется ChannelId как идентификатор чата — это историческое имя поля контракта.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -329,6 +343,7 @@ public class ChatHub : Hub
 
 	public async Task UpdateMessageChat(UpdateMessageSocketDTO dto)
 	{
+		// В DTO этого исторического контракта ChannelId означает идентификатор личного чата.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -362,6 +377,7 @@ public class ChatHub : Hub
 	// Chat reaction
 	public async Task AddReactionChat(AddReactionSocketDTO dto)
 	{
+		// Событие отправляется всем подключённым участникам личного чата.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -395,6 +411,7 @@ public class ChatHub : Hub
 
 	public async Task RemoveReactionChat(RemoveReactionSocketDTO dto)
 	{
+		// Сервис проверяет принадлежность реакции сообщению и доступ пользователя к чату.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -429,6 +446,7 @@ public class ChatHub : Hub
 	//Task
 	public async Task SendTask(Guid ChannelId, string Description, DateTime? Deadline, List<Guid>? Files, List<Guid> Roles)
 	{
+		// Создание задания требует права See и Task в учебном канале; назначенные роли должны видеть этот канал.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -454,6 +472,7 @@ public class ChatHub : Hub
 	}
 	public async Task UpdateTask(Guid ChannelId, long TaskId, string Description)
 	{
+		// Изменение задания выполняется сервисом после проверки роли автора в учебном канале.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -479,6 +498,7 @@ public class ChatHub : Hub
 	}
 	public async Task DeleteTask(Guid ChannelId, long TaskId)
 	{
+		// Удаление задания также затрагивает связанные решения; детали определяет MessageService.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -506,6 +526,7 @@ public class ChatHub : Hub
 	//Solution
 	public async Task SendSolution(Guid ChannelId, string Description, long TaskId, List<Guid>? Files)
 	{
+		// Решение связывается с существующим заданием указанного учебного канала.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -531,6 +552,7 @@ public class ChatHub : Hub
 	}
 	public async Task UpdateSolution(Guid ChannelId, string Description, long SolutionId)
 	{
+		// Решение можно изменить только в контексте того же учебного канала.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -556,6 +578,7 @@ public class ChatHub : Hub
 	}
 	public async Task DeleteSolution(Guid ChannelId, long SolutionId)
 	{
+		// Сервис проверяет автора решения и состояние/срок задания перед удалением.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -583,6 +606,7 @@ public class ChatHub : Hub
 	//Grade
 	public async Task SendGrade(Guid ChannelId, long SolutionId, int Grade)
 	{
+		// Оценка проверяется сервисом с учётом прав автора и принадлежности решения заданию.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -610,6 +634,7 @@ public class ChatHub : Hub
 	//Queue
 	public async Task InQueue(Guid ChannelId)
 	{
+		// Для добавления в очередь требуется каналное право JoinQueue.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -635,6 +660,7 @@ public class ChatHub : Hub
 	}
 	public async Task OutQueue(Guid ChannelId)
 	{
+		// Удаляет текущего пользователя из очереди указанного канала.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -662,6 +688,7 @@ public class ChatHub : Hub
 	//Queue
 	public async Task TakeQueue(Guid ChannelId)
 	{
+		// Взять следующего пользователя из очереди можно только с правом TakeQueue.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -687,6 +714,7 @@ public class ChatHub : Hub
 	}
 	public async Task RemoveQueue(Guid ChannelId)
 	{
+		// Оператор очереди освобождает текущего взятого пользователя.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -715,6 +743,7 @@ public class ChatHub : Hub
 	//Vote
 	public async Task Vote(VoteVariantSocketDTO dto)
 	{
+		// Признак isChannel определяет, в каком контексте сервис проверяет право голосования.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -741,6 +770,7 @@ public class ChatHub : Hub
 
 	public async Task Unvote(VoteVariantSocketDTO dto)
 	{
+		// Отмена голоса определяется вариантом; контекст канала не требуется сервису.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -767,6 +797,7 @@ public class ChatHub : Hub
 
 	public async Task GetVote(VoteSocketDTO dto)
 	{
+		// Данные голосования возвращаются только вызывающему клиенту событием VoteData.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try
@@ -802,6 +833,7 @@ public class ChatHub : Hub
 	//See
 	public async Task SeeMessage(SeeMessageDTO dto)
 	{
+		// Отметка о прочтении привязана к пользователю из токена и не рассылается другим клиентам.
 		var userId = Guid.Parse(Context.UserIdentifier!);
 
 		try

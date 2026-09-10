@@ -8,6 +8,7 @@ using hitscord.Models.other;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Друзья")]
 [Route("friendship")]
 public class FriendshipController : ControllerBase
 {

@@ -9,6 +9,7 @@ using hitscord.Models.response;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Серверы")]
 [Route("server")]
 public class ServerController : ControllerBase
 {

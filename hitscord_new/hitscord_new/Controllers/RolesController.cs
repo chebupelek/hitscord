@@ -9,6 +9,7 @@ using hitscord.Services;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Роли")]
 [Route("roles")]
 public class RolesController : ControllerBase
 {
@@ -24,8 +25,9 @@ public class RolesController : ControllerBase
     [Authorize]
     [HttpPost]
     [Route("create")]
-    public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequestDTO data)
-    {
+	public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequestDTO data)
+	{
+		// Сервис проверяет CanCreateRole и создаёт роль в указанном сервере.
         try
         {
 			var role = await _roleService.CreateRoleAsync(_currentUser.UserId, data.ServerId, data.Name, data.Color);
@@ -46,6 +48,7 @@ public class RolesController : ControllerBase
 	[Route("delete")]
 	public async Task<IActionResult> DeleteRole([FromBody] DeleteRoleRequestDTO data)
 	{
+		// При удалении сервис пересчитывает доступ пользователей, если роль была последней дающей доступ.
 		try
 		{
 			await _roleService.DeleteRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId);
@@ -66,6 +69,7 @@ public class RolesController : ControllerBase
 	[Route("update")]
 	public async Task<IActionResult> UpdateRole([FromBody] UpdateRoleRequestDTO data)
 	{
+		// Позиция роли участвует в иерархии: нельзя менять роль выше собственных полномочий.
 		try
 		{
 			await _roleService.UpdateRoleAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Name, data.Color, data.Position);
@@ -86,6 +90,7 @@ public class RolesController : ControllerBase
 	[Route("list")]
 	public async Task<IActionResult> GetServerRoles([FromQuery] Guid serverId)
 	{
+		// Возвращается список ролей и их серверные/канальные разрешения.
 		try
 		{
 			var roles = await _roleService.GetServerRolesAsync(_currentUser.UserId, serverId);
@@ -106,6 +111,7 @@ public class RolesController : ControllerBase
 	[Route("settings")]
 	public async Task<IActionResult> ChangeSettings([FromBody] UpdateRoleSettingsRequestDTO data)
 	{
+		// `Add` включает или выключает одно серверное разрешение из SettingsEnum.
 		try
 		{
 			await _roleService.ChangeRoleSettingsAsync(_currentUser.UserId, data.ServerId, data.RoleId, data.Setting, data.Add);

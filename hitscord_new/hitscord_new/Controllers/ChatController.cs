@@ -9,6 +9,7 @@ using hitscord.Models.other;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Личные чаты")]
 [Route("chat")]
 public class ChatController : ControllerBase
 {

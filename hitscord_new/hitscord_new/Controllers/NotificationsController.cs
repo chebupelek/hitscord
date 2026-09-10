@@ -9,6 +9,7 @@ using hitscord.Services;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Уведомления")]
 [Route("notifications")]
 public class NotificationsController : ControllerBase
 {

@@ -9,6 +9,7 @@ using hitscord.Models.other;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Файлы")]
 [Route("files")]
 public class FilesController : ControllerBase
 {

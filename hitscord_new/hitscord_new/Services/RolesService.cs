@@ -36,6 +36,7 @@ public class RolesService : IRolesService
 
 	private async Task<int> HashChannelRightsByRolesAsync(List<Guid> roleIds, Guid channelId)
 	{
+		// Права объединяются по принципу OR: достаточно одной роли, дающей конкретное разрешение.
 		ChannelRights rights = ChannelRights.None;
 
 		if (await _hitsContext.ChannelCanSee

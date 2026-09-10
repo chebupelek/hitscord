@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.SignalR;
 using hitscord.SignalR;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
+using hitscord.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -166,10 +167,13 @@ builder.Services.AddSwaggerGen(c =>
 {
 	c.SwaggerDoc("v1", new OpenApiInfo
 	{
-		Title = "Your API",
-		Version = "3.0.0",
-		Description = "API для hitscord"
+		Title = "Hitscord API",
+		Version = "v1",
+		Description = "HTTP API платформы Hitscord. Большинство операций требуют JWT-пользователя: авторизация передаётся HTTP-only cookie `access_token` (Swagger UI сохраняет cookie при выполнении запросов) либо Bearer-токеном. Все даты передавайте в ISO 8601, идентификаторы — UUID."
 	});
+
+	c.OperationFilter<HitscordOperationFilter>();
+	c.SchemaFilter<HitscordSchemaFilter>();
 
 	c.AddServer(new OpenApiServer { Url = "/api" });
 

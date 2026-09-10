@@ -8,6 +8,7 @@ using hitscord.Models.response;
 namespace hitscord.Controllers;
 
 [ApiController]
+[Tags("Расписание")]
 [Route("schedule")]
 public class ScheduleController : ControllerBase
 {
